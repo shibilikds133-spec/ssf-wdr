@@ -1,0 +1,83 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        ssf: ['"Cooper Black"', '"Cooper Std Black"', '"Caprasimo"', 'Georgia', 'serif'],
+      },
+      colors: {
+        plum: {
+          950: '#240F20',
+          900: '#381932',
+          800: '#4B2344',
+          700: '#64345C',
+          600: '#7D4E75',
+          200: '#E7DCE4',
+          100: '#F5EEF3',
+          50: '#FAF6F9',
+        },
+        milk: {
+          50: '#FDFBF8',
+          100: '#F8F3EC',
+          200: '#FFF3E6',
+          border: '#EAE2DA',
+        },
+        forest: {
+          950: '#022118',
+          900: '#043326',
+          800: '#074735',
+          700: '#0C5E47',
+          600: '#16785C',
+          200: '#D4E7DF',
+          100: '#EAF4F0',
+          50: '#F4FAF7',
+        },
+        leaf: {
+          50: '#F9FCF6',
+          100: '#F1F7EB',
+          200: '#E0FFC2',
+          border: '#DCE8D5',
+        },
+        ember: {
+          950: '#5C1B07',
+          900: '#8F2D0D',
+          800: '#B83C12',
+          700: '#D44B1A',
+          600: '#EC5E27',
+          500: '#F27442',
+          200: '#FAD4C3',
+          100: '#FDECE4',
+          50: '#FFF6F2',
+        },
+        cream: {
+          50: '#FDFDF1',
+          100: '#F6F5E4',
+          200: '#ECEAD4',
+          border: '#E5E2CC',
+        },
+        ink: {
+          900: '#22141F',
+          600: '#63535F',
+          400: '#9A8B96',
+        },
+        vibrant: {
+          amber: '#EA580C',
+          amberMid: '#F59E0B',
+          amberSoft: '#FEF3C7',
+          teal: '#0D9488',
+          tealMid: '#14B8A6',
+          tealSoft: '#CCFBF1',
+          gold: '#D97706',
+          goldSoft: '#FEF9C3',
+          berry: '#9D174D',
+          berrySoft: '#FCE7F3',
+          coral: '#E11D48',
+          coralSoft: '#FFE4E6',
+        },
+      },
+    },
+  },
+  plugins: [],
+};

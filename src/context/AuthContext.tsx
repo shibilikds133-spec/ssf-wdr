@@ -1,0 +1,474 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { supabase } from '../lib/supabase';
+import type { AuthSession, UserRole } from '../types';
+
+const AUTH_STORAGE_KEY = 'wdr_auth_session_v1';
+const AUTH_NOTICE_KEY = 'wdr_auth_notice_v1';
+
+interface LoginResult {
+  ok: boolean;
+  error?: string;
+  role?: UserRole;
+  must_change_password?: boolean;
+}
+
+interface FirstLoginResult {
+  ok: boolean;
+  error?: string;
+  role?: UserRole;
+}
+
+interface AuthContextValue {
+  session: AuthSession | null;
+  loading: boolean;
+  authNotice: string | null;
+  clearAuthNotice: () => void;
+  login: (username: string, password: string) => Promise<LoginResult>;
+  completeFirstLogin: (
+    newPassword: string,
+    newUsername?: string
+  ) => Promise<FirstLoginResult>;
+  logout: (notice?: string) => void;
+  handleSessionExpired: (message?: string) => void;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export function getHomeRouteForRole(role: UserRole): string {
+  switch (role) {
+    case 'ADMIN':
+      return '/admin';
+    case 'SECTOR':
+      return '/sector';
+    case 'UNIT':
+      return '/dashboard';
+  }
+}
+
+export function isSessionExpiredError(errMessage?: string | null): boolean {
+  if (!errMessage) return false;
+  return (
+    errMessage.includes('SESSION_EXPIRED') ||
+    errMessage.toLowerCase().includes('session expired')
+  );
+}
+
+function isValidRole(value: unknown): value is UserRole {
+  return value === 'ADMIN' || value === 'SECTOR' || value === 'UNIT';
+}
+
+function saveSession(nextSession: AuthSession): void {
+  try {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
+  } catch {
+    // Ignore storage errors in private browsing
+  }
+}
+
+function readNotice(): string | null {
+  try {
+    const val = window.localStorage.getItem(AUTH_NOTICE_KEY);
+    if (val) {
+      window.localStorage.removeItem(AUTH_NOTICE_KEY);
+      return val;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveNotice(msg: string): void {
+  try {
+    window.localStorage.setItem(AUTH_NOTICE_KEY, msg);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function readStoredSession(): AuthSession | null {
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    const record = parsed as Record<string, unknown>;
+    if (
+      !isValidRole(record.role) ||
+      typeof record.code !== 'string' ||
+      typeof record.login_code !== 'string' ||
+      typeof record.username !== 'string' ||
+      typeof record.name !== 'string' ||
+      typeof record.must_change_password !== 'boolean'
+    ) {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    return {
+      role: record.role,
+      code: record.code,
+      login_code: record.login_code,
+      username: record.username,
+      name: record.name,
+      must_change_password: record.must_change_password,
+      ...(typeof record.token === 'string' ? { token: record.token } : {}),
+      ...(typeof record.sector_name === 'string'
+        ? { sector_name: record.sector_name }
+        : {}),
+      ...(typeof record.entity_id === 'number'
+        ? { entity_id: record.entity_id }
+        : {}),
+      ...(typeof record.expires_at === 'string'
+        ? { expires_at: record.expires_at }
+        : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+interface AuthLoginResponse {
+  valid?: boolean;
+  expired?: boolean;
+  error?: string;
+  role?: unknown;
+  code?: unknown;
+  token?: unknown;
+  login_code?: unknown;
+  username?: unknown;
+  name?: unknown;
+  sector_name?: unknown;
+  entity_id?: unknown;
+  must_change_password?: unknown;
+  expires_at?: unknown;
+}
+
+interface CompleteFirstLoginResponse {
+  success?: boolean;
+  username?: unknown;
+  must_change_password?: unknown;
+  code?: unknown;
+  token?: unknown;
+  expires_at?: unknown;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<AuthSession | null>(() =>
+    readStoredSession()
+  );
+  const [loading, setLoading] = useState<boolean>(false);
+  const [authNotice, setAuthNotice] = useState<string | null>(() =>
+    readNotice()
+  );
+
+  const clearAuthNotice = useCallback(() => {
+    setAuthNotice(null);
+  }, []);
+
+  // 14-day sliding JWT boot refresh
+  useEffect(() => {
+    const initial = readStoredSession();
+    if (!initial) return;
+    const token = initial.token || initial.code;
+    if (!token) return;
+
+    let active = true;
+    const refreshSession = async () => {
+      try {
+        const { data, error } = await supabase.rpc('auth_refresh_session', {
+          p_token: token,
+        });
+        if (!active || error) {
+          // Keep existing local session on transient network/RPC failure
+          return;
+        }
+
+        const res = (data ?? null) as AuthLoginResponse | null;
+        if (!res) return;
+
+        if (res.valid !== true) {
+          try {
+            window.localStorage.removeItem(AUTH_STORAGE_KEY);
+          } catch {
+            // Ignore storage errors
+          }
+          const expiredMsg = 'Your session expired. Please sign in again.';
+          saveNotice(expiredMsg);
+          setAuthNotice(expiredMsg);
+          setSession(null);
+          return;
+        }
+
+        if (
+          isValidRole(res.role) &&
+          typeof res.code === 'string' &&
+          typeof res.login_code === 'string' &&
+          typeof res.username === 'string' &&
+          typeof res.name === 'string'
+        ) {
+          const refreshed: AuthSession = {
+            role: res.role,
+            code: res.code,
+            login_code: res.login_code,
+            username: res.username,
+            name: res.name,
+            must_change_password: res.must_change_password === true,
+            ...(typeof res.token === 'string' ? { token: res.token } : {}),
+            ...(typeof res.sector_name === 'string'
+              ? { sector_name: res.sector_name }
+              : {}),
+            ...(typeof res.entity_id === 'number'
+              ? { entity_id: res.entity_id }
+              : {}),
+            ...(typeof res.expires_at === 'string'
+              ? { expires_at: res.expires_at }
+              : {}),
+          };
+          saveSession(refreshed);
+          setSession(refreshed);
+        }
+      } catch {
+        // Keep existing local session on transient offline/timeout error
+      }
+    };
+
+    void refreshSession();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const login = useCallback(
+    async (username: string, password: string): Promise<LoginResult> => {
+      const trimmedUser = username.trim();
+      const trimmedPass = password.trim();
+      if (!trimmedUser || !trimmedPass) {
+        return { ok: false, error: 'User ID and password are required.' };
+      }
+
+      setLoading(true);
+      setAuthNotice(null);
+      try {
+        const { data, error } = await supabase.rpc('auth_login', {
+          p_username: trimmedUser,
+          p_password: trimmedPass,
+        });
+
+        if (error) {
+          return {
+            ok: false,
+            error: error.message || 'Unable to sign in. Please try again.',
+          };
+        }
+
+        const result = (data ?? null) as AuthLoginResponse | null;
+        if (
+          !result ||
+          result.valid !== true ||
+          !isValidRole(result.role) ||
+          typeof result.code !== 'string' ||
+          typeof result.login_code !== 'string' ||
+          typeof result.username !== 'string' ||
+          typeof result.name !== 'string'
+        ) {
+          return {
+            ok: false,
+            error:
+              typeof result?.error === 'string' && result.error
+                ? result.error
+                : 'Invalid credentials. Please try again.',
+          };
+        }
+
+        const mustChange = result.must_change_password === true;
+        const nextSession: AuthSession = {
+          role: result.role,
+          code: result.code,
+          login_code: result.login_code,
+          username: result.username,
+          name: result.name,
+          must_change_password: mustChange,
+          ...(typeof result.token === 'string' ? { token: result.token } : {}),
+          ...(typeof result.sector_name === 'string'
+            ? { sector_name: result.sector_name }
+            : {}),
+          ...(typeof result.entity_id === 'number'
+            ? { entity_id: result.entity_id }
+            : {}),
+          ...(typeof result.expires_at === 'string'
+            ? { expires_at: result.expires_at }
+            : {}),
+        };
+
+        saveSession(nextSession);
+        setSession(nextSession);
+        return {
+          ok: true,
+          role: nextSession.role,
+          must_change_password: mustChange,
+        };
+      } catch (err) {
+        return {
+          ok: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Unable to sign in. Please try again.',
+        };
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const completeFirstLogin = useCallback(
+    async (
+      newPassword: string,
+      newUsername?: string
+    ): Promise<FirstLoginResult> => {
+      if (!session) {
+        return { ok: false, error: 'Session expired. Please sign in again.' };
+      }
+
+      const token = session.token ?? session.code;
+      const trimmedNewUsername = newUsername?.trim() ?? '';
+
+      try {
+        const { data, error } = await supabase.rpc(
+          'auth_complete_first_login',
+          {
+            p_token: token,
+            p_new_password: newPassword.trim(),
+            p_new_username: trimmedNewUsername || null,
+          }
+        );
+
+        if (error) {
+          return {
+            ok: false,
+            error: error.message || 'Unable to update password.',
+          };
+        }
+
+        const res = (data ?? null) as CompleteFirstLoginResponse | null;
+        if (!res || res.success !== true) {
+          return { ok: false, error: 'Unable to update password.' };
+        }
+
+        const freshToken =
+          typeof res.token === 'string' && res.token
+            ? res.token
+            : typeof res.code === 'string' && res.code
+              ? res.code
+              : session.token;
+
+        const updatedSession: AuthSession = {
+          ...session,
+          code:
+            typeof res.code === 'string' && res.code ? res.code : session.code,
+          username:
+            typeof res.username === 'string' && res.username
+              ? res.username
+              : session.username,
+          must_change_password: false,
+          ...(freshToken ? { token: freshToken } : {}),
+          ...(typeof res.expires_at === 'string'
+            ? { expires_at: res.expires_at }
+            : {}),
+        };
+
+        saveSession(updatedSession);
+        setSession(updatedSession);
+        return { ok: true, role: updatedSession.role };
+      } catch (err) {
+        return {
+          ok: false,
+          error:
+            err instanceof Error ? err.message : 'Unable to update password.',
+        };
+      }
+    },
+    [session]
+  );
+
+  const logout = useCallback(
+    (notice?: string): void => {
+      const token = session?.token || session?.code;
+      if (token) {
+        void supabase.rpc('auth_logout', { p_token: token });
+      }
+      try {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch {
+        // Ignore storage access errors
+      }
+      if (notice) {
+        saveNotice(notice);
+        setAuthNotice(notice);
+      }
+      setSession(null);
+    },
+    [session?.token, session?.code]
+  );
+
+  const handleSessionExpired = useCallback(
+    (message = 'Your session expired. Please sign in again.') => {
+      try {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch {
+        // Ignore storage access errors
+      }
+      saveNotice(message);
+      setAuthNotice(message);
+      setSession(null);
+    },
+    []
+  );
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      session,
+      loading,
+      authNotice,
+      clearAuthNotice,
+      login,
+      completeFirstLogin,
+      logout,
+      handleSessionExpired,
+    }),
+    [
+      session,
+      loading,
+      authNotice,
+      clearAuthNotice,
+      login,
+      completeFirstLogin,
+      logout,
+      handleSessionExpired,
+    ]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return ctx;
+}
