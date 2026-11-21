@@ -4,6 +4,7 @@ import { AppLoader } from './components/AppLoader';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 
+const PwaInstallBanner = lazy(() => import('./components/PwaInstallBanner'));
 const PublicPage = lazy(() => import('./pages/PublicPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const FirstLoginSetupPage = lazy(() => import('./pages/FirstLoginSetupPage'));
@@ -15,6 +16,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Suspense fallback={null}>
+          <PwaInstallBanner />
+        </Suspense>
         <Suspense fallback={<AppLoader fullScreen />}>
           <Routes>
             <Route path="/" element={<PublicPage />} />
