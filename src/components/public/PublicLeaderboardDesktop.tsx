@@ -222,8 +222,7 @@ export function PublicLeaderboardDesktop({
             upiPercent={Number(summary.upi_percent) || 0}
             cashPercent={Number(summary.cash_percent) || 0}
             ordersOpen={Boolean(summary.orders_open)}
-            topSectorName={topSector?.name}
-            topSectorLiters={topSector ? Number(topSector.total_liters) : 0}
+            topSectors={sectors.slice(0, 5)}
             onQuickEntry={onOpenQuickEntry}
           />
         </section>

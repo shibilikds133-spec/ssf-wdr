@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Crown,
@@ -11,6 +12,12 @@ import {
 } from 'lucide-react';
 import { formatQuantity } from '../../utils/format';
 
+export interface TopSectorChipItem {
+  id: number;
+  name: string;
+  total_liters: number;
+}
+
 interface PublicDivisionProgressCardProps {
   totalLiters: number;
   totalOrders: number;
@@ -19,6 +26,7 @@ interface PublicDivisionProgressCardProps {
   upiPercent: number;
   cashPercent: number;
   ordersOpen: boolean;
+  topSectors?: TopSectorChipItem[];
   topSectorName?: string;
   topSectorLiters?: number;
   onQuickEntry?: () => void;
@@ -33,11 +41,47 @@ export function PublicDivisionProgressCard({
   upiPercent,
   cashPercent,
   ordersOpen,
+  topSectors,
   topSectorName,
   topSectorLiters = 0,
   onQuickEntry,
   className = '',
 }: PublicDivisionProgressCardProps) {
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const [visibleChipCount, setVisibleChipCount] = useState(1);
+
+  const rankedSectors: TopSectorChipItem[] =
+    topSectors && topSectors.length > 0
+      ? topSectors.slice(0, 5)
+      : [
+          {
+            id: 0,
+            name: topSectorName || 'Wandoor Division',
+            total_liters: topSectorLiters,
+          },
+        ];
+
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    const updateCount = (width: number) => {
+      // Each sector card targets ~150px + 8px gap
+      const fit = Math.max(1, Math.min(5, Math.floor((width + 8) / 158)));
+      setVisibleChipCount(fit);
+    };
+
+    updateCount(el.clientWidth);
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        updateCount(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const displayedSectors = rankedSectors.slice(0, visibleChipCount);
   const safePct = Math.min(100, Math.max(0, Number(percentComplete) || 0));
   const visualPct = safePct > 0 ? Math.max(3, safePct) : 0;
   const radius = 74;
@@ -213,24 +257,55 @@ export function PublicDivisionProgressCard({
           </div>
         </div>
 
-        {/* Leading Sector Gold Glass Pill */}
-        <div className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] border border-[#FFF5B8]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_4px_12px_-4px_rgba(0,0,0,0.28)] px-2.5 py-1 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white border border-white/20 inline-flex items-center justify-center shrink-0 shadow-xs">
-            <Crown className="w-3.5 h-3.5 text-white" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-extrabold text-[#2B0406] truncate leading-tight">
-              {topSectorName || 'Wandoor Division'}
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="px-1.5 py-0.2 rounded-full bg-[#5C0A0E] text-white text-[9px] font-extrabold num leading-tight">
-                #1
-              </span>
-              <span className="text-[10px] text-[#4A070A] font-bold num truncate">
-                {formatQuantity(topSectorLiters)} L
-              </span>
-            </div>
-          </div>
+        {/* Responsive Top Sector Cards Strip (1..5 cards depending on available width) */}
+        <div
+          ref={stripRef}
+          className="flex-1 min-w-0 flex items-center gap-2"
+        >
+          {displayedSectors.map((sec, idx) => {
+            const rank = idx + 1;
+            const isFirst = rank === 1;
+            return isFirst ? (
+              <div
+                key={sec.id}
+                className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] border border-[#FFF5B8]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_4px_12px_-4px_rgba(0,0,0,0.28)] px-2.5 py-1 flex items-center gap-2"
+              >
+                <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white border border-white/20 inline-flex items-center justify-center shrink-0 shadow-xs">
+                  <Crown className="w-3.5 h-3.5 text-white" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-extrabold text-[#2B0406] truncate leading-tight">
+                    {sec.name}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#5C0A0E] text-white text-[9px] font-extrabold num leading-tight">
+                      #1
+                    </span>
+                    <span className="text-[10px] text-[#4A070A] font-bold num truncate">
+                      {formatQuantity(Number(sec.total_liters) || 0)} L
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                key={sec.id}
+                className="flex-1 min-w-0 rounded-2xl bg-white/14 backdrop-blur-xl border border-white/22 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-2.5 py-1 flex items-center gap-2"
+              >
+                <span className="w-6 h-6 rounded-lg bg-white/15 border border-white/25 text-white text-[10px] font-extrabold num inline-flex items-center justify-center shrink-0">
+                  #{rank}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-white truncate leading-tight">
+                    {sec.name}
+                  </p>
+                  <p className="text-[10px] text-white/80 font-medium num truncate mt-0.5">
+                    {formatQuantity(Number(sec.total_liters) || 0)} L
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
