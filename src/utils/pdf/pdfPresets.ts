@@ -2,6 +2,7 @@ import type { ReportPayload } from '../reports';
 import {
   reconcileRollupRows,
   safePercent,
+  type ReportShareMode,
 } from './pdfAccounting';
 import {
   buildFormalPdfFilename,
@@ -93,7 +94,8 @@ function formatFormalScopeSubtitle(rawSubtitle: string): string {
 }
 
 export function buildFormalPdfConfigFromPayload(
-  payload: ReportPayload
+  payload: ReportPayload,
+  mode: ReportShareMode = 'detailed'
 ): FormalPdfDocumentConfig {
   const preset = resolvePresetKey(payload);
   const now = new Date(payload.generatedAtIso || Date.now());
@@ -105,10 +107,69 @@ export function buildFormalPdfConfigFromPayload(
   const rateSummary = deriveRateSummary(payload);
   const filename = deriveFilename(payload, preset);
 
-  // 1. SECTOR SUMMARY PRESET (9 columns -> A4 Landscape)
+  // 1. SECTOR SUMMARY PRESET (Status-Only Portrait OR Full Accounting Landscape)
   if (preset === 'sector_summary') {
     const totals = reconcileRollupRows(payload.sectorRows);
     const targetPct = safePercent(totals.liters, payload.divisionLimit);
+
+    if (mode === 'status') {
+      const summaryMetrics: PdfSummaryMetric[] = [
+        { label: 'Sectors', value: String(totals.count), align: 'left' },
+        {
+          label: 'Active Units',
+          value: `${totals.activeUnits} / ${totals.totalUnits}`,
+          align: 'right',
+        },
+        { label: 'Total Orders', value: String(totals.orders), align: 'right' },
+        {
+          label: 'Total Liters',
+          value: formatPdfQuantity(totals.liters),
+          align: 'right',
+        },
+      ];
+
+      const columns: PdfTableColumn[] = [
+        { key: 'rank', header: 'Rank', align: 'center', widthPercent: 10 },
+        { key: 'sectorName', header: 'Sector Name', align: 'left', widthPercent: 44, bold: true },
+        { key: 'units', header: 'Active / Total Units', align: 'center', widthPercent: 18 },
+        { key: 'orders', header: 'Orders', align: 'right', widthPercent: 13 },
+        { key: 'liters', header: 'Liters', align: 'right', widthPercent: 15, bold: true },
+      ];
+
+      const rows = payload.sectorRows.map((r) => [
+        r.rank,
+        r.sectorName,
+        `${r.activeUnits}/${r.totalUnits}`,
+        r.orders,
+        formatPdfQuantity(r.liters),
+      ]);
+
+      const totalRow = [
+        '',
+        `GRAND TOTAL (${totals.count} SECTORS)`,
+        `${totals.activeUnits}/${totals.totalUnits}`,
+        totals.orders,
+        formatPdfQuantity(totals.liters),
+      ];
+
+      return {
+        preset,
+        orientation: 'portrait',
+        reportTitle: 'SECTOR-WISE ORDER STATUS',
+        scopeSubtitle,
+        generatedDate,
+        generatedTime,
+        filterSummary,
+        rateSummary: 'Order Status Only',
+        summaryMetrics,
+        columns,
+        rows,
+        totalRow,
+        includeSignOff: true,
+        showCashHandoverLine: false,
+        filename: filename.replace('_Sector_Summary_', '_Sector_Order_Status_'),
+      };
+    }
 
     const summaryMetrics: PdfSummaryMetric[] = [
       { label: 'Sectors', value: String(totals.count), align: 'left' },
@@ -186,10 +247,72 @@ export function buildFormalPdfConfigFromPayload(
     };
   }
 
-  // 2. UNIT SUMMARY PRESET (9 cols on Division -> Landscape; 8 cols on Sector -> Portrait)
+  // 2. UNIT SUMMARY PRESET (Status-Only Portrait OR Full Accounting Landscape/Portrait)
   if (preset === 'unit_summary') {
     const totals = reconcileRollupRows(payload.unitRows);
     const showSector = payload.showSectorColumn;
+
+    if (mode === 'status') {
+      const summaryMetrics: PdfSummaryMetric[] = [
+        { label: 'Units', value: String(totals.count), align: 'left' },
+        { label: 'Active Units', value: String(totals.activeCount), align: 'right' },
+        { label: 'Total Orders', value: String(totals.orders), align: 'right' },
+        {
+          label: 'Total Liters',
+          value: formatPdfQuantity(totals.liters),
+          align: 'right',
+        },
+      ];
+
+      const columns: PdfTableColumn[] = showSector
+        ? [
+            { key: 'rank', header: 'Rank', align: 'center', widthPercent: 10 },
+            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 38, bold: true },
+            { key: 'sectorName', header: 'Sector', align: 'left', widthPercent: 26 },
+            { key: 'orders', header: 'Orders', align: 'right', widthPercent: 12 },
+            { key: 'liters', header: 'Liters', align: 'right', widthPercent: 14, bold: true },
+          ]
+        : [
+            { key: 'rank', header: 'Rank', align: 'center', widthPercent: 10 },
+            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 58, bold: true },
+            { key: 'orders', header: 'Orders', align: 'right', widthPercent: 15 },
+            { key: 'liters', header: 'Liters', align: 'right', widthPercent: 17, bold: true },
+          ];
+
+      const rows = payload.unitRows.map((r) => [
+        r.rank,
+        r.unitName,
+        ...(showSector ? [r.sectorName || '-'] : []),
+        r.orders,
+        formatPdfQuantity(r.liters),
+      ]);
+
+      const totalRow = [
+        '',
+        `GRAND TOTAL (${totals.count} UNITS)`,
+        ...(showSector ? [''] : []),
+        totals.orders,
+        formatPdfQuantity(totals.liters),
+      ];
+
+      return {
+        preset,
+        orientation: 'portrait',
+        reportTitle: 'UNIT-WISE ORDER STATUS',
+        scopeSubtitle,
+        generatedDate,
+        generatedTime,
+        filterSummary,
+        rateSummary: 'Order Status Only',
+        summaryMetrics,
+        columns,
+        rows,
+        totalRow,
+        includeSignOff: true,
+        showCashHandoverLine: false,
+        filename: filename.replace('_Unit_Summary_', '_Unit_Order_Status_'),
+      };
+    }
 
     const summaryMetrics: PdfSummaryMetric[] = [
       { label: 'Units', value: String(totals.count), align: 'left' },
@@ -579,12 +702,18 @@ export function buildFormalPdfConfigFromPayload(
   };
 }
 
-export function buildFormalPdfFromPayload(payload: ReportPayload) {
-  const docConfig = buildFormalPdfConfigFromPayload(payload);
+export function buildFormalPdfFromPayload(
+  payload: ReportPayload,
+  mode: ReportShareMode = 'detailed'
+) {
+  const docConfig = buildFormalPdfConfigFromPayload(payload, mode);
   return buildFormalPdfDocument(docConfig);
 }
 
-export function exportFormalReportPdf(payload: ReportPayload): string {
-  const docConfig = buildFormalPdfConfigFromPayload(payload);
+export function exportFormalReportPdf(
+  payload: ReportPayload,
+  mode: ReportShareMode = 'detailed'
+): string {
+  const docConfig = buildFormalPdfConfigFromPayload(payload, mode);
   return generateFormalPdf(docConfig);
 }

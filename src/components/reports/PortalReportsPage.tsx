@@ -12,6 +12,7 @@ import {
   FileText,
   Layers,
   Loader2,
+  MessageCircle,
   PackageCheck,
   Search,
   ShieldCheck,
@@ -21,6 +22,9 @@ import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { exportReportCsv } from '../../utils/csv';
 import { exportReportPdf } from '../../utils/exportPdf';
 import { formatCurrency, formatQuantity } from '../../utils/format';
+import type { ReportShareMode } from '../../utils/pdf/pdfAccounting';
+import { buildWhatsAppReportText } from '../../utils/pdf/whatsappFormatter';
+import { deliverWhatsAppReport } from '../../utils/pdf/whatsappShare';
 import {
   buildReportPayload,
   buildUnitDailyBreakdown,
@@ -41,6 +45,7 @@ import {
   PORTAL_THEME_TOKENS,
   ReportFilterControls,
 } from './ReportFilterControls';
+import { WhatsAppShareActions } from './WhatsAppShareActions';
 
 interface PortalReportsPageProps {
   source: ReportDataSource;
@@ -195,6 +200,7 @@ export function PortalReportsPage({
   const [activePresetId, setActivePresetId] = useState<string | null>(
     presets[0]?.id ?? null
   );
+  const [shareMode, setShareMode] = useState<ReportShareMode>('status');
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
 
   // Section 3 directory state (Admin / Sector)
@@ -227,12 +233,51 @@ export function PortalReportsPage({
     if (generatingKey) return;
     setGeneratingKey(key);
     try {
-      const filename = await exportReportPdf(targetPayload);
+      const filename = await exportReportPdf(targetPayload, shareMode);
       onToast?.('success', `Downloaded PDF (${filename || targetPayload.pdfFilename})`);
     } catch (err) {
       onToast?.(
         'error',
         err instanceof Error ? err.message : 'Failed to generate PDF report.'
+      );
+    } finally {
+      setGeneratingKey(null);
+    }
+  };
+
+  const triggerWhatsApp = async (
+    targetConfig: ReportFilterConfig,
+    key: string
+  ) => {
+    if (generatingKey) return;
+    setGeneratingKey(key);
+    try {
+      const formatted = buildWhatsAppReportText({
+        source,
+        config: targetConfig,
+        mode: shareMode,
+      });
+      const res = await deliverWhatsAppReport(formatted.text, formatted.title);
+      if (res.method === 'clipboard_fallback') {
+        onToast?.(
+          'success',
+          'Full report copied — paste directly into WhatsApp'
+        );
+      } else {
+        onToast?.(
+          'success',
+          shareMode === 'status'
+            ? 'Prepared WhatsApp Order Status summary'
+            : 'Prepared WhatsApp Detailed Report'
+        );
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === 'Share cancelled.') {
+        return;
+      }
+      onToast?.(
+        'error',
+        err instanceof Error ? err.message : 'Failed to open WhatsApp share.'
       );
     } finally {
       setGeneratingKey(null);
@@ -258,7 +303,7 @@ export function PortalReportsPage({
 
   const handlePresetQuickExport = async (
     preset: ReportPresetItem,
-    format: 'pdf' | 'csv'
+    format: 'pdf' | 'csv' | 'whatsapp'
   ) => {
     const presetConfig = getDefaultReportConfig(source.role, preset.patch);
     setActivePresetId(preset.id);
@@ -270,6 +315,8 @@ export function PortalReportsPage({
     }
     if (format === 'pdf') {
       await triggerPdf(presetPayload, `preset-${preset.id}`);
+    } else if (format === 'whatsapp') {
+      await triggerWhatsApp(presetConfig, `preset-wa-${preset.id}`);
     } else {
       triggerCsv(presetPayload);
     }
@@ -390,7 +437,7 @@ export function PortalReportsPage({
   const handleQuickEntityExport = async (
     entityType: 'SECTOR' | 'UNIT',
     entityId: number,
-    format: 'pdf' | 'csv'
+    format: 'pdf' | 'csv' | 'whatsapp'
   ) => {
     const effectiveTemplate: ReportTemplateType =
       entityType === 'UNIT' && directoryTemplate === 'UNIT_SUMMARY'
@@ -410,6 +457,8 @@ export function PortalReportsPage({
     }
     if (format === 'pdf') {
       await triggerPdf(entityPayload, `dir-${entityType}-${entityId}`);
+    } else if (format === 'whatsapp') {
+      await triggerWhatsApp(entityConfig, `dir-wa-${entityType}-${entityId}`);
     } else {
       triggerCsv(entityPayload);
     }
@@ -417,7 +466,7 @@ export function PortalReportsPage({
 
   const handleUnitDailyExport = async (
     dateKey: string,
-    format: 'pdf' | 'csv'
+    format: 'pdf' | 'csv' | 'whatsapp'
   ) => {
     const dayConfig = getDefaultReportConfig('UNIT', {
       scope: 'THIS_UNIT',
@@ -433,6 +482,8 @@ export function PortalReportsPage({
     }
     if (format === 'pdf') {
       await triggerPdf(dayPayload, `day-${dateKey}`);
+    } else if (format === 'whatsapp') {
+      await triggerWhatsApp(dayConfig, `day-wa-${dateKey}`);
     } else {
       triggerCsv(dayPayload);
     }
@@ -589,6 +640,20 @@ export function PortalReportsPage({
                     <FileSpreadsheet className="w-3 h-3" />
                     <span>CSV</span>
                   </button>
+                  <button
+                    type="button"
+                    disabled={generatingKey !== null}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handlePresetQuickExport(preset, 'whatsapp');
+                    }}
+                    title="Share on WhatsApp"
+                    aria-label={`Share ${preset.label} on WhatsApp`}
+                    className="py-1.5 px-2.5 rounded-lg text-[11px] font-bold inline-flex items-center justify-center gap-1 glass-forest text-white hover:opacity-95 disabled:opacity-50 transition-opacity"
+                  >
+                    <MessageCircle className="w-3 h-3" />
+                    <span>WA</span>
+                  </button>
                 </div>
               </div>
             );
@@ -706,34 +771,46 @@ export function PortalReportsPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
-            <button
-              type="button"
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 shrink-0">
+            <WhatsAppShareActions
+              source={source}
+              config={config}
+              mode={shareMode}
+              onModeChange={setShareMode}
               disabled={!canExport || generatingKey !== null}
-              onClick={() => triggerCsv(payload)}
-              className={`${theme.pillSurface} hover:bg-white ${theme.heading} text-xs font-semibold px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed transition-colors`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Download CSV</span>
-            </button>
+              onSuccess={(msg) => onToast?.('success', msg)}
+              onError={(msg) => onToast?.('error', msg)}
+            />
 
-            <button
-              type="button"
-              disabled={!canExport || generatingKey !== null}
-              onClick={() => void triggerPdf(payload, 'builder-pdf')}
-              className={`${theme.primaryBtn} hover:opacity-95 text-xs font-semibold px-4 py-2.5 rounded-xl inline-flex items-center justify-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed transition-opacity shadow-sm`}
-            >
-              {generatingKey === 'builder-pdf' ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <FileText className="w-3.5 h-3.5" />
-              )}
-              <span>
-                {generatingKey === 'builder-pdf'
-                  ? 'Preparing PDF...'
-                  : 'Download PDF'}
-              </span>
-            </button>
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={!canExport || generatingKey !== null}
+                onClick={() => triggerCsv(payload)}
+                className={`${theme.pillSurface} hover:bg-white ${theme.heading} text-xs font-semibold px-4 py-2 rounded-xl inline-flex items-center justify-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed transition-colors`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Download CSV</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!canExport || generatingKey !== null}
+                onClick={() => void triggerPdf(payload, 'builder-pdf')}
+                className={`${theme.primaryBtn} hover:opacity-95 text-xs font-semibold px-4 py-2 rounded-xl inline-flex items-center justify-center gap-1.5 disabled:opacity-45 disabled:cursor-not-allowed transition-opacity shadow-sm`}
+              >
+                {generatingKey === 'builder-pdf' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {generatingKey === 'builder-pdf'
+                    ? 'Preparing PDF...'
+                    : 'Download PDF'}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1242,6 +1319,23 @@ export function PortalReportsPage({
                           <FileSpreadsheet className="w-3 h-3" />
                           <span>CSV</span>
                         </button>
+                        <button
+                          type="button"
+                          disabled={sec.orders === 0 || generatingKey !== null}
+                          onClick={() =>
+                            void handleQuickEntityExport(
+                              'SECTOR',
+                              sec.id,
+                              'whatsapp'
+                            )
+                          }
+                          title={`Share ${sec.name} on WhatsApp`}
+                          aria-label={`Share ${sec.name} on WhatsApp`}
+                          className="glass-forest text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 hover:opacity-95 disabled:opacity-40"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                          <span>WA</span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -1322,6 +1416,23 @@ export function PortalReportsPage({
                         >
                           <FileSpreadsheet className="w-3 h-3" />
                           <span>CSV</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={ordersCount === 0 || generatingKey !== null}
+                          onClick={() =>
+                            void handleQuickEntityExport(
+                              'UNIT',
+                              u.id,
+                              'whatsapp'
+                            )
+                          }
+                          title={`Share ${u.name} on WhatsApp`}
+                          aria-label={`Share ${u.name} on WhatsApp`}
+                          className="glass-forest text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 hover:opacity-95 disabled:opacity-40"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                          <span>WA</span>
                         </button>
                       </div>
                     </div>
@@ -1427,6 +1538,19 @@ export function PortalReportsPage({
                       >
                         <FileSpreadsheet className="w-3 h-3" />
                         <span>CSV</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={generatingKey !== null}
+                        onClick={() =>
+                          void handleUnitDailyExport(day.dateKey, 'whatsapp')
+                        }
+                        title={`Share ${day.dateLabel} on WhatsApp`}
+                        aria-label={`Share ${day.dateLabel} on WhatsApp`}
+                        className="glass-forest text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 hover:opacity-95 disabled:opacity-45"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        <span>WA</span>
                       </button>
                     </div>
                   </div>

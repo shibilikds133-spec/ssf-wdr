@@ -1,6 +1,8 @@
 import type { EntryItem } from '../../types';
 import { formatPdfCurrency, roundTwo } from './pdfTheme';
 
+export type ReportShareMode = 'status' | 'detailed';
+
 export interface ReconciledOrderSummary {
   totalOrders: number;
   totalLiters: number;

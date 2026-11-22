@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { exportReportCsv } from '../utils/csv';
 import { exportReportPdf } from '../utils/exportPdf';
 import { formatCurrency } from '../utils/format';
+import type { ReportShareMode } from '../utils/pdf/pdfAccounting';
 import {
   buildReportPayload,
   formatReportSummaryLine,
@@ -24,6 +25,7 @@ import {
   PORTAL_THEME_TOKENS,
   ReportFilterControls,
 } from './reports/ReportFilterControls';
+import { WhatsAppShareActions } from './reports/WhatsAppShareActions';
 
 interface ExportReportModalProps {
   source: ReportDataSource;
@@ -48,6 +50,7 @@ export function ExportReportModal({
   const [config, setConfig] = useState<ReportFilterConfig>(() =>
     getDefaultReportConfig(source.role, initialConfig)
   );
+  const [shareMode, setShareMode] = useState<ReportShareMode>('status');
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export function ExportReportModal({
     if (!canExport || generatingPdf) return;
     setGeneratingPdf(true);
     try {
-      const filename = await exportReportPdf(payload);
+      const filename = await exportReportPdf(payload, shareMode);
       onExportSuccess?.(`Downloaded PDF (${filename || payload.pdfFilename})`);
     } catch (err) {
       onExportError?.(
@@ -233,11 +236,22 @@ export function ExportReportModal({
 
         {/* Sticky Modal Footer */}
         <div
-          className={`shrink-0 px-5 py-3.5 border-t ${theme.border} bg-white/90 backdrop-blur-sm ${
+          className={`shrink-0 px-5 py-3.5 border-t ${theme.border} bg-white/90 backdrop-blur-sm space-y-2.5 ${
             !isDesktop ? 'pb-[calc(0.9rem+env(safe-area-inset-bottom))]' : ''
           }`}
         >
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5">
+          <WhatsAppShareActions
+            source={source}
+            config={config}
+            mode={shareMode}
+            onModeChange={setShareMode}
+            disabled={!canExport || generatingPdf}
+            compact
+            onSuccess={onExportSuccess}
+            onError={onExportError}
+          />
+
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1 border-t border-black/5">
             <button
               type="button"
               onClick={handleOpenReportsPage}

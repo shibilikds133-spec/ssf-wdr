@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable, { type CellHookData, type Styles } from 'jspdf-autotable';
+import type { ReportShareMode } from './pdfAccounting';
 import {
   PDF_COLORS,
   PDF_LAYOUT,
@@ -7,6 +8,8 @@ import {
   PT_TO_MM,
   sanitizePdfText,
 } from './pdfTheme';
+
+export type { ReportShareMode };
 
 export type PdfPresetKey =
   | 'delivery_sheet'
@@ -528,6 +531,9 @@ export function buildFormalPdfDocument(
 
   return doc;
 }
+
+export { buildWhatsAppReportText } from './whatsappFormatter';
+export { copyWhatsAppReportText, deliverWhatsAppReport } from './whatsappShare';
 
 /**
  * Generate and trigger browser download of a formal monochrome A4 PDF.
