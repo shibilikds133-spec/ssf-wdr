@@ -234,12 +234,12 @@ export function PublicLeaderboardDesktop({
           className="grid grid-cols-2 lg:grid-cols-4 gap-4"
         >
             {/* Rate & Status Card */}
-            <div className="glass-rose-card rounded-3xl p-5 flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2">
+            <div className="glass-rose-card rounded-3xl p-4 xl:p-5 flex flex-col justify-between min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
                 <span className="text-xs font-semibold text-[#7A2E33] whitespace-nowrap">
                   Per-Liter Rate
                 </span>
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap shrink-0 bg-white/75 backdrop-blur-md border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-2px_rgba(92,10,14,0.08)] text-[#5C0A0E] font-ml leading-none">
+                <span className="px-2.5 py-1 rounded-full text-[10px] xl:text-[11px] font-bold max-w-full truncate bg-white/75 backdrop-blur-md border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-2px_rgba(92,10,14,0.08)] text-[#5C0A0E] font-ml leading-none">
                   ഡിസംബർ 11 വെള്ളി
                 </span>
               </div>
