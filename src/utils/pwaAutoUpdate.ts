@@ -175,11 +175,48 @@ export function initPwaAutoUpdate(): void {
   if (typeof window === 'undefined' || initialized) return;
   initialized = true;
 
+  let shouldForceUpdateCheck = false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkUpdate') === '1') {
+      shouldForceUpdateCheck = true;
+      params.delete('checkUpdate');
+      const nextSearch = params.toString();
+      const nextUrl = `${window.location.pathname}${
+        nextSearch ? `?${nextSearch}` : ''
+      }${window.location.hash}`;
+      window.history.replaceState(window.history.state, '', nextUrl);
+    }
+  } catch {
+    // Ignore history/URL parsing errors
+  }
+
   initVitePreloadErrorRecovery();
 
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) {
     return;
   }
+
+  if (shouldForceUpdateCheck) {
+    navigator.serviceWorker
+      .getRegistration('/')
+      .then((reg) => {
+        if (!reg) return;
+        activeRegistration = reg;
+        if (reg.waiting) {
+          markUpdateAvailable(reg.waiting);
+        } else {
+          checkForPwaUpdate(true);
+        }
+      })
+      .catch(() => undefined);
+  }
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'CHECK_PWA_UPDATE') {
+      checkForPwaUpdate(true);
+    }
+  });
 
   const register = () => {
     navigator.serviceWorker

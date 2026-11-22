@@ -35,6 +35,7 @@ import {
   sanitizePositiveInteger,
 } from '../../utils/inputGuards';
 import { PaginationBar } from '../PaginationBar';
+import { PushNotificationSettingsCard } from '../PushNotificationSettingsCard';
 import { SelectDropdown } from '../SelectDropdown';
 import { saveCachedAdminWhatsAppPhone } from '../../utils/helpKbDb';
 import { AdminCredentialsSection } from './AdminCredentialsSection';
@@ -1426,6 +1427,8 @@ export function AdminSettingsTab({
       </div>
     )}
   </div>
+
+  <PushNotificationSettingsCard portal="ADMIN" />
 </div>
 );
 }

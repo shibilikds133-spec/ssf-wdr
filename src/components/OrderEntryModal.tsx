@@ -26,6 +26,7 @@ import {
   sanitizePositiveDecimal,
   sanitizePositiveInteger,
 } from '../utils/inputGuards';
+import { notifyOrderCreated } from '../utils/pushNotifications';
 import { buildWhatsAppReceiptUrl } from '../utils/whatsapp';
 
 interface OrderEntryModalProps {
@@ -239,6 +240,10 @@ export function OrderEntryModal({
         payment_status: res.payment_status,
         payment_mode: res.payment_mode,
       });
+
+      if (typeof res?.id === 'number' && res.id > 0) {
+        notifyOrderCreated(res.id, 'portal');
+      }
 
       clearCached('wdr_public_stats_v1');
       await onOrderCreated();

@@ -28,6 +28,7 @@ import {
 } from '../../utils/format';
 import type { ReportFilterConfig } from '../../utils/reports';
 import { buildWhatsAppReceiptUrl } from '../../utils/whatsapp';
+import { PushNotificationSettingsCard } from '../PushNotificationSettingsCard';
 
 interface UnitDashboardDesktopProps {
   data: UnitDashboardResponse;
@@ -910,6 +911,8 @@ export function UnitDashboardDesktop({
           </div>
         </div>
       </div>
+
+      <PushNotificationSettingsCard portal="UNIT" />
     </div>
   );
 }

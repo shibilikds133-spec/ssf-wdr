@@ -4,7 +4,14 @@ import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-function stampServiceWorkerVersion(): Plugin {
+function createBuildVersion(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const utcTimestamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;
+  return `${utcTimestamp}-${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function stampServiceWorkerVersion(buildVersion: string): Plugin {
   let outDir = 'dist';
 
   return {
@@ -24,17 +31,19 @@ function stampServiceWorkerVersion(): Plugin {
         throw new Error('[stamp-sw-version] Placeholder __BUILD_VERSION__ not found in dist/sw.js');
       }
 
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const utcTimestamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`;
-      const buildVersion = `${utcTimestamp}-${crypto.randomBytes(4).toString('hex')}`;
-
       const stamped = content.replace(/__BUILD_VERSION__/g, buildVersion);
       fs.writeFileSync(swPath, stamped, 'utf8');
     },
   };
 }
 
-export default defineConfig({
-  plugins: [react(), stampServiceWorkerVersion()],
+export default defineConfig(({ command }) => {
+  const buildVersion = command === 'build' ? createBuildVersion() : 'dev';
+
+  return {
+    define: {
+      'import.meta.env.VITE_APP_BUILD_VERSION': JSON.stringify(buildVersion),
+    },
+    plugins: [react(), stampServiceWorkerVersion(buildVersion)],
+  };
 });

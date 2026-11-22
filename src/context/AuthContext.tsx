@@ -20,6 +20,11 @@ import {
   saveCachedAdminWhatsAppPhone,
   syncHelpKbIfNeeded,
 } from '../utils/helpKbDb';
+import {
+  maybeAutoNotifyAdminAppUpdate,
+  syncExistingPushSubscription,
+  unsubscribeFromPush,
+} from '../utils/pushNotifications';
 
 const AUTH_STORAGE_KEY = 'wdr_auth_session_v1';
 const AUTH_NOTICE_KEY = 'wdr_auth_notice_v1';
@@ -478,8 +483,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session]
   );
 
+  const pushIdentityKey =
+    session && !session.must_change_password
+      ? `${session.role}:${session.entity_id ?? 0}:${session.login_code}`
+      : null;
+
+  useEffect(() => {
+    if (!pushIdentityKey) return;
+    const activeSession = sessionRef.current;
+    const token = activeSession?.token || activeSession?.code;
+    if (!token) return;
+
+    void syncExistingPushSubscription(token);
+    if (activeSession?.role === 'ADMIN') {
+      void maybeAutoNotifyAdminAppUpdate(token);
+    }
+  }, [pushIdentityKey]);
+
   const logout = useCallback(
     (notice?: string): void => {
+      void unsubscribeFromPush();
       const token = session?.token || session?.code;
       if (token) {
         void supabase.rpc('auth_logout', { p_token: token });

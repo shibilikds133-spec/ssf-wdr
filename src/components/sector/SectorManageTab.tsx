@@ -35,6 +35,7 @@ import {
 } from '../../utils/inputGuards';
 import { BrandText } from '../BrandText';
 import { PaginationBar } from '../PaginationBar';
+import { PushNotificationSettingsCard } from '../PushNotificationSettingsCard';
 
 interface SectorManageTabProps {
   isDesktop: boolean;
@@ -689,6 +690,8 @@ export function SectorManageTab({
             </div>
             {divisionRulesContent}
           </div>
+
+          <PushNotificationSettingsCard portal="SECTOR" />
         </div>
 
         {/* Right Column (5 cols): Sector Units Directory */}
@@ -833,6 +836,8 @@ export function SectorManageTab({
           </div>
         )}
       </div>
+
+      <PushNotificationSettingsCard portal="SECTOR" />
     </div>
   );
 }

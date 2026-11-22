@@ -131,3 +131,110 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      try {
+        payload = { body: event.data.text() };
+      } catch {
+        payload = {};
+      }
+    }
+  }
+
+  const title =
+    typeof payload.title === 'string' && payload.title.trim()
+      ? payload.title.trim()
+      : 'SSF Payasam Challenge';
+  const body =
+    typeof payload.body === 'string' && payload.body.trim()
+      ? payload.body.trim()
+      : '';
+  const data =
+    payload && typeof payload === 'object'
+      ? {
+          url: typeof payload.url === 'string' ? payload.url : '/',
+          type: typeof payload.type === 'string' ? payload.type : 'general',
+          version:
+            typeof payload.version === 'string' ? payload.version : undefined,
+        }
+      : { url: '/', type: 'general' };
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      vibrate: [150, 80, 150],
+      tag:
+        typeof payload.tag === 'string' && payload.tag
+          ? payload.tag
+          : 'ssf-payasam',
+      renotify: true,
+      data,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  const targetPath =
+    typeof data.url === 'string' && data.url.trim() ? data.url.trim() : '/';
+  const targetUrl = new URL(targetPath, self.location.origin).href;
+  const targetParsed = new URL(targetUrl);
+
+  event.waitUntil(
+    (async () => {
+      if (data.type === 'app_update') {
+        await self.registration.update().catch(() => undefined);
+      }
+
+      const windowClients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      let matchedClient = null;
+      for (const client of windowClients) {
+        if (client.url.startsWith(self.location.origin)) {
+          matchedClient = client;
+          break;
+        }
+      }
+
+      if (matchedClient) {
+        if (data.type === 'app_update') {
+          try {
+            matchedClient.postMessage({ type: 'CHECK_PWA_UPDATE' });
+          } catch {
+            // Ignore postMessage failures
+          }
+        } else {
+          try {
+            const clientParsed = new URL(matchedClient.url);
+            if (
+              clientParsed.pathname !== targetParsed.pathname &&
+              'navigate' in matchedClient &&
+              typeof matchedClient.navigate === 'function'
+            ) {
+              await matchedClient.navigate(targetUrl);
+            }
+          } catch {
+            // Ignore client navigation failures
+          }
+        }
+        if ('focus' in matchedClient) {
+          return matchedClient.focus();
+        }
+      }
+
+      return self.clients.openWindow(targetUrl);
+    })()
+  );
+});

@@ -8,6 +8,9 @@ import { AuthProvider } from './context/AuthContext';
 import { DocsProvider } from './context/DocsContext';
 
 const PwaInstallBanner = lazy(() => import('./components/PwaInstallBanner'));
+const PushPermissionModal = lazy(
+  () => import('./components/PushPermissionModal')
+);
 const PageDocsModal = lazy(() => import('./components/docs/PageDocsModal'));
 const PublicPage = lazy(() => import('./pages/PublicPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -60,6 +63,9 @@ export default function App() {
             <PageDocsModal />
           </Suspense>
           <SmartAssistantLauncher />
+          <Suspense fallback={null}>
+            <PushPermissionModal />
+          </Suspense>
           <PwaUpdateModal />
         </DocsProvider>
       </AuthProvider>
