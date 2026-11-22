@@ -1,4 +1,9 @@
 export async function onRequest(context) {
+  const reqUrl = new URL(context.request.url);
+  if (reqUrl.pathname.startsWith('/api/')) {
+    return context.next();
+  }
+
   const response = await context.next();
 
   if (context.request.method !== 'GET') {
@@ -11,7 +16,6 @@ export async function onRequest(context) {
   }
 
   const html = await response.text();
-  const reqUrl = new URL(context.request.url);
   const isLocal =
     reqUrl.hostname === 'localhost' ||
     reqUrl.hostname === '127.0.0.1' ||

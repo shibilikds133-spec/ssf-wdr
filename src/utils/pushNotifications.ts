@@ -144,9 +144,29 @@ export function getDeviceNotificationGuide(): {
 
 let cachedRuntimeVapidKey = '';
 let pendingVapidKeyPromise: Promise<string> | null = null;
+let missingBuildVapidWarned = false;
+let serverSubscriptionSynced: boolean | null = null;
+let lastPushSyncError: string | null = null;
+
+function warnMissingBuildVapidKeyOnce(): void {
+  if (missingBuildVapidWarned || typeof window === 'undefined') return;
+  if (!String(import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '').trim()) {
+    missingBuildVapidWarned = true;
+    console.error(
+      '[Push] VITE_VAPID_PUBLIC_KEY is missing in this build. Set VITE_VAPID_PUBLIC_KEY in Cloudflare Pages Build Environment Variables and .env.'
+    );
+  }
+}
+
+export function hasBuildVapidPublicKey(): boolean {
+  return Boolean(String(import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '').trim());
+}
 
 export function getVapidPublicKey(): string {
   const envKey = String(import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '').trim();
+  if (!envKey) {
+    warnMissingBuildVapidKeyOnce();
+  }
   return envKey || cachedRuntimeVapidKey;
 }
 
@@ -161,7 +181,12 @@ export async function resolveVapidPublicKey(): Promise<string> {
           method: 'GET',
           headers: { Accept: 'application/json' },
         });
-        if (!response.ok) return '';
+        if (!response.ok) {
+          console.error(
+            `[Push] Runtime VAPID key endpoint /api/push/public-key returned HTTP ${response.status}.`
+          );
+          return '';
+        }
         const data = (await response.json().catch(() => ({}))) as {
           ok?: boolean;
           publicKey?: string;
@@ -173,9 +198,14 @@ export async function resolveVapidPublicKey(): Promise<string> {
         if (key) {
           cachedRuntimeVapidKey = key;
           notifyUiListeners();
+        } else {
+          console.error(
+            '[Push] /api/push/public-key returned an empty VAPID public key.'
+          );
         }
         return key;
-      } catch {
+      } catch (err) {
+        console.error('[Push] Failed to fetch /api/push/public-key:', err);
         return '';
       } finally {
         pendingVapidKeyPromise = null;
@@ -289,6 +319,42 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return outputArray;
 }
 
+function matchesApplicationServerKey(
+  subscription: PushSubscription,
+  expectedBytes: Uint8Array<ArrayBuffer>
+): boolean {
+  const existingKey = subscription.options?.applicationServerKey;
+  if (!existingKey) return true;
+  const actual = new Uint8Array(existingKey);
+  if (actual.byteLength !== expectedBytes.byteLength) return false;
+  for (let i = 0; i < actual.byteLength; i += 1) {
+    if (actual[i] !== expectedBytes[i]) return false;
+  }
+  return true;
+}
+
+async function getOrCreateMatchedSubscription(
+  registration: ServiceWorkerRegistration,
+  vapidPublicKey: string
+): Promise<PushSubscription> {
+  const expectedKey = urlBase64ToUint8Array(vapidPublicKey);
+  const existing = await registration.pushManager.getSubscription();
+  if (existing && !matchesApplicationServerKey(existing, expectedKey)) {
+    await existing.unsubscribe().catch(() => false);
+    return registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: expectedKey,
+    });
+  }
+  return (
+    existing ??
+    registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: expectedKey,
+    })
+  );
+}
+
 async function getActiveSwRegistration(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return null;
@@ -304,7 +370,7 @@ async function getActiveSwRegistration(): Promise<ServiceWorkerRegistration | nu
     return Promise.race([
       navigator.serviceWorker.ready,
       new Promise<null>((resolve) =>
-        window.setTimeout(() => resolve(null), 5000)
+        window.setTimeout(() => resolve(null), 8000)
       ),
     ]);
   }
@@ -324,6 +390,73 @@ export async function getExistingPushSubscription(): Promise<PushSubscription | 
   }
 }
 
+export interface PushDiagnosticsSnapshot {
+  supported: boolean;
+  iosNonStandalone: boolean;
+  permission: NotificationPermission | 'unsupported';
+  serviceWorkerState: 'Active' | 'Not Ready' | 'Unsupported';
+  hasLocalSubscription: boolean;
+  serverSynced: boolean;
+  hasBuildVapidKey: boolean;
+  hasResolvedVapidKey: boolean;
+  lastError: string | null;
+}
+
+export async function getPushDiagnostics(): Promise<PushDiagnosticsSnapshot> {
+  const supported = isPushSupported();
+  const iosNonStandalone = isIosNonStandalone();
+  const permission = getNotificationPermission();
+  const hasBuildVapidKey = hasBuildVapidPublicKey();
+  const hasResolvedVapidKey = Boolean(getVapidPublicKey());
+
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return {
+      supported,
+      iosNonStandalone,
+      permission,
+      serviceWorkerState: 'Unsupported',
+      hasLocalSubscription: false,
+      serverSynced: false,
+      hasBuildVapidKey,
+      hasResolvedVapidKey,
+      lastError: lastPushSyncError,
+    };
+  }
+
+  let serviceWorkerState: 'Active' | 'Not Ready' | 'Unsupported' = 'Not Ready';
+  let hasLocalSubscription = false;
+
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    if (reg && reg.active) {
+      serviceWorkerState = 'Active';
+      if (supported && !iosNonStandalone) {
+        const sub = await reg.pushManager.getSubscription().catch(() => null);
+        hasLocalSubscription = Boolean(sub);
+      }
+    }
+  } catch {
+    serviceWorkerState = 'Not Ready';
+  }
+
+  const serverSynced =
+    hasLocalSubscription &&
+    permission === 'granted' &&
+    serverSubscriptionSynced !== false;
+
+  return {
+    supported,
+    iosNonStandalone,
+    permission,
+    serviceWorkerState,
+    hasLocalSubscription,
+    serverSynced,
+    hasBuildVapidKey,
+    hasResolvedVapidKey,
+    lastError: lastPushSyncError,
+  };
+}
+
 async function persistSubscriptionOnServer(
   sessionToken: string,
   subscription: PushSubscription
@@ -341,7 +474,8 @@ async function persistSubscriptionOnServer(
   });
 
   if (!response.ok) {
-    let message = 'Unable to register push subscription.';
+    serverSubscriptionSynced = false;
+    let message = `Unable to register push subscription (HTTP ${response.status}).`;
     try {
       const data = (await response.json()) as { error?: string };
       if (data && typeof data.error === 'string' && data.error) {
@@ -350,8 +484,12 @@ async function persistSubscriptionOnServer(
     } catch {
       // Ignore parse failures
     }
+    lastPushSyncError = message;
     throw new Error(message);
   }
+
+  serverSubscriptionSynced = true;
+  lastPushSyncError = null;
 }
 
 export async function subscribeToPush(
@@ -374,12 +512,16 @@ export async function subscribeToPush(
     };
   }
 
-  const vapidPublicKey = await resolveVapidPublicKey();
-  if (!vapidPublicKey) {
-    return { ok: false, error: 'Push VAPID public key is not configured.' };
+  if (Notification.permission === 'denied') {
+    notifyUiListeners();
+    return {
+      ok: false,
+      error: 'Notification permission is blocked in browser settings.',
+    };
   }
 
   try {
+    // Request permission FIRST directly from the user-gesture click path
     const permission =
       Notification.permission === 'granted'
         ? 'granted'
@@ -396,32 +538,44 @@ export async function subscribeToPush(
       };
     }
 
-    const registration = await getActiveSwRegistration();
-    if (!registration) {
-      return {
-        ok: false,
-        error: 'Service Worker is not active yet. Please try again shortly.',
-      };
+    const vapidPublicKey = await resolveVapidPublicKey();
+    if (!vapidPublicKey) {
+      const msg =
+        'Push VAPID public key is not configured (VITE_VAPID_PUBLIC_KEY / /api/push/public-key).';
+      lastPushSyncError = msg;
+      serverSubscriptionSynced = false;
+      notifyUiListeners();
+      return { ok: false, error: msg };
     }
 
-    const existing = await registration.pushManager.getSubscription();
-    const subscription =
-      existing ??
-      (await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      }));
+    const registration = await getActiveSwRegistration();
+    if (!registration) {
+      const msg =
+        'Service Worker is not active yet. Please reload or use production build and try again.';
+      lastPushSyncError = msg;
+      serverSubscriptionSynced = false;
+      notifyUiListeners();
+      return { ok: false, error: msg };
+    }
+
+    const subscription = await getOrCreateMatchedSubscription(
+      registration,
+      vapidPublicKey
+    );
 
     setUserManuallyDisabled(false);
     await persistSubscriptionOnServer(sessionToken, subscription);
     notifyUiListeners();
     return { ok: true };
   } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Unable to enable notifications.';
+    lastPushSyncError = message;
+    serverSubscriptionSynced = false;
     notifyUiListeners();
     return {
       ok: false,
-      error:
-        err instanceof Error ? err.message : 'Unable to enable notifications.',
+      error: message,
     };
   }
 }
@@ -444,12 +598,16 @@ export async function subscribePublicPush(): Promise<{
     };
   }
 
-  const vapidPublicKey = await resolveVapidPublicKey();
-  if (!vapidPublicKey) {
-    return { ok: false, error: 'Push VAPID public key is not configured.' };
+  if (Notification.permission === 'denied') {
+    notifyUiListeners();
+    return {
+      ok: false,
+      error: 'Notification permission is blocked in browser settings.',
+    };
   }
 
   try {
+    // Request permission FIRST directly from the user-gesture click path
     const permission =
       Notification.permission === 'granted'
         ? 'granted'
@@ -466,6 +624,11 @@ export async function subscribePublicPush(): Promise<{
       };
     }
 
+    const vapidPublicKey = await resolveVapidPublicKey();
+    if (!vapidPublicKey) {
+      return { ok: false, error: 'Push VAPID public key is not configured.' };
+    }
+
     const registration = await getActiveSwRegistration();
     if (!registration) {
       return {
@@ -474,13 +637,10 @@ export async function subscribePublicPush(): Promise<{
       };
     }
 
-    const existing = await registration.pushManager.getSubscription();
-    const subscription =
-      existing ??
-      (await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      }));
+    const subscription = await getOrCreateMatchedSubscription(
+      registration,
+      vapidPublicKey
+    );
 
     const response = await fetch('/api/push/subscribe-public', {
       method: 'POST',
@@ -538,18 +698,18 @@ export async function syncExistingPushSubscription(
     const registration = await getActiveSwRegistration();
     if (!registration) return;
 
-    const existing = await registration.pushManager.getSubscription();
-    const subscription =
-      existing ??
-      (await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      }));
+    const subscription = await getOrCreateMatchedSubscription(
+      registration,
+      vapidPublicKey
+    );
 
     await persistSubscriptionOnServer(sessionToken, subscription);
     notifyUiListeners();
-  } catch {
-    // Non-fatal background sync
+  } catch (err) {
+    serverSubscriptionSynced = false;
+    lastPushSyncError =
+      err instanceof Error ? err.message : 'Background push sync failed.';
+    notifyUiListeners();
   }
 }
 
@@ -572,6 +732,8 @@ export async function unsubscribeFromPush(options?: {
 
       await subscription.unsubscribe().catch(() => false);
     }
+    serverSubscriptionSynced = false;
+    lastPushSyncError = null;
     notifyUiListeners();
     return { ok: true };
   } catch (err) {
@@ -586,7 +748,7 @@ export async function unsubscribeFromPush(options?: {
 
 export async function sendTestPush(
   sessionToken: string
-): Promise<{ ok: boolean; sent?: number; error?: string }> {
+): Promise<{ ok: boolean; sent?: number; failed?: number; error?: string }> {
   if (!sessionToken) {
     return { ok: false, error: 'Active login session is required.' };
   }
@@ -607,24 +769,37 @@ export async function sendTestPush(
     const data = (await response.json().catch(() => ({}))) as {
       ok?: boolean;
       sent?: number;
+      failed?: number;
       error?: string;
     };
 
     if (!response.ok || !data.ok) {
+      const errorMsg =
+        data.error || `Failed to send test notification (HTTP ${response.status}).`;
+      lastPushSyncError = errorMsg;
+      notifyUiListeners();
       return {
         ok: false,
-        error: data.error || 'Failed to send test notification.',
+        sent: data.sent ?? 0,
+        failed: data.failed ?? 0,
+        error: errorMsg,
       };
     }
 
-    return { ok: true, sent: data.sent ?? 0 };
+    lastPushSyncError = null;
+    serverSubscriptionSynced = true;
+    notifyUiListeners();
+    return { ok: true, sent: data.sent ?? 0, failed: data.failed ?? 0 };
   } catch (err) {
+    const errorMsg =
+      err instanceof Error
+        ? err.message
+        : 'Unable to send test notification.';
+    lastPushSyncError = errorMsg;
+    notifyUiListeners();
     return {
       ok: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : 'Unable to send test notification.',
+      error: errorMsg,
     };
   }
 }

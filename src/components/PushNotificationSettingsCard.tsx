@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  AlertTriangle,
   Bell,
   BellOff,
   CheckCircle2,
@@ -16,9 +17,10 @@ import {
   getAdminAutoUpdatePushEnabled,
   getAppBuildVersion,
   getDeviceNotificationGuide,
-  getExistingPushSubscription,
   getNotificationPermission,
+  getPushDiagnostics,
   getVapidPublicKey,
+  hasBuildVapidPublicKey,
   isIosNonStandalone,
   isPushSupported,
   resolveVapidPublicKey,
@@ -29,6 +31,7 @@ import {
   triggerAppUpdatePush,
   unsubscribeFromPush,
   watchNotificationPermissionChange,
+  type PushDiagnosticsSnapshot,
 } from '../utils/pushNotifications';
 
 interface PushNotificationSettingsCardProps {
@@ -88,9 +91,13 @@ export function PushNotificationSettingsCard({
 
   const [supported] = useState(() => isPushSupported());
   const [iosNeedsInstall] = useState(() => isIosNonStandalone());
+  const [hasBuildVapid] = useState(() => hasBuildVapidPublicKey());
   const [hasVapid, setHasVapid] = useState(() => Boolean(getVapidPublicKey()));
   const [permission, setPermission] = useState(() =>
     getNotificationPermission()
+  );
+  const [diagnostics, setDiagnostics] = useState<PushDiagnosticsSnapshot | null>(
+    null
   );
   const [subscribed, setSubscribed] = useState(false);
   const [loadingSub, setLoadingSub] = useState(true);
@@ -114,15 +121,17 @@ export function PushNotificationSettingsCard({
   const refreshState = useCallback(async () => {
     setPermission(getNotificationPermission());
     setAutoUpdatePush(getAdminAutoUpdatePushEnabled());
+    const snap = await getPushDiagnostics();
+    setDiagnostics(snap);
+    if (snap.hasResolvedVapidKey) {
+      setHasVapid(true);
+    }
     if (!supported || iosNeedsInstall) {
       setSubscribed(false);
       setLoadingSub(false);
       return;
     }
-    const existing = await getExistingPushSubscription();
-    setSubscribed(
-      Boolean(existing) && getNotificationPermission() === 'granted'
-    );
+    setSubscribed(snap.hasLocalSubscription && snap.permission === 'granted');
     setLoadingSub(false);
   }, [supported, iosNeedsInstall]);
 
@@ -131,6 +140,7 @@ export function PushNotificationSettingsCard({
     if (!hasVapid) {
       void resolveVapidPublicKey().then((key) => {
         if (key) setHasVapid(true);
+        void refreshState();
       });
     }
     const unsubUi = subscribePushUiState(() => {
@@ -236,8 +246,22 @@ export function PushNotificationSettingsCard({
   };
 
   const isBlocked = permission === 'denied';
-  const statusLabel = !supported || !hasVapid
+  const permissionDisplay =
+    permission === 'granted'
+      ? 'Granted'
+      : permission === 'denied'
+      ? 'Denied'
+      : permission === 'default'
+      ? 'Default'
+      : 'Unsupported';
+  const swDisplay = diagnostics?.serviceWorkerState ?? 'Checking';
+  const syncedDisplay = diagnostics?.serverSynced ? 'Yes' : 'No';
+  const inlineDiagError = diagnostics?.lastError ?? null;
+
+  const statusLabel = !supported
     ? 'ലഭ്യമല്ല'
+    : !hasVapid
+    ? 'VAPID Key ഇല്ല'
     : isBlocked
     ? 'ബ്ലോക്ക് ചെയ്തു'
     : subscribed
@@ -245,7 +269,7 @@ export function PushNotificationSettingsCard({
     : 'ഓഫ് ആണ്';
 
   const statusBadgeClass = !supported || !hasVapid
-    ? 'bg-black/5 text-ink-600 border border-black/10'
+    ? 'bg-rose-50 text-rose-800 border border-rose-200'
     : isBlocked
     ? 'bg-rose-50 text-rose-800 border border-rose-200'
     : subscribed
@@ -288,6 +312,60 @@ export function PushNotificationSettingsCard({
         </div>
       </div>
 
+      {/* Live Diagnostics Strip */}
+      <div className="grid grid-cols-3 gap-2 rounded-xl px-3 py-2 bg-white/60 border border-black/10 text-[11px]">
+        <div className="min-w-0">
+          <p className="text-ink-500 font-medium truncate">Permission</p>
+          <p
+            className={`font-bold truncate ${
+              permission === 'granted'
+                ? 'text-emerald-700'
+                : permission === 'denied'
+                ? 'text-rose-700'
+                : 'text-amber-800'
+            }`}
+          >
+            {permissionDisplay}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-ink-500 font-medium truncate">Service Worker</p>
+          <p
+            className={`font-bold truncate ${
+              swDisplay === 'Active' ? 'text-emerald-700' : 'text-amber-800'
+            }`}
+          >
+            {swDisplay}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <p className="text-ink-500 font-medium truncate">Sub Synced</p>
+          <p
+            className={`font-bold truncate ${
+              diagnostics?.serverSynced ? 'text-emerald-700' : 'text-ink-700'
+            }`}
+          >
+            {loadingSub ? '...' : syncedDisplay}
+          </p>
+        </div>
+      </div>
+
+      {!hasBuildVapid && (
+        <div className="rounded-xl px-3.5 py-2.5 bg-amber-50/95 border border-amber-200 text-amber-950 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+          <div className="text-[11px] sm:text-xs leading-relaxed">
+            <p className="font-bold">
+              VITE_VAPID_PUBLIC_KEY is missing in this frontend build
+            </p>
+            <p className="mt-0.5">
+              {hasVapid
+                ? 'Using runtime fallback from /api/push/public-key. Add VITE_VAPID_PUBLIC_KEY to Cloudflare Pages build environment variables for optimal speed.'
+                : 'Runtime /api/push/public-key is also unavailable. Configure VITE_VAPID_PUBLIC_KEY & VAPID_PUBLIC_KEY in Cloudflare Pages environment variables.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {iosNeedsInstall && (
         <div
           className={`rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 ${styles.tipStrip}`}
@@ -316,7 +394,7 @@ export function PushNotificationSettingsCard({
         );
       })()}
 
-      {!iosNeedsInstall && supported && hasVapid && (
+      {!iosNeedsInstall && supported && (
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
@@ -357,6 +435,15 @@ export function PushNotificationSettingsCard({
             )}
             <span>ടെസ്റ്റ് നോട്ടിഫിക്കേഷൻ അയക്കുക</span>
           </button>
+        </div>
+      )}
+
+      {!feedback && inlineDiagError && (
+        <div
+          role="alert"
+          className="rounded-xl px-3.5 py-2 text-xs font-medium bg-rose-50 border border-rose-200 text-rose-900"
+        >
+          {inlineDiagError}
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Bell,
@@ -30,7 +30,7 @@ import {
   watchNotificationPermissionChange,
 } from '../utils/pushNotifications';
 
-const SHOW_DELAY_MS = 8000;
+const SHOW_DELAY_MS = 6500;
 
 const PORTAL_STYLES: Record<
   DocsPortalTheme,
@@ -127,11 +127,7 @@ function hasOtherBlockingOverlay(): boolean {
   ) {
     return true;
   }
-  if (
-    document.querySelector(
-      'aside[aria-label="Install Application"], section[aria-label*="Smart Help Assistant"]'
-    )
-  ) {
+  if (document.querySelector('section[aria-label*="Smart Help Assistant"]')) {
     return true;
   }
   return false;
@@ -148,6 +144,7 @@ export function PushPermissionModal() {
   const [permission, setPermission] = useState(() =>
     getNotificationPermission()
   );
+  const [keptOpenOnDeny, setKeptOpenOnDeny] = useState(false);
   const [updatePending, setUpdatePending] = useState(() =>
     isPwaUpdateAvailable()
   );
@@ -158,18 +155,33 @@ export function PushPermissionModal() {
   const [error, setError] = useState<string | null>(null);
   const [entered, setEntered] = useState(false);
 
+  const portalStartRef = useRef<{ identity: string; startedAt: number } | null>(
+    null
+  );
+  const missingVapidLoggedRef = useRef(false);
+
   const inAuthenticatedPortal = Boolean(
     session &&
       !session.must_change_password &&
       isPortalPath(pathname, session.role)
   );
+  const portalIdentity =
+    inAuthenticatedPortal && session
+      ? `${session.role}:${session.login_code}`
+      : null;
 
   useEffect(() => {
     if (!inAuthenticatedPortal || vapidReady) return;
     let active = true;
     void resolveVapidPublicKey().then((key) => {
-      if (active && key) {
+      if (!active) return;
+      if (key) {
         setVapidReady(true);
+      } else if (!missingVapidLoggedRef.current) {
+        missingVapidLoggedRef.current = true;
+        console.error(
+          '[PushPermissionModal] Push pop-up suppressed: neither VITE_VAPID_PUBLIC_KEY nor /api/push/public-key provided a valid VAPID public key.'
+        );
       }
     });
     return () => {
@@ -177,12 +189,17 @@ export function PushPermissionModal() {
     };
   }, [inAuthenticatedPortal, vapidReady]);
 
+  // Notification.permission must be 'default' to auto-popup.
+  // If user denied inside the active modal interaction, keep it open to show unblock guide.
+  const permissionEligible =
+    permission === 'default' || (keptOpenOnDeny && permission === 'denied');
+
   const eligible =
     inAuthenticatedPortal &&
     isPushSupported() &&
     vapidReady &&
     !isIosNonStandalone() &&
-    (permission === 'default' || permission === 'denied') &&
+    permissionEligible &&
     !dismissed;
 
   const token = session?.token || session?.code || '';
@@ -197,12 +214,12 @@ export function PushPermissionModal() {
     setEnabling(false);
 
     if (result.ok) {
-      setDismissed(true);
+      setKeptOpenOnDeny(false);
       return;
     }
 
     if (latestPerm === 'denied') {
-      // Keep modal open and show the Chrome/System permission unblock guide
+      setKeptOpenOnDeny(true);
       setError(
         'ബ്രൗസറിലോ സിസ്റ്റത്തിലോ നോട്ടിഫിക്കേഷൻ ഓഫ് ആണ്. താഴെ കാണുന്ന സ്റ്റെപ്പുകൾ വഴി Allow ചെയ്ത ശേഷം വീണ്ടും ശ്രമിക്കുക.'
       );
@@ -212,6 +229,9 @@ export function PushPermissionModal() {
     setError(result.error || 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ കഴിഞ്ഞില്ല.');
   }, [enabling, token]);
 
+  const handleEnableRef = useRef(handleEnable);
+  handleEnableRef.current = handleEnable;
+
   useEffect(() => {
     const syncPermission = () => setPermission(getNotificationPermission());
     const unsubPush = subscribePushUiState(syncPermission);
@@ -220,8 +240,8 @@ export function PushPermissionModal() {
     );
     const unsubPermWatch = watchNotificationPermissionChange((nextPerm) => {
       setPermission(nextPerm);
-      if (nextPerm === 'granted' && inAuthenticatedPortal && !dismissed) {
-        void handleEnable();
+      if (nextPerm === 'granted' && portalIdentity && !dismissed) {
+        void handleEnableRef.current();
       }
     });
     return () => {
@@ -229,7 +249,7 @@ export function PushPermissionModal() {
       unsubUpdate();
       unsubPermWatch();
     };
-  }, [inAuthenticatedPortal, dismissed, handleEnable]);
+  }, [portalIdentity, dismissed]);
 
   useEffect(() => {
     if (!eligible) {
@@ -239,23 +259,43 @@ export function PushPermissionModal() {
     setOtherBlockingOverlay(hasOtherBlockingOverlay());
     const interval = window.setInterval(() => {
       setOtherBlockingOverlay(hasOtherBlockingOverlay());
-    }, 500);
+    }, 400);
     return () => window.clearInterval(interval);
   }, [eligible, isDocsOpen, updatePending]);
 
   const hasAnyOtherPopup = isDocsOpen || updatePending || otherBlockingOverlay;
 
-  // Start the 8-second countdown only after all other popups/modals are closed
+  // Stable ref-anchored 6.5s timer per authenticated portal session:
+  // survives re-renders, tab switches, StrictMode double-mounts, and defers cleanly while Docs/Update modal is open.
   useEffect(() => {
-    if (!eligible || hasAnyOtherPopup) {
+    if (!portalIdentity) {
+      portalStartRef.current = null;
       setDelayReady(false);
+      setKeptOpenOnDeny(false);
       return;
     }
+
+    if (portalStartRef.current?.identity !== portalIdentity) {
+      portalStartRef.current = {
+        identity: portalIdentity,
+        startedAt: Date.now(),
+      };
+      setDelayReady(false);
+      setKeptOpenOnDeny(false);
+    }
+
+    const elapsed = Date.now() - portalStartRef.current.startedAt;
+    const remaining = Math.max(0, SHOW_DELAY_MS - elapsed);
+    if (remaining === 0) {
+      setDelayReady(true);
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       setDelayReady(true);
-    }, SHOW_DELAY_MS);
+    }, remaining);
     return () => window.clearTimeout(timer);
-  }, [eligible, hasAnyOtherPopup, session?.role, session?.login_code]);
+  }, [portalIdentity]);
 
   const visible = eligible && delayReady && !hasAnyOtherPopup;
 
@@ -280,6 +320,7 @@ export function PushPermissionModal() {
 
   const handleDismiss = () => {
     markPushPromptDismissed();
+    setKeptOpenOnDeny(false);
     setDismissed(true);
   };
 

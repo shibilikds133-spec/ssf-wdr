@@ -207,6 +207,7 @@ export async function sendToSubscriptions(env, subscriptions, payloadObj) {
   const expiredEndpoints = [];
   let sent = 0;
   let failed = 0;
+  let firstError = null;
 
   const results = await Promise.allSettled(
     subscriptions.map(async (sub) => {
@@ -226,7 +227,13 @@ export async function sendToSubscriptions(env, subscriptions, payloadObj) {
       if (response.status === 404 || response.status === 410) {
         expiredEndpoints.push(sub.endpoint);
       }
-      return { ok: false, status: response.status };
+      const errBody = await response.text().catch(() => '');
+      const detail = errBody ? errBody.trim().slice(0, 180) : response.statusText;
+      return {
+        ok: false,
+        status: response.status,
+        error: `Push service HTTP ${response.status}${detail ? `: ${detail}` : ''}`,
+      };
     })
   );
 
@@ -235,9 +242,24 @@ export async function sendToSubscriptions(env, subscriptions, payloadObj) {
       sent += 1;
     } else {
       failed += 1;
+      if (!firstError) {
+        if (result.status === 'rejected') {
+          firstError =
+            result.reason instanceof Error
+              ? result.reason.message
+              : 'Push delivery failed.';
+        } else if (result.value && result.value.error) {
+          firstError = result.value.error;
+        }
+      }
     }
   }
 
   const pruned = await pruneExpiredEndpoints(env, expiredEndpoints);
-  return { sent, failed, pruned };
+  return {
+    sent,
+    failed,
+    pruned,
+    ...(firstError ? { error: firstError } : {}),
+  };
 }

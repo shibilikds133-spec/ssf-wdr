@@ -14,12 +14,18 @@ export async function onRequestPost(context) {
     const body = await readJsonBody(request);
     const token = extractSessionToken(request, body);
     if (!token) {
-      return jsonResponse({ error: 'Authentication required' }, 401);
+      return jsonResponse(
+        { ok: false, sent: 0, failed: 0, error: 'Authentication required' },
+        401
+      );
     }
 
     const session = await validateSession(env, token);
     if (!session) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      return jsonResponse(
+        { ok: false, sent: 0, failed: 0, error: 'Invalid or expired session' },
+        401
+      );
     }
 
     const requestedEndpoint =
@@ -41,6 +47,9 @@ export async function onRequestPost(context) {
     if (subscriptions.length === 0) {
       return jsonResponse(
         {
+          ok: false,
+          sent: 0,
+          failed: 0,
           error:
             'No active push subscription found for this account. Please enable notifications first.',
         },
@@ -63,13 +72,34 @@ export async function onRequestPost(context) {
       tag: `test:${session.account_id}`,
     });
 
+    if (stats.sent <= 0) {
+      return jsonResponse(
+        {
+          ok: false,
+          sent: stats.sent,
+          failed: stats.failed,
+          pruned: stats.pruned,
+          error:
+            stats.error ||
+            'Push service did not accept delivery for any active subscription. Please re-enable notifications.',
+        },
+        502
+      );
+    }
+
     return jsonResponse({
       ok: true,
-      ...stats,
+      sent: stats.sent,
+      failed: stats.failed,
+      pruned: stats.pruned,
+      error: null,
     });
   } catch (err) {
     return jsonResponse(
       {
+        ok: false,
+        sent: 0,
+        failed: 0,
         error:
           err instanceof Error
             ? err.message

@@ -30,7 +30,7 @@ import {
 const LEADERBOARD_CACHE_KEY = 'wdr_public_leaderboard_v1';
 const LEADERBOARD_CACHE_TTL_MS = 20_000;
 const POSTER_PRELOAD_TIMEOUT_MS = 2500;
-const PUBLIC_PUSH_DELAY_MS = 6000;
+const PUBLIC_PUSH_DELAY_MS = 6500;
 
 function preloadResponsivePoster(): Promise<void> {
   if (typeof window === 'undefined' || typeof Image === 'undefined') {
@@ -77,11 +77,7 @@ function hasBlockingPopupOnPublic(): boolean {
   ) {
     return true;
   }
-  if (
-    document.querySelector(
-      'aside[aria-label="Install Application"], section[aria-label*="Smart Help Assistant"]'
-    )
-  ) {
+  if (document.querySelector('section[aria-label*="Smart Help Assistant"]')) {
     return true;
   }
   return false;
@@ -130,6 +126,7 @@ export default function PublicPage() {
   const [pushError, setPushError] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
+  const publicPushStartAtRef = useRef<number | null>(null);
 
   const loadLeaderboard = useCallback(async (force = false): Promise<void> => {
     if (!force) {
@@ -259,15 +256,28 @@ export default function PublicPage() {
     isDocsOpen || quickEntryOpen || updatePending || otherPopupOpen;
 
   useEffect(() => {
-    if (!pushEligible || hasBlocker) {
+    if (!pushEligible) {
+      publicPushStartAtRef.current = null;
       setPushDelayReady(false);
       return;
     }
+
+    if (publicPushStartAtRef.current === null) {
+      publicPushStartAtRef.current = Date.now();
+    }
+
+    const elapsed = Date.now() - publicPushStartAtRef.current;
+    const remaining = Math.max(0, PUBLIC_PUSH_DELAY_MS - elapsed);
+    if (remaining === 0) {
+      setPushDelayReady(true);
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       setPushDelayReady(true);
-    }, PUBLIC_PUSH_DELAY_MS);
+    }, remaining);
     return () => window.clearTimeout(timer);
-  }, [pushEligible, hasBlocker]);
+  }, [pushEligible]);
 
   const showPushModal = pushEligible && pushDelayReady && !hasBlocker;
 
@@ -285,8 +295,6 @@ export default function PublicPage() {
     setPushEnabling(false);
 
     if (res.ok || getNotificationPermission() === 'denied') {
-      markPublicPushPromptDismissed();
-      setPushDismissed(true);
       return;
     }
     setPushError(res.error || 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ കഴിഞ്ഞില്ല.');
