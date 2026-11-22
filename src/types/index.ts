@@ -241,6 +241,7 @@ export interface SectorDashboardResponse {
   summary: SectorDashboardSummary;
   units: UnitSummaryRow[];
   entries: EntryItem[];
+  pending_reset_requests?: PasswordResetRequest[];
 }
 
 export interface UnitDashboardResponse {

@@ -23,6 +23,7 @@ import { supabase } from '../../lib/supabase';
 import type {
   AppSettings,
   PaginatedUnitsResponse,
+  PasswordResetRequest,
   UnitSummaryRow,
 } from '../../types';
 import {
@@ -37,6 +38,7 @@ import {
 import { BrandText } from '../BrandText';
 import { PaginationBar } from '../PaginationBar';
 import { PushNotificationSettingsCard } from '../PushNotificationSettingsCard';
+import { SectorCredentialsSection } from './SectorCredentialsSection';
 
 interface SectorManageTabProps {
   isDesktop: boolean;
@@ -47,6 +49,7 @@ interface SectorManageTabProps {
   };
   settings: AppSettings;
   units: UnitSummaryRow[];
+  pendingResetRequests?: PasswordResetRequest[];
   sectorCode: string;
   refreshKey?: number;
   onMutated: (msg: string) => Promise<void>;
@@ -58,6 +61,7 @@ export function SectorManageTab({
   sector,
   settings,
   units,
+  pendingResetRequests = [],
   sectorCode,
   refreshKey = 0,
   onMutated,
@@ -655,7 +659,19 @@ export function SectorManageTab({
   // Desktop Grid Layout
   if (isDesktop) {
     return (
-      <div className="grid grid-cols-12 gap-5">
+      <div className="space-y-5">
+        <SectorCredentialsSection
+          isDesktop={isDesktop}
+          sectorName={sector.name}
+          units={units}
+          pendingResetRequests={pendingResetRequests}
+          sectorCode={sectorCode}
+          refreshKey={refreshKey}
+          onMutated={onMutated}
+          onError={onError}
+        />
+
+        <div className="grid grid-cols-12 gap-5">
         {/* Left Column (7 cols): Quick Add + Bulk CSV + Division Rules */}
         <div className="col-span-7 space-y-5">
           <div className="glass-leaf-card rounded-[22px] p-5 space-y-4">
@@ -722,12 +738,24 @@ export function SectorManageTab({
           </div>
         </div>
       </div>
+      </div>
     );
   }
 
   // Mobile Accordion Layout (All 4 cards collapsed by default)
   return (
     <div className="space-y-3">
+      <SectorCredentialsSection
+        isDesktop={isDesktop}
+        sectorName={sector.name}
+        units={units}
+        pendingResetRequests={pendingResetRequests}
+        sectorCode={sectorCode}
+        refreshKey={refreshKey}
+        onMutated={onMutated}
+        onError={onError}
+      />
+
       {/* Card 1: Quick Add / Rename Unit */}
       <div className="glass-leaf-card rounded-2xl overflow-hidden">
         <button

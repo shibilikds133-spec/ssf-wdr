@@ -324,6 +324,7 @@ export default function SectorDashboardPage() {
                   sector={data.sector}
                   settings={data.settings}
                   units={data.units}
+                  pendingResetRequests={data.pending_reset_requests ?? []}
                   sectorCode={session.code}
                   refreshKey={dataVersion}
                   onMutated={handleMutated}
