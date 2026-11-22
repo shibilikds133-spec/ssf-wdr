@@ -49,8 +49,48 @@ export function getNotificationPermission():
   return Notification.permission;
 }
 
+let cachedRuntimeVapidKey = '';
+let pendingVapidKeyPromise: Promise<string> | null = null;
+
 export function getVapidPublicKey(): string {
-  return String(import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '').trim();
+  const envKey = String(import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '').trim();
+  return envKey || cachedRuntimeVapidKey;
+}
+
+export async function resolveVapidPublicKey(): Promise<string> {
+  const immediate = getVapidPublicKey();
+  if (immediate) return immediate;
+
+  if (!pendingVapidKeyPromise) {
+    pendingVapidKeyPromise = (async () => {
+      try {
+        const response = await fetch('/api/push/public-key', {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) return '';
+        const data = (await response.json().catch(() => ({}))) as {
+          ok?: boolean;
+          publicKey?: string;
+        };
+        const key =
+          data && data.ok && typeof data.publicKey === 'string'
+            ? data.publicKey.trim()
+            : '';
+        if (key) {
+          cachedRuntimeVapidKey = key;
+          notifyUiListeners();
+        }
+        return key;
+      } catch {
+        return '';
+      } finally {
+        pendingVapidKeyPromise = null;
+      }
+    })();
+  }
+
+  return pendingVapidKeyPromise;
 }
 
 export function getAppBuildVersion(): string {
@@ -218,7 +258,7 @@ export async function subscribeToPush(
     };
   }
 
-  const vapidPublicKey = getVapidPublicKey();
+  const vapidPublicKey = await resolveVapidPublicKey();
   if (!vapidPublicKey) {
     return { ok: false, error: 'Push VAPID public key is not configured.' };
   }
@@ -283,7 +323,7 @@ export async function syncExistingPushSubscription(
     return;
   }
 
-  const vapidPublicKey = getVapidPublicKey();
+  const vapidPublicKey = await resolveVapidPublicKey();
   if (!vapidPublicKey) return;
 
   try {

@@ -18,6 +18,7 @@ import {
   getVapidPublicKey,
   isIosNonStandalone,
   isPushSupported,
+  resolveVapidPublicKey,
   sendTestPush,
   setAdminAutoUpdatePushEnabled,
   subscribePushUiState,
@@ -83,7 +84,7 @@ export function PushNotificationSettingsCard({
 
   const [supported] = useState(() => isPushSupported());
   const [iosNeedsInstall] = useState(() => isIosNonStandalone());
-  const [hasVapid] = useState(() => Boolean(getVapidPublicKey()));
+  const [hasVapid, setHasVapid] = useState(() => Boolean(getVapidPublicKey()));
   const [permission, setPermission] = useState(() =>
     getNotificationPermission()
   );
@@ -123,10 +124,15 @@ export function PushNotificationSettingsCard({
 
   useEffect(() => {
     void refreshState();
+    if (!hasVapid) {
+      void resolveVapidPublicKey().then((key) => {
+        if (key) setHasVapid(true);
+      });
+    }
     return subscribePushUiState(() => {
       void refreshState();
     });
-  }, [refreshState]);
+  }, [refreshState, hasVapid]);
 
   const handleToggle = async () => {
     if (toggling) return;

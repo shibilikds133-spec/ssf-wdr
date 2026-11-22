@@ -503,8 +503,8 @@ export function SmartAssistantDrawer({
   );
 
   const drawerPositionClass = hasMobileBottomNav
-    ? 'fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] max-h-[72dvh] sm:inset-x-auto sm:right-5 sm:w-[376px] sm:max-w-[calc(100vw-2rem)] lg:bottom-20 lg:max-h-[72vh] rounded-[26px] z-[55]'
-    : 'fixed inset-x-3 bottom-4 max-h-[72dvh] sm:inset-x-auto sm:right-5 sm:bottom-20 sm:w-[376px] sm:max-w-[calc(100vw-2rem)] sm:max-h-[72vh] rounded-[26px] z-[55]';
+    ? 'fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-h-[72dvh] sm:inset-x-auto sm:right-6 sm:w-[376px] sm:max-w-[calc(100vw-2rem)] lg:bottom-[5.25rem] lg:max-h-[72vh] rounded-[26px] z-[55]'
+    : 'fixed inset-x-3 bottom-4 max-h-[72dvh] sm:inset-x-auto sm:right-6 sm:bottom-[5.25rem] sm:w-[376px] sm:max-w-[calc(100vw-2rem)] sm:max-h-[72vh] rounded-[26px] z-[55]';
 
   return (
     <>

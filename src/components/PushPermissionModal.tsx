@@ -16,33 +16,62 @@ import {
   isPushDismissCooldownActive,
   isPushSupported,
   markPushPromptDismissed,
+  resolveVapidPublicKey,
   subscribePushUiState,
   subscribeToPush,
 } from '../utils/pushNotifications';
 
-const SHOW_DELAY_MS = 6000;
+const SHOW_DELAY_MS = 8000;
 
 const PORTAL_STYLES: Record<
   DocsPortalTheme,
   {
+    glassSurface: string;
+    accentPill: string;
+    iconBadge: string;
     primaryBtn: string;
     secondaryBtn: string;
+    topGlow: string;
   }
 > = {
   plum: {
+    glassSurface:
+      'bg-[#FDFBF8]/[0.88] backdrop-blur-2xl border border-[#381932]/[0.20] shadow-[0_24px_64px_-12px_rgba(33,11,29,0.38),inset_0_1px_0_rgba(255,255,255,0.95)]',
+    accentPill:
+      'glass-plum text-white border border-white/25 shadow-sm',
+    iconBadge:
+      'glass-plum text-white shadow-lg ring-4 ring-[#381932]/10',
     primaryBtn: 'glass-plum text-white hover:opacity-95',
     secondaryBtn:
-      'border border-[#381932]/20 bg-white/80 text-[#381932] hover:bg-white',
+      'border border-[#381932]/20 bg-white/85 text-[#210B1D] hover:bg-white',
+    topGlow:
+      'from-[#381932]/[0.14] via-[#381932]/[0.04] to-transparent',
   },
   forest: {
+    glassSurface:
+      'bg-[#F9FCF6]/[0.88] backdrop-blur-2xl border border-[#043326]/[0.20] shadow-[0_24px_64px_-12px_rgba(2,28,20,0.38),inset_0_1px_0_rgba(255,255,255,0.95)]',
+    accentPill:
+      'glass-forest text-white border border-white/25 shadow-sm',
+    iconBadge:
+      'glass-forest text-white shadow-lg ring-4 ring-[#043326]/10',
     primaryBtn: 'glass-forest text-white hover:opacity-95',
     secondaryBtn:
-      'border border-[#043326]/20 bg-white/80 text-[#043326] hover:bg-white',
+      'border border-[#043326]/20 bg-white/85 text-[#021C14] hover:bg-white',
+    topGlow:
+      'from-[#043326]/[0.14] via-[#043326]/[0.04] to-transparent',
   },
   orange: {
+    glassSurface:
+      'bg-[#FDFDF1]/[0.90] backdrop-blur-2xl border border-[#EC5E27]/[0.26] shadow-[0_24px_64px_-12px_rgba(143,45,13,0.32),inset_0_1px_0_rgba(255,255,255,0.95)]',
+    accentPill:
+      'glass-orange text-white border border-white/30 shadow-sm',
+    iconBadge:
+      'glass-orange text-white shadow-lg ring-4 ring-[#EC5E27]/15',
     primaryBtn: 'glass-orange text-white hover:opacity-95',
     secondaryBtn:
-      'border border-[#EC5E27]/25 bg-white/85 text-[#5C1B07] hover:bg-white',
+      'border border-[#EC5E27]/25 bg-white/85 text-[#4A1404] hover:bg-white',
+    topGlow:
+      'from-[#EC5E27]/[0.16] via-[#EC5E27]/[0.05] to-transparent',
   },
 };
 
@@ -67,13 +96,23 @@ function isPortalPath(pathname: string, role: UserRole): boolean {
   return pathname.startsWith('/dashboard');
 }
 
-function hasBlockingOverlay(): boolean {
+function hasOtherBlockingOverlay(): boolean {
   if (typeof document === 'undefined') return false;
-  return Boolean(
+  if (
     document.querySelector(
-      '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]'
+      '[role="dialog"][aria-modal="true"]:not([data-push-permission-modal="true"]), [role="alertdialog"][aria-modal="true"]:not([data-push-permission-modal="true"])'
     )
-  );
+  ) {
+    return true;
+  }
+  if (
+    document.querySelector(
+      'aside[aria-label="Install Application"], section[aria-label*="Smart Help Assistant"]'
+    )
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function PushPermissionModal() {
@@ -83,14 +122,15 @@ export function PushPermissionModal() {
 
   const [delayReady, setDelayReady] = useState(false);
   const [dismissed, setDismissed] = useState(() => isPushDismissCooldownActive());
+  const [vapidReady, setVapidReady] = useState(() => Boolean(getVapidPublicKey()));
   const [permission, setPermission] = useState(() =>
     getNotificationPermission()
   );
   const [updatePending, setUpdatePending] = useState(() =>
     isPwaUpdateAvailable()
   );
-  const [blockingOverlay, setBlockingOverlay] = useState(() =>
-    hasBlockingOverlay()
+  const [otherBlockingOverlay, setOtherBlockingOverlay] = useState(() =>
+    hasOtherBlockingOverlay()
   );
   const [enabling, setEnabling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,10 +142,23 @@ export function PushPermissionModal() {
       isPortalPath(pathname, session.role)
   );
 
+  useEffect(() => {
+    if (!inAuthenticatedPortal || vapidReady) return;
+    let active = true;
+    void resolveVapidPublicKey().then((key) => {
+      if (active && key) {
+        setVapidReady(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [inAuthenticatedPortal, vapidReady]);
+
   const eligible =
     inAuthenticatedPortal &&
     isPushSupported() &&
-    Boolean(getVapidPublicKey()) &&
+    vapidReady &&
     !isIosNonStandalone() &&
     permission === 'default' &&
     !dismissed;
@@ -124,6 +177,21 @@ export function PushPermissionModal() {
 
   useEffect(() => {
     if (!eligible) {
+      setOtherBlockingOverlay(false);
+      return;
+    }
+    setOtherBlockingOverlay(hasOtherBlockingOverlay());
+    const interval = window.setInterval(() => {
+      setOtherBlockingOverlay(hasOtherBlockingOverlay());
+    }, 500);
+    return () => window.clearInterval(interval);
+  }, [eligible, isDocsOpen, updatePending]);
+
+  const hasAnyOtherPopup = isDocsOpen || updatePending || otherBlockingOverlay;
+
+  // Start the 8-second countdown only after all other popups/modals are closed
+  useEffect(() => {
+    if (!eligible || hasAnyOtherPopup) {
       setDelayReady(false);
       return;
     }
@@ -131,19 +199,9 @@ export function PushPermissionModal() {
       setDelayReady(true);
     }, SHOW_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [eligible, session?.role, session?.login_code]);
+  }, [eligible, hasAnyOtherPopup, session?.role, session?.login_code]);
 
-  useEffect(() => {
-    if (!eligible || !delayReady) return;
-    setBlockingOverlay(hasBlockingOverlay());
-    const interval = window.setInterval(() => {
-      setBlockingOverlay(hasBlockingOverlay());
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [eligible, delayReady, isDocsOpen, updatePending]);
-
-  const visible =
-    eligible && delayReady && !isDocsOpen && !updatePending && !blockingOverlay;
+  const visible = eligible && delayReady && !hasAnyOtherPopup;
 
   useEffect(() => {
     if (!visible) {
@@ -194,6 +252,7 @@ export function PushPermissionModal() {
     <div
       role="dialog"
       aria-modal="true"
+      data-push-permission-modal="true"
       aria-labelledby="push-permission-title"
       className={`fixed inset-0 z-[65] ${styles.backdrop} flex items-center justify-center p-4 transition-opacity duration-200 motion-reduce:transition-none ${
         entered ? 'opacity-100' : 'opacity-0'
@@ -202,32 +261,37 @@ export function PushPermissionModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-md ${styles.cardSurface} ${styles.cardBorderShadow} rounded-3xl p-6 transition-all duration-200 ease-out motion-reduce:transition-none ${
+        className={`relative w-full max-w-md overflow-hidden ${cta.glassSurface} rounded-3xl p-6 transition-all duration-200 ease-out motion-reduce:transition-none ${
           entered ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b ${cta.topGlow}`}
+        />
+
         <button
           type="button"
           onClick={handleDismiss}
           disabled={enabling}
           aria-label="പിന്നീട്"
-          className={`absolute top-4 right-4 p-1.5 rounded-full transition-colors ${styles.closeButton}`}
+          className={`relative z-10 ml-auto flex items-center justify-center p-1.5 rounded-full transition-colors ${styles.closeButton}`}
         >
           <X className="w-4 h-4" />
         </button>
 
-        <div className="flex flex-col items-center text-center">
+        <div className="relative z-10 flex flex-col items-center text-center -mt-2">
           <div
-            className={`w-14 h-14 rounded-2xl ${styles.iconBadge} shadow-md flex items-center justify-center mb-3.5`}
+            className={`w-14 h-14 rounded-2xl ${cta.iconBadge} flex items-center justify-center mb-3.5`}
           >
-            <Bell className="w-7 h-7" />
+            <Bell className="w-7 h-7 text-white" />
           </div>
 
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-semibold mb-2.5 ${styles.portalBadge}`}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[11px] font-semibold tracking-wide mb-3 text-white ${cta.accentPill}`}
           >
-            <Sparkles className="w-3 h-3 shrink-0" />
-            <span>Push Alerts</span>
+            <Sparkles className="w-3 h-3 shrink-0 text-white" />
+            <span className="text-white">Push Alerts</span>
           </span>
 
           <h2
@@ -244,7 +308,7 @@ export function PushPermissionModal() {
           </p>
 
           {error && (
-            <p className="font-ml text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 mt-3 w-full">
+            <p className="font-ml text-xs text-rose-700 bg-rose-50/95 border border-rose-200 rounded-xl px-3 py-2 mt-3 w-full">
               {error}
             </p>
           )}
@@ -254,17 +318,17 @@ export function PushPermissionModal() {
               type="button"
               disabled={enabling}
               onClick={() => void handleEnable()}
-              className={`flex-1 py-2.5 px-4 rounded-xl font-ml text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm transition-opacity disabled:opacity-75 ${cta.primaryBtn}`}
+              className={`flex-1 py-2.5 px-4 rounded-xl font-ml text-xs sm:text-sm font-bold text-white inline-flex items-center justify-center gap-2 shadow-sm transition-opacity disabled:opacity-75 ${cta.primaryBtn}`}
             >
               {enabling ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                  <span>സജ്ജീകരിക്കുന്നു...</span>
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0 text-white" />
+                  <span className="text-white">സജ്ജീകരിക്കുന്നു...</span>
                 </>
               ) : (
                 <>
-                  <Bell className="w-4 h-4 shrink-0" />
-                  <span>നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യുക</span>
+                  <Bell className="w-4 h-4 shrink-0 text-white" />
+                  <span className="text-white">നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യുക</span>
                 </>
               )}
             </button>
