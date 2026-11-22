@@ -2,21 +2,20 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Award,
-  CheckCircle2,
   Lock,
   LogIn,
   PlusCircle,
   RefreshCw,
   Search,
-  Trophy,
   Users,
 } from 'lucide-react';
 import type { PublicLeaderboardResponse } from '../../types';
-import { formatCurrency, formatQuantity } from '../../utils/format';
+import { formatQuantity } from '../../utils/format';
 import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
 import { SelectDropdown } from '../SelectDropdown';
 import { SsfLogo } from '../SsfLogo';
+import { PublicDivisionProgressCard } from './PublicDivisionProgressCard';
 import { PublicPosterWindow } from './PublicPosterWindow';
 
 interface PublicLeaderboardMobileProps {
@@ -87,6 +86,15 @@ export function PublicLeaderboardMobile({
   }, [units, unitSearch, sectorFilter]);
 
   const progressPct = Math.min(100, Math.max(0, Number(summary.percent_complete) || 0));
+  const topSector = sectors[0] ?? null;
+  const activeUnitsCount = sectors.reduce(
+    (sum, s) => sum + s.active_units_count,
+    0
+  );
+  const totalUnitsCount = sectors.reduce(
+    (sum, s) => sum + s.total_units_count,
+    0
+  );
 
   return (
     <div className="min-h-dvh public-theme-bg flex flex-col">
@@ -144,85 +152,20 @@ export function PublicLeaderboardMobile({
         {/* Slot 1: Top Promotional Poster Window (Contact Removed) */}
         <PublicPosterWindow />
 
-        {/* Slot 2: Live Division Status & Progress Hero Card */}
-        <section
-          aria-label="Live Division Progress"
-          className="rounded-3xl glass-crimson text-white p-4 space-y-3.5 shadow-lg"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full glass-crimson-pill text-[11px] font-bold text-[#FCE36D]">
-              <Trophy className="w-3 h-3 shrink-0" />
-              <span>Division Live Total</span>
-            </span>
-
-            {summary.orders_open ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-300/40 text-[11px] font-bold text-emerald-100">
-                <CheckCircle2 className="w-3 h-3 shrink-0" />
-                <span>Orders Open</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/30 border border-white/25 text-[11px] font-bold text-amber-200">
-                <Lock className="w-3 h-3 shrink-0" />
-                <span>Orders Closed</span>
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 items-end">
-            <div>
-              <p className="text-[11px] text-white/75 font-medium">
-                Total Payasam
-              </p>
-              <p className="text-3xl font-extrabold tracking-tight num text-white leading-none mt-1">
-                {formatQuantity(Number(summary.total_liters))}
-                <span className="text-base font-bold text-[#FCE36D] ml-1">
-                  L
-                </span>
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[11px] text-white/75 font-medium">
-                Total Orders
-              </p>
-              <p className="text-2xl font-extrabold num text-white leading-none mt-1">
-                {summary.total_orders}
-              </p>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-1.5">
-            <div className="h-2.5 w-full rounded-full bg-black/30 overflow-hidden border border-white/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-white/85 font-medium num">
-              <span>{progressPct.toFixed(1)}% of Target</span>
-              <span>
-                Target: {formatQuantity(Number(summary.division_limit))} L
-              </span>
-            </div>
-          </div>
-
-          {/* Status Metrics Strip */}
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/15 text-xs">
-            <div className="rounded-xl bg-white/10 px-3 py-2 flex items-center justify-between">
-              <span className="text-white/80 text-[11px]">Per-Liter Rate</span>
-              <span className="font-bold text-[#FCE36D] num">
-                {formatCurrency(Number(summary.per_liter_rate))}/L
-              </span>
-            </div>
-            <div className="rounded-xl bg-white/10 px-3 py-2 flex items-center justify-between">
-              <span className="text-white/80 text-[11px]">Active Units</span>
-              <span className="font-bold text-white num">
-                {sectors.reduce((sum, s) => sum + s.active_units_count, 0)}/
-                {sectors.reduce((sum, s) => sum + s.total_units_count, 0)}
-              </span>
-            </div>
-          </div>
-        </section>
+        {/* Slot 2: Live Division Status & Semi-Circle Gauge Hero Card */}
+        <PublicDivisionProgressCard
+          totalLiters={Number(summary.total_liters) || 0}
+          totalOrders={summary.total_orders}
+          divisionLimit={Number(summary.division_limit) || 1000}
+          percentComplete={progressPct}
+          ordersOpen={Boolean(summary.orders_open)}
+          activeUnitsCount={activeUnitsCount}
+          totalUnitsCount={totalUnitsCount}
+          sectorsCount={sectors.length}
+          topSectorName={topSector?.name}
+          topSectorLiters={topSector ? Number(topSector.total_liters) : 0}
+          onQuickEntry={onOpenQuickEntry}
+        />
 
         {/* Slot 3: Interactive Live Leaderboard Tabs (Sectors | Top Units) */}
         <section

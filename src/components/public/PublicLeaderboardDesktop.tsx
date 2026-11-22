@@ -2,14 +2,12 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Award,
-  CheckCircle2,
   Crown,
   Lock,
   LogIn,
   PlusCircle,
   RefreshCw,
   Search,
-  Trophy,
   Users,
 } from 'lucide-react';
 import type { PublicLeaderboardResponse } from '../../types';
@@ -18,6 +16,7 @@ import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
 import { SelectDropdown } from '../SelectDropdown';
 import { SsfLogo } from '../SsfLogo';
+import { PublicDivisionProgressCard } from './PublicDivisionProgressCard';
 import { PublicPosterWindow } from './PublicPosterWindow';
 
 interface PublicLeaderboardDesktopProps {
@@ -214,64 +213,20 @@ export function PublicLeaderboardDesktop({
             <PublicPosterWindow className="w-full my-auto" />
           </div>
 
-          {/* Division Hero Progress Card */}
-          <div className="col-span-12 lg:col-span-5 rounded-3xl glass-crimson text-white p-6 flex flex-col justify-between gap-4 shadow-lg">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass-crimson-pill text-xs font-bold text-[#FCE36D]">
-                <Trophy className="w-3.5 h-3.5 shrink-0" />
-                <span>Division Progress</span>
-              </span>
-
-              {summary.orders_open ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-300/40 text-xs font-bold text-emerald-100">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Orders Open</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/30 border border-white/25 text-xs font-bold text-amber-200">
-                  <Lock className="w-3.5 h-3.5 shrink-0" />
-                  <span>Orders Closed</span>
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 items-end">
-              <div>
-                <p className="text-xs text-white/75 font-medium">
-                  Total Payasam
-                </p>
-                <p className="text-4xl xl:text-5xl font-extrabold tracking-tight num text-white leading-none mt-1.5">
-                  {formatQuantity(Number(summary.total_liters))}
-                  <span className="text-lg font-bold text-[#FCE36D] ml-1.5">
-                    L
-                  </span>
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-white/75 font-medium">
-                  Total Orders
-                </p>
-                <p className="text-3xl xl:text-4xl font-extrabold num text-white leading-none mt-1.5">
-                  {summary.total_orders}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="h-3 w-full rounded-full bg-black/30 overflow-hidden border border-white/10">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <div className="flex items-center justify-between text-xs text-white/85 font-medium num">
-                <span>{progressPct.toFixed(1)}% achieved</span>
-                <span>
-                  Target: {formatQuantity(Number(summary.division_limit))} L
-                </span>
-              </div>
-            </div>
-          </div>
+          <PublicDivisionProgressCard
+            className="col-span-12 lg:col-span-5"
+            totalLiters={Number(summary.total_liters) || 0}
+            totalOrders={summary.total_orders}
+            divisionLimit={Number(summary.division_limit) || 1000}
+            percentComplete={progressPct}
+            ordersOpen={Boolean(summary.orders_open)}
+            activeUnitsCount={activeUnitsCount}
+            totalUnitsCount={totalUnitsCount}
+            sectorsCount={sectors.length}
+            topSectorName={topSector?.name}
+            topSectorLiters={topSector ? Number(topSector.total_liters) : 0}
+            onQuickEntry={onOpenQuickEntry}
+          />
         </section>
 
         {/* Section 2: Status Cards Row */}
