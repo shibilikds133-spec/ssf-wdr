@@ -265,29 +265,53 @@ export function PublicDivisionProgressCard({
           {displayedSectors.map((sec, idx) => {
             const rank = idx + 1;
             const isFirst = rank === 1;
-            return isFirst ? (
-              <div
-                key={sec.id}
-                className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] border border-[#FFF5B8]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_4px_12px_-4px_rgba(0,0,0,0.28)] px-2.5 py-1 flex items-center gap-2"
-              >
-                <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white border border-white/20 inline-flex items-center justify-center shrink-0 shadow-xs">
-                  <Crown className="w-3.5 h-3.5 text-white" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-extrabold text-[#2B0406] truncate leading-tight">
-                    {sec.name}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#5C0A0E] text-white text-[9px] font-extrabold num leading-tight">
-                      #1
-                    </span>
-                    <span className="text-[10px] text-[#4A070A] font-bold num truncate">
-                      {formatQuantity(Number(sec.total_liters) || 0)} L
-                    </span>
+            const isSecond = rank === 2;
+            if (isFirst) {
+              return (
+                <div
+                  key={sec.id}
+                  className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] border border-[#FFF5B8]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_4px_12px_-4px_rgba(0,0,0,0.28)] px-2.5 py-1 flex items-center gap-2"
+                >
+                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white border border-white/20 inline-flex items-center justify-center shrink-0 shadow-xs">
+                    <Crown className="w-3.5 h-3.5 text-white" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-extrabold text-[#2B0406] truncate leading-tight">
+                      {sec.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="px-1.5 py-0.2 rounded-full bg-[#5C0A0E] text-white text-[9px] font-extrabold num leading-tight">
+                        #1
+                      </span>
+                      <span className="text-[10px] text-[#4A070A] font-bold num truncate">
+                        {formatQuantity(Number(sec.total_liters) || 0)} L
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
+              );
+            }
+            if (isSecond) {
+              return (
+                <div
+                  key={sec.id}
+                  className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#F8FAFC] via-[#E2E8F0] to-[#CBD5E1] border border-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_12px_-4px_rgba(0,0,0,0.25)] px-2.5 py-1 flex items-center gap-2"
+                >
+                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#475569] to-[#1E293B] text-white border border-white/25 text-[10px] font-extrabold num inline-flex items-center justify-center shrink-0 shadow-xs">
+                    #2
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-extrabold text-[#0F172A] truncate leading-tight">
+                      {sec.name}
+                    </p>
+                    <p className="text-[10px] text-[#334155] font-bold num truncate mt-0.5">
+                      {formatQuantity(Number(sec.total_liters) || 0)} L
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+            return (
               <div
                 key={sec.id}
                 className="flex-1 min-w-0 rounded-2xl bg-white/14 backdrop-blur-xl border border-white/22 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-2.5 py-1 flex items-center gap-2"
