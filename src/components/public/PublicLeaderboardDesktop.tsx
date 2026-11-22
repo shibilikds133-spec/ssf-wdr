@@ -87,7 +87,7 @@ const DesktopSectorRow = memo(function DesktopSectorRow({
         </span>
       </td>
       <td className="py-3 px-4 font-bold text-[#2B0406]">
-        <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12 shadow-2xs">
+        <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/80 border border-[#5C0A0E]/12 shadow-2xs">
           {sec.name}
         </span>
       </td>
@@ -138,7 +138,7 @@ const DesktopUnitRow = memo(function DesktopUnitRow({
       </td>
       <td className="py-3 px-4 font-bold text-[#2B0406]">{unit.name}</td>
       <td className="py-3 px-4 text-xs font-medium text-[#4A070A]">
-        <span className="inline-block px-2 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12">
+        <span className="inline-block px-2 py-0.5 rounded-lg bg-white/80 border border-[#5C0A0E]/12">
           {unit.sector_name}
         </span>
       </td>
@@ -258,7 +258,13 @@ export function PublicLeaderboardDesktop({
   );
 
   return (
-    <div className="min-h-[100dvh] public-theme-bg flex flex-col">
+    <div className="relative min-h-[100dvh] public-theme-bg flex flex-col">
+      {/* Static zero-blur ambient radial gradient layer */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 -z-10 pointer-events-none public-ambient-bg transform-gpu"
+      />
+
       {/* Sticky Desktop Top Header */}
       <header className="sticky top-0 z-30 glass-rose-header gpu-chrome">
         <div className="max-w-[1440px] mx-auto px-5 xl:px-8 py-3 flex items-center justify-between gap-4">
@@ -270,7 +276,7 @@ export function PublicLeaderboardDesktop({
                   <BrandText text="SSF Wandoor" /> — Palada Payasam Challenge
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C40E16] animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C40E16] animate-pulse [contain:strict]" />
                   Live
                 </span>
               </div>
@@ -294,9 +300,9 @@ export function PublicLeaderboardDesktop({
               type="button"
               disabled={!summary.orders_open}
               onClick={onOpenQuickEntry}
-              className={`h-9 px-4 rounded-full text-xs font-bold inline-flex items-center gap-1.5 transition-all ${
+              className={`h-9 px-4 rounded-full text-xs font-bold inline-flex items-center gap-1.5 transition-[background-color,color,opacity,border-color] ${
                 summary.orders_open
-                  ? 'glass-crimson text-white shadow-sm hover:opacity-95'
+                  ? 'glass-crimson-solid text-white shadow-sm hover:opacity-95'
                   : 'bg-[#5C0A0E]/15 border border-[#5C0A0E]/20 text-[#4A070A] cursor-not-allowed'
               }`}
             >
@@ -367,7 +373,7 @@ export function PublicLeaderboardDesktop({
                 <span className="text-xs font-semibold text-[#7A2E33] whitespace-nowrap">
                   Per-Liter Rate
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-[10px] xl:text-[11px] font-bold max-w-full truncate bg-white/75 backdrop-blur-md border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-2px_rgba(92,10,14,0.08)] text-[#5C0A0E] font-ml leading-none">
+                <span className="px-2.5 py-1 rounded-full text-[10px] xl:text-[11px] font-bold max-w-full truncate bg-white/85 border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_6px_-2px_rgba(92,10,14,0.08)] text-[#5C0A0E] font-ml leading-none">
                   ഡിസംബർ 11 വെള്ളി
                 </span>
               </div>
@@ -473,7 +479,7 @@ export function PublicLeaderboardDesktop({
                 onClick={() => setActiveTab('SECTORS')}
                 className={`py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-[background-color,color,box-shadow,opacity] ${
                   activeTab === 'SECTORS'
-                    ? 'glass-crimson text-white shadow-sm'
+                    ? 'glass-crimson-solid text-white shadow-sm'
                     : 'text-[#4A070A] hover:bg-white/60'
                 }`}
               >
@@ -485,7 +491,7 @@ export function PublicLeaderboardDesktop({
                 onClick={() => setActiveTab('UNITS')}
                 className={`py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-[background-color,color,box-shadow,opacity] ${
                   activeTab === 'UNITS'
-                    ? 'glass-crimson text-white shadow-sm'
+                    ? 'glass-crimson-solid text-white shadow-sm'
                     : 'text-[#4A070A] hover:bg-white/60'
                 }`}
               >

@@ -65,7 +65,7 @@ const MobileSectorCard = memo(function MobileSectorCard({
   const liters = Number(sec.total_liters) || 0;
   const pct = Math.min(100, (liters / maxSectorLiters) * 100);
   return (
-    <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/15 p-3 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_-6px_rgba(92,10,14,0.08)]">
+    <div className="rounded-2xl glass-scroll-card p-3 space-y-2">
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
@@ -76,7 +76,7 @@ const MobileSectorCard = memo(function MobileSectorCard({
             {rank}
           </span>
           <div className="min-w-0">
-            <span className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-[#5C0A0E]/[0.06] backdrop-blur-md border border-[#5C0A0E]/12 text-xs sm:text-sm font-bold text-[#2B0406] truncate">
+            <span className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/12 text-xs sm:text-sm font-bold text-[#2B0406] truncate">
               {sec.name}
             </span>
             <p className="text-[11px] text-[#7A2E33] num mt-0.5">
@@ -114,7 +114,7 @@ const MobileUnitCard = memo(function MobileUnitCard({
   const liters = Number(unit.total_liters) || 0;
   const pct = Math.min(100, (liters / maxUnitLiters) * 100);
   return (
-    <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/15 p-3 flex items-center justify-between gap-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_-6px_rgba(92,10,14,0.08)]">
+    <div className="rounded-2xl glass-scroll-card p-3 flex items-center justify-between gap-2.5">
       <div className="flex items-center gap-2.5 min-w-0">
         <span
           className={`w-7 h-7 rounded-xl text-xs font-extrabold num inline-flex items-center justify-center shrink-0 ${rankBadgeClass(
@@ -218,7 +218,13 @@ export function PublicLeaderboardMobile({
   );
 
   return (
-    <div className="min-h-dvh public-theme-bg flex flex-col">
+    <div className="relative min-h-dvh public-theme-bg flex flex-col">
+      {/* Static zero-blur ambient radial gradient layer */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 -z-10 pointer-events-none public-ambient-bg transform-gpu"
+      />
+
       {/* Compact Sticky Edge-to-Edge Top Header */}
       <header className="sticky top-0 z-30 glass-rose-header pt-[env(safe-area-inset-top)] gpu-chrome">
         <div className="px-3.5 py-2.5 flex items-center justify-between gap-2">
@@ -231,7 +237,7 @@ export function PublicLeaderboardMobile({
                   className="text-sm font-bold text-[#2B0406] truncate"
                 />
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-800 shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C40E16] animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C40E16] animate-pulse [contain:strict]" />
                   Live
                 </span>
               </div>
@@ -244,7 +250,7 @@ export function PublicLeaderboardMobile({
               onClick={onRefresh}
               disabled={refreshing}
               aria-label="Refresh leaderboard"
-              className="w-9 h-9 rounded-full bg-[#FFF8F6]/[0.92] backdrop-blur-xl border border-[#5C0A0E]/[0.18] text-[#5C0A0E] inline-flex items-center justify-center hover:bg-white transition-colors disabled:opacity-50"
+              className="w-9 h-9 rounded-full bg-[#FFF8F6]/95 border border-[#5C0A0E]/[0.18] text-[#5C0A0E] inline-flex items-center justify-center hover:bg-white transition-colors disabled:opacity-50"
             >
               <RefreshCw
                 className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
@@ -254,7 +260,7 @@ export function PublicLeaderboardMobile({
             <button
               type="button"
               onClick={() => navigate('/login')}
-              className="h-9 px-3 rounded-full glass-crimson text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity"
+              className="h-9 px-3 rounded-full glass-crimson-solid text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity"
             >
               <LogIn className="w-3.5 h-3.5 shrink-0" />
               <span>Login</span>
@@ -295,7 +301,7 @@ export function PublicLeaderboardMobile({
               onClick={() => setActiveTab('SECTORS')}
               className={`py-2 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-[background-color,color,box-shadow,opacity] ${
                 activeTab === 'SECTORS'
-                  ? 'glass-crimson text-white shadow-sm'
+                  ? 'glass-crimson-solid text-white shadow-sm'
                   : 'text-[#4A070A] hover:bg-white/60'
               }`}
             >
@@ -307,7 +313,7 @@ export function PublicLeaderboardMobile({
               onClick={() => setActiveTab('UNITS')}
               className={`py-2 px-3 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-[background-color,color,box-shadow,opacity] ${
                 activeTab === 'UNITS'
-                  ? 'glass-crimson text-white shadow-sm'
+                  ? 'glass-crimson-solid text-white shadow-sm'
                   : 'text-[#4A070A] hover:bg-white/60'
               }`}
             >
@@ -403,7 +409,7 @@ export function PublicLeaderboardMobile({
           <button
             type="button"
             onClick={onOpenQuickEntry}
-            className="w-full py-3 px-5 rounded-2xl glass-crimson text-white font-ml text-sm font-bold inline-flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition-transform"
+            className="w-full py-3 px-5 rounded-2xl glass-crimson-solid text-white font-ml text-sm font-bold inline-flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition-transform"
           >
             <PlusCircle className="w-4 h-4 text-[#FCE36D] shrink-0" />
             <span>ക്വിക്ക് എൻട്രി (Quick Entry)</span>

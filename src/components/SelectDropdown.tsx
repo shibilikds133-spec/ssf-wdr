@@ -135,7 +135,7 @@ export function SelectDropdown({
         aria-controls={listboxId}
         onClick={toggleOpen}
         onKeyDown={handleKeyDown}
-        className={`w-full px-3 py-2 text-sm rounded-xl border inline-flex items-center justify-between gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-plum-900/20 focus:border-plum-900 ${
+        className={`w-full px-3 py-2 text-sm rounded-xl border inline-flex items-center justify-between gap-2 transition-[background-color,border-color,box-shadow,color] focus:outline-none focus:ring-2 focus:ring-plum-900/20 focus:border-plum-900 ${
           open
             ? 'border-plum-900 ring-2 ring-plum-900/20 bg-white text-ink-900'
             : 'border-milk-border bg-white/90 hover:bg-white text-ink-900'

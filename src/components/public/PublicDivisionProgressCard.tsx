@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Crown,
@@ -33,7 +33,7 @@ interface PublicDivisionProgressCardProps {
   className?: string;
 }
 
-export function PublicDivisionProgressCard({
+export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCard({
   totalLiters,
   totalOrders,
   divisionLimit,
@@ -96,7 +96,7 @@ export function PublicDivisionProgressCard({
       {/* Top Row: Title + Quick Entry Plus */}
       <div className="relative z-10 flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-8 h-8 rounded-xl bg-white/14 backdrop-blur-xl border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] inline-flex items-center justify-center shrink-0">
+          <span className="w-8 h-8 rounded-xl bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] inline-flex items-center justify-center shrink-0">
             <Trophy className="w-3.5 h-3.5 text-[#FCE36D]" />
           </span>
           <div className="min-w-0">
@@ -115,7 +115,7 @@ export function PublicDivisionProgressCard({
             onClick={onQuickEntry}
             aria-label="Quick Entry"
             title="Quick Entry"
-            className="w-8 h-8 rounded-full bg-white/14 hover:bg-white/24 backdrop-blur-xl border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] text-[#FCE36D] inline-flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 rounded-full bg-white/16 hover:bg-white/26 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] text-[#FCE36D] inline-flex items-center justify-center transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -133,12 +133,12 @@ export function PublicDivisionProgressCard({
             </p>
 
             {ordersOpen ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/20 backdrop-blur-md border border-emerald-300/45 text-[10px] font-bold text-emerald-100 whitespace-nowrap shadow-xs">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/22 border border-emerald-300/45 text-[10px] font-bold text-emerald-100 whitespace-nowrap shadow-xs">
                 <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
                 <span>Open</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/35 backdrop-blur-md border border-white/25 text-[10px] font-bold text-amber-200 whitespace-nowrap">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 border border-white/25 text-[10px] font-bold text-amber-200 whitespace-nowrap">
                 <Lock className="w-2.5 h-2.5 shrink-0" />
                 <span>Closed</span>
               </span>
@@ -199,7 +199,7 @@ export function PublicDivisionProgressCard({
                   strokeLinecap="round"
                   strokeDasharray={arcLength}
                   strokeDashoffset={dashOffset}
-                  className="transition-all duration-700 ease-out"
+                  className="transition-[stroke-dashoffset] duration-700 ease-out"
                 />
               )}
             </svg>
@@ -207,7 +207,7 @@ export function PublicDivisionProgressCard({
             {/* Center Frosted Hub + Navigation2 Arrow */}
             <div className="absolute inset-x-0 bottom-1 flex flex-col items-center justify-end pointer-events-none">
               <div
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/14 backdrop-blur-xl border border-white/30 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.45),0_6px_16px_-4px_rgba(0,0,0,0.35)] flex items-center justify-center transition-transform duration-700 ease-out"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/18 border border-white/30 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.45),0_6px_14px_-4px_rgba(0,0,0,0.32)] flex items-center justify-center transition-transform duration-700 ease-out"
                 style={{ transform: `rotate(${pointerAngleDeg}deg)` }}
               >
                 <Navigation2
@@ -226,7 +226,7 @@ export function PublicDivisionProgressCard({
           {/* 1. UPI % Circle */}
           <div
             title={`UPI Share: ${upiPercent}%`}
-            className="relative w-9 h-9 rounded-full bg-white/14 backdrop-blur-xl border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
+            className="relative w-9 h-9 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
           >
             <QrCode className="w-3.5 h-3.5 text-white" />
             <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-4 px-1 rounded-full bg-[#FCE36D] text-[#4A070A] text-[9px] font-extrabold num flex items-center justify-center shadow-sm border border-white/50">
@@ -237,7 +237,7 @@ export function PublicDivisionProgressCard({
           {/* 2. Cash Handover % Circle */}
           <div
             title={`Cash Handover Share: ${cashPercent}%`}
-            className="relative w-9 h-9 rounded-full bg-white/14 backdrop-blur-xl border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
+            className="relative w-9 h-9 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
           >
             <Wallet className="w-3.5 h-3.5 text-white" />
             <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-4 px-1 rounded-full bg-white text-[#5C0A0E] text-[9px] font-extrabold num flex items-center justify-center shadow-sm border border-white/60">
@@ -248,7 +248,7 @@ export function PublicDivisionProgressCard({
           {/* 3. Total Orders Circle */}
           <div
             title={`Total Orders: ${totalOrders}`}
-            className="relative w-9 h-9 rounded-full bg-white/14 backdrop-blur-xl border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
+            className="relative w-9 h-9 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
           >
             <ShoppingBag className="w-3.5 h-3.5 text-white" />
             <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-4 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[9px] font-extrabold num flex items-center justify-center shadow-sm border border-white/50">
@@ -314,7 +314,7 @@ export function PublicDivisionProgressCard({
             return (
               <div
                 key={sec.id}
-                className="flex-1 min-w-0 rounded-2xl bg-white/14 backdrop-blur-xl border border-white/22 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-2.5 py-1 flex items-center gap-2"
+                className="flex-1 min-w-0 rounded-2xl bg-white/16 border border-white/22 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-2.5 py-1 flex items-center gap-2"
               >
                 <span className="w-6 h-6 rounded-lg bg-white/15 border border-white/25 text-white text-[10px] font-extrabold num inline-flex items-center justify-center shrink-0">
                   #{rank}
@@ -334,6 +334,6 @@ export function PublicDivisionProgressCard({
       </div>
     </div>
   );
-}
+});
 
 export default PublicDivisionProgressCard;

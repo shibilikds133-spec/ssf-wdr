@@ -57,13 +57,13 @@ export const DOC_PAGE_THEMES: Record<DocPageKey, DocsPortalTheme> = {
 
 export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
   plum: {
-    cardSurface: 'bg-[#FDFBF8]/[0.92] backdrop-blur-xl',
-    cardBorderShadow: 'border border-[#381932]/[0.18] shadow-xl',
+    cardSurface: 'bg-[#FDFBF8]/[0.94] backdrop-blur-md',
+    cardBorderShadow: 'border border-[#381932]/[0.18] shadow-lg',
     headingText: 'text-[#210B1D]',
     bodyText: 'text-[#381932]',
     iconBadge: 'bg-[#381932] text-[#FDFBF8]',
     primaryButton: 'bg-[#381932] text-[#FDFBF8] hover:bg-[#210B1D] shadow-sm',
-    rowSurface: 'bg-white/70 border border-[#381932]/[0.10]',
+    rowSurface: 'bg-white/75 border border-[#381932]/[0.10]',
     rowIconBadge: 'bg-[#381932]/[0.08] text-[#381932]',
     portalBadge:
       'bg-[#381932]/[0.08] text-[#210B1D] border border-[#381932]/[0.15]',
@@ -73,16 +73,16 @@ export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
       'text-[#381932]/80 hover:text-[#210B1D] hover:bg-[#381932]/[0.08]',
     backdrop: 'bg-[#210B1D]/40 backdrop-blur-sm',
     triggerButton:
-      'bg-[#FDFBF8]/[0.92] backdrop-blur-xl border border-[#381932]/[0.18] text-[#381932] hover:bg-white shadow-xs',
+      'bg-[#FDFBF8]/95 border border-[#381932]/[0.18] text-[#381932] hover:bg-white shadow-xs',
   },
   forest: {
-    cardSurface: 'bg-[#F9FCF6]/[0.92] backdrop-blur-xl',
-    cardBorderShadow: 'border border-[#043326]/[0.18] shadow-xl',
+    cardSurface: 'bg-[#F9FCF6]/[0.94] backdrop-blur-md',
+    cardBorderShadow: 'border border-[#043326]/[0.18] shadow-lg',
     headingText: 'text-[#021C14]',
     bodyText: 'text-[#043326]',
     iconBadge: 'bg-[#043326] text-[#F9FCF6]',
     primaryButton: 'bg-[#043326] text-[#F9FCF6] hover:bg-[#021C14] shadow-sm',
-    rowSurface: 'bg-white/70 border border-[#043326]/[0.10]',
+    rowSurface: 'bg-white/75 border border-[#043326]/[0.10]',
     rowIconBadge: 'bg-[#043326]/[0.08] text-[#043326]',
     portalBadge:
       'bg-[#043326]/[0.08] text-[#021C14] border border-[#043326]/[0.15]',
@@ -92,16 +92,16 @@ export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
       'text-[#043326]/80 hover:text-[#021C14] hover:bg-[#043326]/[0.08]',
     backdrop: 'bg-[#021C14]/40 backdrop-blur-sm',
     triggerButton:
-      'bg-[#F9FCF6]/[0.92] backdrop-blur-xl border border-[#043326]/[0.18] text-[#043326] hover:bg-white shadow-xs',
+      'bg-[#F9FCF6]/95 border border-[#043326]/[0.18] text-[#043326] hover:bg-white shadow-xs',
   },
   orange: {
-    cardSurface: 'bg-[#FDFDF1]/[0.94] backdrop-blur-xl',
-    cardBorderShadow: 'border border-[#EC5E27]/[0.24] shadow-xl',
+    cardSurface: 'bg-[#FDFDF1]/[0.95] backdrop-blur-md',
+    cardBorderShadow: 'border border-[#EC5E27]/[0.24] shadow-lg',
     headingText: 'text-[#4A1404]',
     bodyText: 'text-[#5C1B07]',
     iconBadge: 'bg-[#EC5E27] text-[#FDFDF1]',
     primaryButton: 'bg-[#EC5E27] text-[#FDFDF1] hover:bg-[#D44B1A] shadow-sm',
-    rowSurface: 'bg-white/75 border border-[#EC5E27]/[0.14]',
+    rowSurface: 'bg-white/80 border border-[#EC5E27]/[0.14]',
     rowIconBadge: 'bg-[#EC5E27]/[0.12] text-[#4A1404]',
     portalBadge:
       'bg-[#EC5E27]/[0.12] text-[#4A1404] border border-[#EC5E27]/[0.20]',
@@ -111,17 +111,17 @@ export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
       'text-[#5C1B07]/80 hover:text-[#4A1404] hover:bg-[#EC5E27]/[0.10]',
     backdrop: 'bg-[#4A1404]/35 backdrop-blur-sm',
     triggerButton:
-      'bg-[#FDFDF1]/[0.94] backdrop-blur-xl border border-[#EC5E27]/[0.24] text-[#5C1B07] hover:bg-white shadow-xs',
+      'bg-[#FDFDF1]/95 border border-[#EC5E27]/[0.24] text-[#5C1B07] hover:bg-white shadow-xs',
   },
   public: {
-    cardSurface: 'bg-[#FFF8F6]/[0.94] backdrop-blur-xl',
-    cardBorderShadow: 'border border-[#5C0A0E]/[0.18] shadow-xl',
+    cardSurface: 'bg-[#FFF8F6]/[0.95] backdrop-blur-md',
+    cardBorderShadow: 'border border-[#5C0A0E]/[0.18] shadow-lg',
     headingText: 'text-[#2B0406]',
     bodyText: 'text-[#4A070A]',
     iconBadge: 'bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white',
     primaryButton:
       'bg-gradient-to-r from-[#8F0D14] to-[#5C0A0E] text-white hover:opacity-95 shadow-sm',
-    rowSurface: 'bg-white/80 border border-[#5C0A0E]/[0.12]',
+    rowSurface: 'bg-white/85 border border-[#5C0A0E]/[0.12]',
     rowIconBadge: 'bg-[#5C0A0E]/[0.08] text-[#5C0A0E]',
     portalBadge:
       'bg-[#5C0A0E]/[0.08] text-[#2B0406] border border-[#5C0A0E]/[0.16]',
@@ -131,7 +131,7 @@ export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
       'text-[#4A070A]/80 hover:text-[#2B0406] hover:bg-[#5C0A0E]/[0.08]',
     backdrop: 'bg-[#2B0406]/40 backdrop-blur-sm',
     triggerButton:
-      'bg-[#FFF8F6]/[0.92] backdrop-blur-xl border border-[#5C0A0E]/[0.18] text-[#5C0A0E] hover:bg-white shadow-xs',
+      'bg-[#FFF8F6]/95 border border-[#5C0A0E]/[0.18] text-[#5C0A0E] hover:bg-white shadow-xs',
   },
 };
 

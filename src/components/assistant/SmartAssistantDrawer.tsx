@@ -555,7 +555,7 @@ export function SmartAssistantDrawer({
       <section
         role="dialog"
         aria-label="സഹായി (Smart Help Assistant)"
-        className={`${drawerPositionClass} ${styles.cardSurface} flex flex-col overflow-hidden transition-all duration-200 ease-out motion-reduce:transition-none ${
+        className={`${drawerPositionClass} ${styles.cardSurface} flex flex-col overflow-hidden transition-[transform,opacity,background-color,border-color,color] duration-200 ease-out motion-reduce:transition-none ${
           entered
             ? 'opacity-100 translate-y-0 scale-100'
             : 'opacity-0 translate-y-3 scale-[0.98]'
@@ -660,7 +660,7 @@ export function SmartAssistantDrawer({
                           prev === cat.id ? null : cat.id
                         )
                       }
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-ml font-semibold transition-all duration-150 ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-ml font-semibold transition-[transform,opacity,background-color,border-color,color] duration-150 ${
                         active ? styles.categoryActive : styles.categoryIdle
                       }`}
                     >
@@ -688,7 +688,7 @@ export function SmartAssistantDrawer({
                       key={item.id}
                       type="button"
                       onClick={() => selectQuestion(item)}
-                      className={`group w-full text-left rounded-2xl px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-all duration-150 ${styles.questionCard}`}
+                      className={`group w-full text-left rounded-2xl px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-[transform,opacity,background-color,border-color,color] duration-150 ${styles.questionCard}`}
                     >
                       <div className="flex items-start gap-2.5 min-w-0">
                         <span
@@ -912,7 +912,7 @@ export function SmartAssistantDrawer({
 
           <form
             onSubmit={handleSubmit}
-            className={`flex items-center gap-1.5 rounded-full pl-3.5 pr-1.5 py-1 transition-all ${styles.pillInputWrapper}`}
+            className={`flex items-center gap-1.5 rounded-full pl-3.5 pr-1.5 py-1 transition-[transform,opacity,background-color,border-color,color] ${styles.pillInputWrapper}`}
           >
             <input
               ref={inputRef}
@@ -927,7 +927,7 @@ export function SmartAssistantDrawer({
               type="submit"
               disabled={!query.trim() || !kb}
               aria-label="Submit help question"
-              className={`h-8 w-8 rounded-full shrink-0 flex items-center justify-center transition-all disabled:opacity-40 hover:brightness-110 active:scale-95 ${styles.accentButton}`}
+              className={`h-8 w-8 rounded-full shrink-0 flex items-center justify-center transition-[transform,opacity,background-color,border-color,color] disabled:opacity-40 hover:brightness-110 active:scale-95 ${styles.accentButton}`}
             >
               <ArrowUp className="w-4 h-4" strokeWidth={2.4} />
             </button>

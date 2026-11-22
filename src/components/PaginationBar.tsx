@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export type PaginationTheme = 'admin' | 'sector' | 'unit' | 'public';
@@ -65,15 +66,15 @@ const THEME_STYLES: Record<
   },
   public: {
     container:
-      'bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_4px_14px_-6px_rgba(92,10,14,0.08)]',
+      'bg-white/80 border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_3px_10px_-6px_rgba(92,10,14,0.08)]',
     primaryText: 'text-[#2B0406]',
     mutedText: 'text-[#7A2E33]',
     buttonIdle:
       'border border-[#5C0A0E]/18 bg-white/90 text-[#4A070A] hover:bg-white',
-    buttonActive: 'glass-crimson text-white border border-transparent shadow-xs',
+    buttonActive: 'glass-crimson-solid text-white border border-transparent shadow-xs',
     pillTrack: 'glass-rose-pill',
     pillIdle: 'text-[#7A2E33] hover:text-[#2B0406]',
-    pillActive: 'glass-crimson text-white shadow-2xs',
+    pillActive: 'glass-crimson-solid text-white shadow-2xs',
   },
 };
 
@@ -100,7 +101,7 @@ function buildPageTokens(currentPage: number, totalPages: number): (number | 'el
   return tokens;
 }
 
-export function PaginationBar({
+export const PaginationBar = memo(function PaginationBar({
   page,
   totalPages,
   totalCount,
@@ -332,4 +333,4 @@ export function PaginationBar({
       </div>
     </div>
   );
-}
+});

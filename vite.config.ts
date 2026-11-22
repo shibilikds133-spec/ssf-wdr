@@ -44,6 +44,36 @@ export default defineConfig(({ command }) => {
     define: {
       'import.meta.env.VITE_APP_BUILD_VERSION': JSON.stringify(buildVersion),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (!id.includes('node_modules')) return undefined;
+            if (
+              id.includes('/node_modules/react/') ||
+              id.includes('/node_modules/react-dom/') ||
+              id.includes('/node_modules/scheduler/') ||
+              id.includes('/node_modules/react-router/') ||
+              id.includes('/node_modules/react-router-dom/') ||
+              id.includes('\\node_modules\\react\\') ||
+              id.includes('\\node_modules\\react-dom\\') ||
+              id.includes('\\node_modules\\scheduler\\') ||
+              id.includes('\\node_modules\\react-router\\') ||
+              id.includes('\\node_modules\\react-router-dom\\')
+            ) {
+              return 'vendor-react';
+            }
+            if (
+              id.includes('/node_modules/@supabase/') ||
+              id.includes('\\node_modules\\@supabase\\')
+            ) {
+              return 'vendor-supabase';
+            }
+            return undefined;
+          },
+        },
+      },
+    },
     plugins: [react(), stampServiceWorkerVersion(buildVersion)],
   };
 });

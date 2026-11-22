@@ -358,7 +358,7 @@ export function PublicQuickEntryModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg min-h-[70dvh] sm:min-h-0 max-h-[90dvh] flex flex-col bg-[#FFF8F6]/[0.92] backdrop-blur-2xl rounded-3xl border border-[#5C0A0E]/20 shadow-[0_24px_64px_-12px_rgba(43,4,6,0.48),inset_0_1px_0_rgba(255,255,255,0.95)] overflow-hidden"
+        className="w-full max-w-lg min-h-[70dvh] sm:min-h-0 max-h-[90dvh] flex flex-col bg-[#FFF8F6]/[0.95] backdrop-blur-lg rounded-3xl border border-[#5C0A0E]/20 shadow-xl overflow-hidden gpu-chrome"
       >
         {/* Frosted Glass Header */}
         <div className="px-5 py-4 bg-gradient-to-r from-[#5C0A0E]/[0.08] via-[#C40E16]/[0.04] to-transparent border-b border-[#5C0A0E]/14 flex items-center justify-between shrink-0">
@@ -409,7 +409,7 @@ export function PublicQuickEntryModal({
             </div>
           ) : receipt ? (
             <div className="p-5 sm:p-6 space-y-5">
-              <div className="rounded-2xl bg-emerald-50/90 backdrop-blur-md border border-emerald-200 p-4 flex items-center gap-3">
+              <div className="rounded-2xl bg-emerald-50/95 border border-emerald-200 p-4 flex items-center gap-3">
                 <CheckCircle2 className="w-7 h-7 text-emerald-700 shrink-0" />
                 <div>
                   <h3 className="font-ml text-sm font-bold text-emerald-950">
@@ -426,7 +426,7 @@ export function PublicQuickEntryModal({
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-[#5C0A0E]/14 p-4 space-y-2 text-xs">
+              <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/14 p-4 space-y-2 text-xs">
                 <div className="flex justify-between gap-2">
                   <span className="text-[#7A2E33]">Customer</span>
                   <span className="font-semibold text-[#2B0406] text-right">
@@ -496,7 +496,7 @@ export function PublicQuickEntryModal({
 
               {/* Remembered Unit Pill (14-Day Device Memory) OR Modern Frosted Glass Sector -> Unit Selector */}
               {validRemembered ? (
-                <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/18 px-3.5 py-3 flex items-center justify-between gap-3 shadow-xs">
+                <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/18 px-3.5 py-3 flex items-center justify-between gap-3 shadow-xs">
                   <div className="min-w-0">
                     <p className="font-ml text-[10px] font-semibold uppercase tracking-wide text-[#7A2E33]">
                       തിരഞ്ഞെടുത്ത യൂണിറ്റ് (14 ദിവസത്തേക്ക് ഓർമ്മിച്ചിരിക്കുന്നു)
@@ -520,7 +520,7 @@ export function PublicQuickEntryModal({
                 <div className="space-y-3">
                   {/* Step 1: Sector Glass Picker */}
                   {!selectedSector ? (
-                    <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/16 p-3.5 space-y-2.5 shadow-xs">
+                    <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/16 p-3.5 space-y-2.5 shadow-xs">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-ml text-xs font-bold text-[#2B0406] inline-flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 text-[#C40E16]" />
@@ -548,7 +548,7 @@ export function PublicQuickEntryModal({
                             key={sec.id}
                             type="button"
                             onClick={() => handleSectorSelect(String(sec.id))}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white/80 hover:bg-white backdrop-blur-md border border-[#5C0A0E]/14 hover:border-[#5C0A0E]/35 text-xs sm:text-sm font-bold text-[#2B0406] flex items-center justify-between gap-2 shadow-2xs transition-all"
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white/85 hover:bg-white border border-[#5C0A0E]/14 hover:border-[#5C0A0E]/35 text-xs sm:text-sm font-bold text-[#2B0406] flex items-center justify-between gap-2 shadow-2xs transition-[background-color,border-color,color]"
                           >
                             <span className="truncate">{sec.name}</span>
                             <ChevronRight className="w-4 h-4 text-[#7A2E33] shrink-0" />
@@ -558,7 +558,7 @@ export function PublicQuickEntryModal({
                     </div>
                   ) : (
                     /* Selected Sector Glass Pill */
-                    <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs">
+                    <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-7 h-7 rounded-xl glass-crimson text-white inline-flex items-center justify-center shrink-0">
                           <Check className="w-3.5 h-3.5" />
@@ -588,7 +588,7 @@ export function PublicQuickEntryModal({
 
                   {/* Step 2: Unit Glass Picker — strictly hidden until Sector is selected */}
                   {selectedSector && !activeUnit && (
-                    <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/16 p-3.5 space-y-2.5 shadow-xs">
+                    <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/16 p-3.5 space-y-2.5 shadow-xs">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-ml text-xs font-bold text-[#2B0406] inline-flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5 text-[#C40E16]" />
@@ -616,7 +616,7 @@ export function PublicQuickEntryModal({
                             key={unit.id}
                             type="button"
                             onClick={() => handleUnitSelect(String(unit.id))}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white/80 hover:bg-white backdrop-blur-md border border-[#5C0A0E]/14 hover:border-[#5C0A0E]/35 text-xs sm:text-sm font-bold text-[#2B0406] flex items-center justify-between gap-2 shadow-2xs transition-all"
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white/85 hover:bg-white border border-[#5C0A0E]/14 hover:border-[#5C0A0E]/35 text-xs sm:text-sm font-bold text-[#2B0406] flex items-center justify-between gap-2 shadow-2xs transition-[background-color,border-color,color]"
                           >
                             <span className="truncate">{unit.name}</span>
                             <ChevronRight className="w-4 h-4 text-[#7A2E33] shrink-0" />
@@ -628,7 +628,7 @@ export function PublicQuickEntryModal({
 
                   {/* Selected Unit Glass Pill (before first submit) */}
                   {selectedSector && activeUnit && (
-                    <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs">
+                    <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-7 h-7 rounded-xl glass-crimson text-white inline-flex items-center justify-center shrink-0">
                           <Check className="w-3.5 h-3.5" />
@@ -679,13 +679,13 @@ export function PublicQuickEntryModal({
                           setUnitCode(e.target.value.toUpperCase())
                         }
                         placeholder="ഉദാ: WDR12"
-                        className="w-full pl-9 pr-3 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-[#5C0A0E]/20 bg-white/90 backdrop-blur-md text-[#2B0406] placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="w-full pl-9 pr-3 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-[#2B0406] placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                     </div>
                   </div>
 
                   {/* Quantity */}
-                  <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/16 p-3.5 space-y-3">
+                  <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/16 p-3.5 space-y-3">
                     <div className="flex items-center justify-between">
                       <label
                         htmlFor="pub-qty-input"
@@ -706,7 +706,7 @@ export function PublicQuickEntryModal({
                             key={q}
                             type="button"
                             onClick={() => setQuantity(String(q))}
-                            className={`py-2 rounded-xl text-xs font-bold num transition-all ${
+                            className={`py-2 rounded-xl text-xs font-bold num transition-[background-color,border-color,color,opacity] ${
                               active
                                 ? 'glass-crimson text-white shadow-sm'
                                 : 'bg-white/90 border border-[#5C0A0E]/15 text-[#4A070A] hover:bg-white'
@@ -766,7 +766,7 @@ export function PublicQuickEntryModal({
                         value={contributorName}
                         onChange={(e) => setContributorName(e.target.value)}
                         placeholder="Customer Name"
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/90 backdrop-blur-md text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                     </div>
                     <div>
@@ -789,7 +789,7 @@ export function PublicQuickEntryModal({
                           )
                         }
                         placeholder="10-digit WhatsApp No."
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/90 backdrop-blur-md text-[#2B0406] num placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-[#2B0406] num placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                     </div>
                   </div>
@@ -811,7 +811,7 @@ export function PublicQuickEntryModal({
                       <button
                         type="button"
                         onClick={() => setPaymentStatus('PAID')}
-                        className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-[background-color,border-color,color,opacity] ${
                           paymentStatus === 'PAID'
                             ? 'bg-emerald-700 border-emerald-800 text-white shadow-sm'
                             : 'bg-white/85 border-[#5C0A0E]/18 text-[#2B0406] hover:bg-white'
@@ -827,7 +827,7 @@ export function PublicQuickEntryModal({
                           setPaymentStatus('UNPAID');
                           setPaymentMethod(null);
                         }}
-                        className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-[background-color,border-color,color,opacity] ${
                           paymentStatus === 'UNPAID'
                             ? 'bg-amber-600 border-amber-700 text-white shadow-sm'
                             : 'bg-white/85 border-[#5C0A0E]/18 text-[#2B0406] hover:bg-white'
@@ -843,7 +843,7 @@ export function PublicQuickEntryModal({
                         <button
                           type="button"
                           onClick={() => setPaymentMethod('CASH')}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-[background-color,border-color,color,opacity] ${
                             paymentMethod === 'CASH'
                               ? 'glass-crimson text-white shadow-sm'
                               : 'bg-white/85 border-[#5C0A0E]/18 text-[#4A070A] hover:bg-white'
@@ -856,7 +856,7 @@ export function PublicQuickEntryModal({
                         <button
                           type="button"
                           onClick={() => setPaymentMethod('UPI')}
-                          className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                          className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-[background-color,border-color,color,opacity] ${
                             paymentMethod === 'UPI'
                               ? 'glass-crimson text-white shadow-sm'
                               : 'bg-white/85 border-[#5C0A0E]/18 text-[#4A070A] hover:bg-white'

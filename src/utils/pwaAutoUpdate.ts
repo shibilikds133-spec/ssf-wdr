@@ -296,9 +296,29 @@ export function initPwaAutoUpdate(): void {
       });
   };
 
+  const scheduleRegister = () => {
+    if (shouldForceUpdateCheck) {
+      register();
+      return;
+    }
+    const win = window as Window & {
+      requestIdleCallback?: (
+        cb: () => void,
+        opts?: { timeout: number }
+      ) => number;
+    };
+    window.setTimeout(() => {
+      if (typeof win.requestIdleCallback === 'function') {
+        win.requestIdleCallback(register, { timeout: 2500 });
+      } else {
+        register();
+      }
+    }, 2000);
+  };
+
   if (document.readyState === 'complete') {
-    register();
+    scheduleRegister();
   } else {
-    window.addEventListener('load', register, { once: true });
+    window.addEventListener('load', scheduleRegister, { once: true });
   }
 }

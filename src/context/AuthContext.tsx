@@ -14,17 +14,41 @@ import {
   normalizeDocPageKeys,
   writeLocalSeenDocPage,
 } from '../utils/docsConfig';
-import { supabase } from '../lib/supabase';
 import type { AuthSession, UserRole } from '../types';
-import {
-  saveCachedAdminWhatsAppPhone,
-  syncHelpKbIfNeeded,
-} from '../utils/helpKbDb';
-import {
-  maybeAutoNotifyAdminAppUpdate,
-  syncExistingPushSubscription,
-  unsubscribeFromPush,
-} from '../utils/pushNotifications';
+
+async function getSupabase() {
+  const mod = await import('../lib/supabase');
+  return mod.supabase;
+}
+
+function scheduleIdleTask(task: () => void, delayMs = 2000): () => void {
+  if (typeof window === 'undefined') return () => {};
+  let idleId: number | null = null;
+  const win = window as Window & {
+    requestIdleCallback?: (
+      cb: () => void,
+      opts?: { timeout: number }
+    ) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+  const timerId = window.setTimeout(() => {
+    if (typeof win.requestIdleCallback === 'function') {
+      idleId = win.requestIdleCallback(() => {
+        idleId = null;
+        task();
+      }, { timeout: 2500 });
+    } else {
+      task();
+    }
+  }, delayMs);
+
+  return () => {
+    window.clearTimeout(timerId);
+    if (idleId !== null && typeof win.cancelIdleCallback === 'function') {
+      win.cancelIdleCallback(idleId);
+    }
+  };
+}
 
 const AUTH_STORAGE_KEY = 'wdr_auth_session_v1';
 const AUTH_NOTICE_KEY = 'wdr_auth_notice_v1';
@@ -135,6 +159,13 @@ function readStoredSession(): AuthSession | null {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
       return null;
     }
+    if (typeof record.expires_at === 'string') {
+      const expiresMs = Date.parse(record.expires_at);
+      if (Number.isFinite(expiresMs) && expiresMs <= Date.now()) {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+      }
+    }
     return {
       role: record.role,
       code: record.code,
@@ -207,19 +238,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthNotice(null);
   }, []);
 
-  // 14-day sliding JWT boot refresh
+  // 14-day sliding JWT boot refresh (0ms short-circuit + 0 Supabase RPCs when guest)
   useEffect(() => {
     const initial = readStoredSession();
     if (!initial) {
-      try {
-        if (window.sessionStorage.getItem(KB_CHECKED_SESSION_KEY) !== '1') {
+      const cancelIdle = scheduleIdleTask(() => {
+        try {
+          if (window.sessionStorage.getItem(KB_CHECKED_SESSION_KEY) === '1') {
+            return;
+          }
           window.sessionStorage.setItem(KB_CHECKED_SESSION_KEY, '1');
-          void syncHelpKbIfNeeded();
+        } catch {
+          // Ignore sessionStorage errors
         }
-      } catch {
-        void syncHelpKbIfNeeded();
-      }
-      return;
+        void import('../utils/helpKbDb')
+          .then((mod) => mod.syncHelpKbIfNeeded())
+          .catch(() => undefined);
+      }, 2000);
+      return cancelIdle;
     }
     const token = initial.token || initial.code;
     if (!token) return;
@@ -227,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
     const refreshSession = async () => {
       try {
+        const supabase = await getSupabase();
         const { data, error } = await supabase.rpc('auth_refresh_session', {
           p_token: token,
         });
@@ -280,14 +317,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ? { help_kb_version: res.help_kb_version }
               : {}),
           };
-          if (typeof res.admin_whatsapp_phone === 'string') {
-            saveCachedAdminWhatsAppPhone(res.admin_whatsapp_phone);
-          }
+          const adminPhone =
+            typeof res.admin_whatsapp_phone === 'string'
+              ? res.admin_whatsapp_phone
+              : null;
           const serverKbVersion =
             typeof res.help_kb_version === 'number'
               ? res.help_kb_version
               : undefined;
-          void syncHelpKbIfNeeded(serverKbVersion);
+          void import('../utils/helpKbDb')
+            .then((mod) => {
+              if (adminPhone) {
+                mod.saveCachedAdminWhatsAppPhone(adminPhone);
+              }
+              return mod.syncHelpKbIfNeeded(serverKbVersion);
+            })
+            .catch(() => undefined);
           setSession((prev) => {
             if (!prev) return null;
             const sameAccount =
@@ -326,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setAuthNotice(null);
       try {
+        const supabase = await getSupabase();
         const { data, error } = await supabase.rpc('auth_login', {
           p_username: trimmedUser,
           p_password: trimmedPass,
@@ -385,14 +431,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         writeLocalSeenDocPage('guest', 'login');
         saveSession(nextSession);
         setSession(nextSession);
-        if (typeof result.admin_whatsapp_phone === 'string') {
-          saveCachedAdminWhatsAppPhone(result.admin_whatsapp_phone);
-        }
+        const adminPhone =
+          typeof result.admin_whatsapp_phone === 'string'
+            ? result.admin_whatsapp_phone
+            : null;
         const serverKbVersion =
           typeof result.help_kb_version === 'number'
             ? result.help_kb_version
             : undefined;
-        void syncHelpKbIfNeeded(serverKbVersion);
+        void import('../utils/helpKbDb')
+          .then((mod) => {
+            if (adminPhone) {
+              mod.saveCachedAdminWhatsAppPhone(adminPhone);
+            }
+            return mod.syncHelpKbIfNeeded(serverKbVersion);
+          })
+          .catch(() => undefined);
         return {
           ok: true,
           role: nextSession.role,
@@ -426,6 +480,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const trimmedNewUsername = newUsername?.trim() ?? '';
 
       try {
+        const supabase = await getSupabase();
         const { data, error } = await supabase.rpc(
           'auth_complete_first_login',
           {
@@ -493,19 +548,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const activeSession = sessionRef.current;
     const token = activeSession?.token || activeSession?.code;
     if (!token) return;
+    const isAdmin = activeSession?.role === 'ADMIN';
 
-    void syncExistingPushSubscription(token);
-    if (activeSession?.role === 'ADMIN') {
-      void maybeAutoNotifyAdminAppUpdate(token);
-    }
+    void import('../utils/pushNotifications')
+      .then((mod) => {
+        void mod.syncExistingPushSubscription(token);
+        if (isAdmin) {
+          void mod.maybeAutoNotifyAdminAppUpdate(token);
+        }
+      })
+      .catch(() => undefined);
   }, [pushIdentityKey]);
 
   const logout = useCallback(
     (notice?: string): void => {
-      void unsubscribeFromPush();
+      void import('../utils/pushNotifications')
+        .then((mod) => mod.unsubscribeFromPush())
+        .catch(() => undefined);
       const token = session?.token || session?.code;
       if (token) {
-        void supabase.rpc('auth_logout', { p_token: token });
+        void getSupabase()
+          .then((sb) => sb.rpc('auth_logout', { p_token: token }))
+          .catch(() => undefined);
       }
       try {
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -572,6 +636,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authCode || alreadyInSession) return;
 
     try {
+      const supabase = await getSupabase();
       const { data, error } = await supabase.rpc('auth_mark_doc_page_seen', {
         p_code: authCode,
         p_page_key: key,

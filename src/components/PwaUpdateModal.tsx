@@ -287,7 +287,7 @@ export function PwaUpdateModal() {
         className="fixed top-3 top-[max(0.75rem,env(safe-area-inset-top))] inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-[80] pointer-events-none"
       >
         <div
-          className={`pointer-events-auto ${styles.cardSurface} ${styles.cardBorderShadow} ${portalCta.pillBorderAccent} rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 transition-all duration-300 ease-out motion-reduce:transition-none ${
+          className={`pointer-events-auto ${styles.cardSurface} ${styles.cardBorderShadow} ${portalCta.pillBorderAccent} rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none gpu-chrome ${
             entered ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'
           }`}
         >
@@ -341,7 +341,7 @@ export function PwaUpdateModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-md ${styles.cardSurface} ${styles.cardBorderShadow} rounded-3xl p-6 sm:p-7 transition-all duration-200 ease-out motion-reduce:transition-none ${
+        className={`relative w-full max-w-md ${styles.cardSurface} ${styles.cardBorderShadow} rounded-3xl p-6 sm:p-7 transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none gpu-chrome ${
           entered ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >

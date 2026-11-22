@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 interface PublicPosterWindowProps {
   className?: string;
 }
 
-export function PublicPosterWindow({
+export const PublicPosterWindow = memo(function PublicPosterWindow({
   className = '',
 }: PublicPosterWindowProps) {
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -92,6 +92,6 @@ export function PublicPosterWindow({
       )}
     </>
   );
-}
+});
 
 export default PublicPosterWindow;

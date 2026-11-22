@@ -45,7 +45,7 @@ const PORTAL_STYLES: Record<
 > = {
   plum: {
     glassSurface:
-      'bg-[#FDFBF8]/[0.88] backdrop-blur-2xl border border-[#381932]/[0.20] shadow-[0_24px_64px_-12px_rgba(33,11,29,0.38),inset_0_1px_0_rgba(255,255,255,0.95)]',
+      'bg-[#FDFBF8]/[0.88] backdrop-blur-lg border border-[#381932]/[0.20] shadow-[0_24px_64px_-12px_rgba(33,11,29,0.38),inset_0_1px_0_rgba(255,255,255,0.95)]',
     accentPill:
       'glass-plum text-white border border-white/25 shadow-sm',
     iconBadge:
@@ -58,7 +58,7 @@ const PORTAL_STYLES: Record<
   },
   forest: {
     glassSurface:
-      'bg-[#F9FCF6]/[0.88] backdrop-blur-2xl border border-[#043326]/[0.20] shadow-[0_24px_64px_-12px_rgba(2,28,20,0.38),inset_0_1px_0_rgba(255,255,255,0.95)]',
+      'bg-[#F9FCF6]/[0.88] backdrop-blur-lg border border-[#043326]/[0.20] shadow-[0_24px_64px_-12px_rgba(2,28,20,0.38),inset_0_1px_0_rgba(255,255,255,0.95)]',
     accentPill:
       'glass-forest text-white border border-white/25 shadow-sm',
     iconBadge:
@@ -71,7 +71,7 @@ const PORTAL_STYLES: Record<
   },
   orange: {
     glassSurface:
-      'bg-[#FDFDF1]/[0.90] backdrop-blur-2xl border border-[#EC5E27]/[0.26] shadow-[0_24px_64px_-12px_rgba(143,45,13,0.32),inset_0_1px_0_rgba(255,255,255,0.95)]',
+      'bg-[#FDFDF1]/[0.90] backdrop-blur-lg border border-[#EC5E27]/[0.26] shadow-[0_24px_64px_-12px_rgba(143,45,13,0.32),inset_0_1px_0_rgba(255,255,255,0.95)]',
     accentPill:
       'glass-orange text-white border border-white/30 shadow-sm',
     iconBadge:
@@ -84,7 +84,7 @@ const PORTAL_STYLES: Record<
   },
   public: {
     glassSurface:
-      'bg-[#FFF8F6]/[0.92] backdrop-blur-2xl border border-[#5C0A0E]/[0.20] shadow-[0_24px_64px_-12px_rgba(92,10,14,0.34),inset_0_1px_0_rgba(255,255,255,0.95)]',
+      'bg-[#FFF8F6]/[0.92] backdrop-blur-lg border border-[#5C0A0E]/[0.20] shadow-[0_24px_64px_-12px_rgba(92,10,14,0.34),inset_0_1px_0_rgba(255,255,255,0.95)]',
     accentPill:
       'glass-crimson text-white border border-white/25 shadow-sm',
     iconBadge:
@@ -337,7 +337,7 @@ export function PushPermissionModal() {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-md overflow-hidden ${cta.glassSurface} rounded-3xl p-6 transition-all duration-200 ease-out motion-reduce:transition-none ${
+        className={`relative w-full max-w-md overflow-hidden ${cta.glassSurface} rounded-3xl p-6 transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none gpu-chrome ${
           entered ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >

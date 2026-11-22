@@ -1,5 +1,7 @@
 import {
+  lazy,
   startTransition,
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -9,37 +11,31 @@ import { Bell, Loader2, Sparkles, X } from 'lucide-react';
 import { BrandLoadingScreen } from '../components/BrandLoadingScreen';
 import { PublicLeaderboardDesktop } from '../components/public/PublicLeaderboardDesktop';
 import { PublicLeaderboardMobile } from '../components/public/PublicLeaderboardMobile';
-import { PublicQuickEntryModal } from '../components/public/PublicQuickEntryModal';
 import { useDocs, useRegisterPageDocs } from '../context/DocsContext';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { usePortalThemeColor } from '../hooks/usePortalThemeColor';
 import { clearCached, getCached, setCached } from '../lib/cache';
-import { supabase } from '../lib/supabase';
 import type {
   PublicLeaderboardResponse,
   PublicLeaderboardUnit,
 } from '../types';
 import { DOCS_THEME_STYLES } from '../utils/docsConfig';
 import {
-  getNotificationPermission,
-  getVapidPublicKey,
-  isIosNonStandalone,
-  isPublicPushDismissCooldownActive,
-  isPushSupported,
-  markPublicPushPromptDismissed,
-  resolveVapidPublicKey,
-  subscribePublicPush,
-  subscribePushUiState,
-} from '../utils/pushNotifications';
-import {
   isPwaUpdateAvailable,
   subscribePwaUpdate,
 } from '../utils/pwaAutoUpdate';
 
+const PublicQuickEntryModal = lazy(
+  () => import('../components/public/PublicQuickEntryModal')
+);
+
+type PushModule = typeof import('../utils/pushNotifications');
+
 const LEADERBOARD_CACHE_KEY = 'wdr_public_leaderboard_v1';
 const LEADERBOARD_CACHE_TTL_MS = 20_000;
 const POSTER_PRELOAD_TIMEOUT_MS = 2500;
+const PUSH_CHECK_IDLE_DELAY_MS = 2000;
 const PUBLIC_PUSH_DELAY_MS = 6500;
 const PUBLIC_UNITS_PAGE_SIZE = 10;
 
@@ -86,7 +82,8 @@ async function fetchPublicLeaderboardPage(params: {
     // Fall back to direct Supabase RPC (e.g. local Vite dev)
   }
 
-  // 2. Direct Supabase RPC fallback
+  // 2. Direct Supabase RPC fallback (dynamically imported so 0 KB loads in prod)
+  const { supabase } = await import('../lib/supabase');
   let rpcBuilder = supabase.rpc('get_public_leaderboard_page', {
     p_page: page,
     p_page_size: pageSize,
@@ -171,6 +168,9 @@ export default function PublicPage() {
       LEADERBOARD_CACHE_TTL_MS
     )
   );
+  const dataRef = useRef<PublicLeaderboardResponse | null>(data);
+  dataRef.current = data;
+
   const [posterReady, setPosterReady] = useState(false);
   const [loading, setLoading] = useState<boolean>(
     () =>
@@ -192,16 +192,14 @@ export default function PublicPage() {
   const [sectorFilter, setSectorFilter] = useState('ALL');
   const [unitPage, setUnitPage] = useState(1);
 
-  // Public Push Permission Prompt states
-  const [pushVapReady, setPushVapReady] = useState(() =>
-    Boolean(getVapidPublicKey())
-  );
-  const [pushPermission, setPushPermission] = useState(() =>
-    getNotificationPermission()
-  );
-  const [pushDismissed, setPushDismissed] = useState(() =>
-    isPublicPushDismissCooldownActive()
-  );
+  // Public Push Permission Prompt states (deferred until idle)
+  const pushModRef = useRef<PushModule | null>(null);
+  const [pushSupportedState, setPushSupportedState] = useState(false);
+  const [pushVapReady, setPushVapReady] = useState(false);
+  const [pushPermission, setPushPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >('unsupported');
+  const [pushDismissed, setPushDismissed] = useState(true);
   const [updatePending, setUpdatePending] = useState(() =>
     isPwaUpdateAvailable()
   );
@@ -241,7 +239,11 @@ export default function PublicPage() {
           LEADERBOARD_CACHE_KEY,
           LEADERBOARD_CACHE_TTL_MS
         );
-        if (cached && Array.isArray(cached.units) && cached.units.length <= PUBLIC_UNITS_PAGE_SIZE) {
+        if (
+          cached &&
+          Array.isArray(cached.units) &&
+          cached.units.length <= PUBLIC_UNITS_PAGE_SIZE
+        ) {
           if (mountedRef.current) {
             setData(cached);
             setError(null);
@@ -260,9 +262,7 @@ export default function PublicPage() {
       const seq = ++reqSeqRef.current;
 
       if (mountedRef.current) {
-        if (!data) {
-          setLoading(true);
-        } else if (force) {
+        if (!dataRef.current || force) {
           setLoading(true);
         }
         setUnitsFetching(true);
@@ -312,7 +312,24 @@ export default function PublicPage() {
         }
       }
     },
-    [unitPage, debouncedUnitSearch, sectorFilter, data]
+    [unitPage, debouncedUnitSearch, sectorFilter]
+  );
+
+  const handleRefresh = useCallback(() => {
+    void loadLeaderboard(true);
+  }, [loadLeaderboard]);
+
+  const handleOpenQuickEntry = useCallback(() => {
+    setQuickEntryOpen(true);
+  }, []);
+
+  const handleCloseQuickEntry = useCallback(() => {
+    setQuickEntryOpen(false);
+  }, []);
+
+  const handleOrderCreated = useCallback(
+    () => loadLeaderboard(true),
+    [loadLeaderboard]
   );
 
   // Initial poster decode
@@ -333,8 +350,7 @@ export default function PublicPage() {
   // Fetch paginated leaderboard whenever page, debounced search (100ms), or sector filter changes
   useEffect(() => {
     void loadLeaderboard(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unitPage, debouncedUnitSearch, sectorFilter]);
+  }, [loadLeaderboard]);
 
   // Lazy-fetch complete 92-unit list only when Quick Entry modal is opened
   useEffect(() => {
@@ -367,33 +383,80 @@ export default function PublicPage() {
     return () => window.clearInterval(interval);
   }, [loadLeaderboard, quickEntryOpen]);
 
-  // Public push availability & listeners
+  // Subscribe to PWA update flag (lightweight in-memory pub/sub)
   useEffect(() => {
-    if (!pushVapReady && isPushSupported()) {
-      void resolveVapidPublicKey().then((key) => {
-        if (mountedRef.current && key) {
-          setPushVapReady(true);
-        }
-      });
-    }
-    const unsubPush = subscribePushUiState(() => {
-      setPushPermission(getNotificationPermission());
-    });
-    const unsubUpdate = subscribePwaUpdate((available) => {
+    return subscribePwaUpdate((available) => {
       setUpdatePending(available);
     });
-    return () => {
-      unsubPush();
-      unsubUpdate();
+  }, []);
+
+  // Defer push-support check & dynamic pushNotifications import until after boot (2000ms + idle)
+  useEffect(() => {
+    let active = true;
+    let unsubPush: (() => void) | null = null;
+    let idleId: number | null = null;
+    const win = window as Window & {
+      requestIdleCallback?: (
+        cb: () => void,
+        opts?: { timeout: number }
+      ) => number;
+      cancelIdleCallback?: (id: number) => void;
     };
-  }, [pushVapReady]);
+
+    const runPushCheck = () => {
+      if (!active) return;
+      void import('../utils/pushNotifications')
+        .then((mod) => {
+          if (!active) return;
+          pushModRef.current = mod;
+          const supported = mod.isPushSupported() && !mod.isIosNonStandalone();
+          setPushSupportedState(supported);
+          setPushPermission(mod.getNotificationPermission());
+          setPushDismissed(mod.isPublicPushDismissCooldownActive());
+
+          const existingKey = Boolean(mod.getVapidPublicKey());
+          if (existingKey) {
+            setPushVapReady(true);
+          } else if (supported && mod.getNotificationPermission() === 'default') {
+            void mod.resolveVapidPublicKey().then((key) => {
+              if (active && mountedRef.current && key) {
+                setPushVapReady(true);
+              }
+            });
+          }
+
+          unsubPush = mod.subscribePushUiState(() => {
+            if (active) {
+              setPushPermission(mod.getNotificationPermission());
+            }
+          });
+        })
+        .catch(() => undefined);
+    };
+
+    const timer = window.setTimeout(() => {
+      if (typeof win.requestIdleCallback === 'function') {
+        idleId = win.requestIdleCallback(runPushCheck, { timeout: 2500 });
+      } else {
+        runPushCheck();
+      }
+    }, PUSH_CHECK_IDLE_DELAY_MS);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      if (idleId !== null && typeof win.cancelIdleCallback === 'function') {
+        win.cancelIdleCallback(idleId);
+      }
+      unsubPush?.();
+    };
+  }, []);
 
   const pushEligible =
     posterReady &&
     Boolean(data) &&
-    isPushSupported() &&
+    pushSupportedState &&
     pushVapReady &&
-    !isIosNonStandalone() &&
     pushPermission === 'default' &&
     !pushDismissed;
 
@@ -438,24 +501,27 @@ export default function PublicPage() {
 
   const showPushModal = pushEligible && pushDelayReady && !hasBlocker;
 
-  const handleDismissPublicPush = () => {
-    markPublicPushPromptDismissed();
+  const handleDismissPublicPush = useCallback(() => {
+    pushModRef.current?.markPublicPushPromptDismissed();
     setPushDismissed(true);
-  };
+  }, []);
 
-  const handleEnablePublicPush = async () => {
+  const handleEnablePublicPush = useCallback(async () => {
     if (pushEnabling) return;
     setPushError(null);
     setPushEnabling(true);
-    const res = await subscribePublicPush();
-    setPushPermission(getNotificationPermission());
+    const mod =
+      pushModRef.current ?? (await import('../utils/pushNotifications'));
+    pushModRef.current = mod;
+    const res = await mod.subscribePublicPush();
+    setPushPermission(mod.getNotificationPermission());
     setPushEnabling(false);
 
-    if (res.ok || getNotificationPermission() === 'denied') {
+    if (res.ok || mod.getNotificationPermission() === 'denied') {
       return;
     }
     setPushError(res.error || 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ കഴിഞ്ഞില്ല.');
-  };
+  }, [pushEnabling]);
 
   if ((!posterReady || loading) && !data) {
     return <BrandLoadingScreen />;
@@ -471,8 +537,8 @@ export default function PublicPage() {
           <p className="text-xs text-[#7A2E33]">{error}</p>
           <button
             type="button"
-            onClick={() => void loadLeaderboard(true)}
-            className="w-full py-2.5 px-4 rounded-xl glass-crimson text-white font-ml text-xs font-bold"
+            onClick={handleRefresh}
+            className="w-full py-2.5 px-4 rounded-xl glass-crimson-solid text-white font-ml text-xs font-bold"
           >
             വീണ്ടും ശ്രമിക്കുക
           </button>
@@ -500,8 +566,8 @@ export default function PublicPage() {
           onSectorFilterChange={handleSectorFilterChange}
           unitPage={unitPage}
           onUnitPageChange={handleUnitPageChange}
-          onRefresh={() => void loadLeaderboard(true)}
-          onOpenQuickEntry={() => setQuickEntryOpen(true)}
+          onRefresh={handleRefresh}
+          onOpenQuickEntry={handleOpenQuickEntry}
         />
       ) : (
         <PublicLeaderboardMobile
@@ -514,24 +580,26 @@ export default function PublicPage() {
           onSectorFilterChange={handleSectorFilterChange}
           unitPage={unitPage}
           onUnitPageChange={handleUnitPageChange}
-          onRefresh={() => void loadLeaderboard(true)}
-          onOpenQuickEntry={() => setQuickEntryOpen(true)}
+          onRefresh={handleRefresh}
+          onOpenQuickEntry={handleOpenQuickEntry}
         />
       )}
 
       {quickEntryOpen && (
-        <PublicQuickEntryModal
-          sectors={data.sectors}
-          units={quickEntryUnits.length > 0 ? quickEntryUnits : data.units}
-          perLiterRate={Number(data.summary.per_liter_rate) || 250}
-          challengeTitle={
-            data.summary.challenge_title ||
-            'SSF Wandoor Division Payasam Challenge'
-          }
-          ordersOpen={Boolean(data.summary.orders_open)}
-          onClose={() => setQuickEntryOpen(false)}
-          onOrderCreated={() => loadLeaderboard(true)}
-        />
+        <Suspense fallback={null}>
+          <PublicQuickEntryModal
+            sectors={data.sectors}
+            units={quickEntryUnits.length > 0 ? quickEntryUnits : data.units}
+            perLiterRate={Number(data.summary.per_liter_rate) || 250}
+            challengeTitle={
+              data.summary.challenge_title ||
+              'SSF Wandoor Division Payasam Challenge'
+            }
+            ordersOpen={Boolean(data.summary.orders_open)}
+            onClose={handleCloseQuickEntry}
+            onOrderCreated={handleOrderCreated}
+          />
+        </Suspense>
       )}
 
       {showPushModal && (
@@ -545,7 +613,7 @@ export default function PublicPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md bg-[#FFF8F6]/[0.94] backdrop-blur-2xl border border-[#5C0A0E]/[0.20] shadow-[0_24px_64px_-12px_rgba(43,4,6,0.38)] rounded-3xl p-6 text-center"
+            className="relative w-full max-w-md bg-[#FFF8F6]/[0.95] backdrop-blur-lg border border-[#5C0A0E]/[0.20] shadow-xl rounded-3xl p-6 text-center gpu-chrome"
           >
             <button
               type="button"
@@ -558,11 +626,11 @@ export default function PublicPage() {
             </button>
 
             <div className="flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl glass-crimson text-white shadow-lg flex items-center justify-center mb-3.5">
+              <div className="w-14 h-14 rounded-2xl glass-crimson-solid text-white shadow-md flex items-center justify-center mb-3.5">
                 <Bell className="w-7 h-7 text-white" />
               </div>
 
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full glass-crimson text-white text-[11px] font-semibold mb-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full glass-crimson-solid text-white text-[11px] font-semibold mb-2.5">
                 <Sparkles className="w-3 h-3 text-[#FCE36D] shrink-0" />
                 <span>Live Milestone Alerts</span>
               </span>
@@ -589,7 +657,7 @@ export default function PublicPage() {
                   type="button"
                   disabled={pushEnabling}
                   onClick={() => void handleEnablePublicPush()}
-                  className="flex-1 py-2.5 px-4 rounded-xl glass-crimson text-white font-ml text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm hover:opacity-95 disabled:opacity-75"
+                  className="flex-1 py-2.5 px-4 rounded-xl glass-crimson-solid text-white font-ml text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-2 shadow-sm hover:opacity-95 disabled:opacity-75"
                 >
                   {pushEnabling ? (
                     <>

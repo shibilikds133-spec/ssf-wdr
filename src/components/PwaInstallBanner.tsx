@@ -277,7 +277,7 @@ export function PwaInstallBanner() {
       className="fixed top-3 top-[max(0.75rem,env(safe-area-inset-top))] inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md z-[60] pointer-events-none"
     >
       <div
-        className={`pointer-events-auto ${theme.cardTint} backdrop-blur-xl border ${theme.cardBorder} rounded-2xl shadow-2xl p-3.5 sm:p-4 transition-all duration-300 ease-out motion-reduce:transition-none ${
+        className={`pointer-events-auto ${theme.cardTint} backdrop-blur-md border ${theme.cardBorder} rounded-2xl shadow-lg p-3.5 sm:p-4 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none gpu-chrome ${
           entered
             ? 'translate-y-0 opacity-100'
             : '-translate-y-4 opacity-0'
