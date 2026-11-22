@@ -6,11 +6,58 @@ const DB_VERSION = 1;
 const STORE_NAME = 'kb_store';
 const ACTIVE_KEY = 'active' as const;
 const FALLBACK_URL = '/help-kb-fallback.json';
+const ADMIN_WHATSAPP_STORAGE_KEY = 'wdr_admin_whatsapp_phone_v1';
 
 let memoryCache: StoredHelpKb | null = null;
+let memoryAdminPhone: string | null = null;
 let inflightSync: Promise<void> | null = null;
 let inflightFallback: Promise<StoredHelpKb | null> | null = null;
 const listeners = new Set<(kb: StoredHelpKb) => void>();
+const phoneListeners = new Set<(phone: string) => void>();
+
+function sanitizeAdminPhone(raw: string): string {
+  return raw.replace(/\D/g, '').slice(0, 15);
+}
+
+export function getCachedAdminWhatsAppPhone(): string {
+  if (memoryAdminPhone !== null) return memoryAdminPhone;
+  try {
+    const stored = window.localStorage.getItem(ADMIN_WHATSAPP_STORAGE_KEY);
+    if (typeof stored === 'string') {
+      memoryAdminPhone = sanitizeAdminPhone(stored);
+      return memoryAdminPhone;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return '';
+}
+
+export function saveCachedAdminWhatsAppPhone(phone: string): void {
+  const clean = sanitizeAdminPhone(phone);
+  memoryAdminPhone = clean;
+  try {
+    window.localStorage.setItem(ADMIN_WHATSAPP_STORAGE_KEY, clean);
+  } catch {
+    // Ignore storage access errors
+  }
+  for (const listener of phoneListeners) {
+    try {
+      listener(clean);
+    } catch {
+      // Ignore subscriber errors
+    }
+  }
+}
+
+export function subscribeAdminWhatsAppPhone(
+  listener: (phone: string) => void
+): () => void {
+  phoneListeners.add(listener);
+  return () => {
+    phoneListeners.delete(listener);
+  };
+}
 
 function isValidPayload(raw: unknown): raw is HelpKbPayload {
   if (!raw || typeof raw !== 'object') return false;
@@ -229,6 +276,7 @@ interface HelpKbSyncRpcResponse {
   up_to_date?: unknown;
   version?: unknown;
   updated_at?: unknown;
+  admin_whatsapp_phone?: unknown;
   payload?: unknown;
 }
 
@@ -259,6 +307,9 @@ export function syncHelpKbIfNeeded(expectedVersion?: number): Promise<void> {
       }
 
       const res = (data ?? null) as HelpKbSyncRpcResponse | null;
+      if (res && typeof res.admin_whatsapp_phone === 'string') {
+        saveCachedAdminWhatsAppPhone(res.admin_whatsapp_phone);
+      }
       if (
         res &&
         res.up_to_date === false &&

@@ -16,7 +16,10 @@ import {
 } from '../utils/docsConfig';
 import { supabase } from '../lib/supabase';
 import type { AuthSession, UserRole } from '../types';
-import { syncHelpKbIfNeeded } from '../utils/helpKbDb';
+import {
+  saveCachedAdminWhatsAppPhone,
+  syncHelpKbIfNeeded,
+} from '../utils/helpKbDb';
 
 const AUTH_STORAGE_KEY = 'wdr_auth_session_v1';
 const AUTH_NOTICE_KEY = 'wdr_auth_notice_v1';
@@ -171,6 +174,7 @@ interface AuthLoginResponse {
   must_change_password?: unknown;
   seen_doc_pages?: unknown;
   help_kb_version?: unknown;
+  admin_whatsapp_phone?: unknown;
   expires_at?: unknown;
 }
 
@@ -271,6 +275,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ? { help_kb_version: res.help_kb_version }
               : {}),
           };
+          if (typeof res.admin_whatsapp_phone === 'string') {
+            saveCachedAdminWhatsAppPhone(res.admin_whatsapp_phone);
+          }
           const serverKbVersion =
             typeof res.help_kb_version === 'number'
               ? res.help_kb_version
@@ -373,6 +380,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         writeLocalSeenDocPage('guest', 'login');
         saveSession(nextSession);
         setSession(nextSession);
+        if (typeof result.admin_whatsapp_phone === 'string') {
+          saveCachedAdminWhatsAppPhone(result.admin_whatsapp_phone);
+        }
         const serverKbVersion =
           typeof result.help_kb_version === 'number'
             ? result.help_kb_version

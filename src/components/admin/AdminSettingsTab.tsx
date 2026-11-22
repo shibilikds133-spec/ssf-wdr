@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Copy,
   Download,
+  MessageCircle,
   Plus,
   Search,
   Trash2,
@@ -35,6 +36,7 @@ import {
 } from '../../utils/inputGuards';
 import { PaginationBar } from '../PaginationBar';
 import { SelectDropdown } from '../SelectDropdown';
+import { saveCachedAdminWhatsAppPhone } from '../../utils/helpKbDb';
 import { AdminCredentialsSection } from './AdminCredentialsSection';
 
 interface AdminSettingsTabProps {
@@ -68,6 +70,9 @@ export function AdminSettingsTab({
   const [divisionTarget, setDivisionTarget] = useState(
     String(settings.division_target)
   );
+  const [adminWhatsappPhone, setAdminWhatsappPhone] = useState(
+    settings.admin_whatsapp_phone ?? ''
+  );
   const [isChallengeOpen, setIsChallengeOpen] = useState(
     settings.is_challenge_open
   );
@@ -77,6 +82,7 @@ export function AdminSettingsTab({
     setChallengeTitle(settings.challenge_title);
     setUnitRate(String(settings.unit_rate));
     setDivisionTarget(String(settings.division_target));
+    setAdminWhatsappPhone(settings.admin_whatsapp_phone ?? '');
     setIsChallengeOpen(settings.is_challenge_open);
   }, [settings]);
 
@@ -218,6 +224,7 @@ export function AdminSettingsTab({
     const rateNum = Number.parseFloat(unitRate);
     const targetNum = Number.parseFloat(divisionTarget);
     const titleTrimmed = challengeTitle.trim();
+    const cleanAdminPhone = adminWhatsappPhone.replace(/\D/g, '').slice(0, 15);
 
     if (!titleTrimmed) {
       onError('Challenge title is required.');
@@ -231,6 +238,12 @@ export function AdminSettingsTab({
       onError('Division limit must be greater than zero.');
       return;
     }
+    if (cleanAdminPhone.length > 0 && cleanAdminPhone.length < 10) {
+      onError(
+        'Admin WhatsApp number must be at least 10 digits (or leave empty).'
+      );
+      return;
+    }
 
     setSavingSettings(true);
     try {
@@ -240,6 +253,7 @@ export function AdminSettingsTab({
         p_division_target: targetNum,
         p_challenge_title: titleTrimmed,
         p_is_challenge_open: isChallengeOpen,
+        p_admin_whatsapp_phone: cleanAdminPhone,
       });
 
       if (rpcError) {
@@ -247,6 +261,7 @@ export function AdminSettingsTab({
         return;
       }
 
+      saveCachedAdminWhatsAppPhone(cleanAdminPhone);
       await onMutated('Challenge settings saved');
     } catch (err) {
       onError(
@@ -571,6 +586,34 @@ export function AdminSettingsTab({
                       Division-wide pre-order limit.
                     </p>
                   </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="settings-admin-whatsapp"
+                    className="flex items-center gap-1.5 text-xs font-medium text-ink-900 mb-1"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    <span>Main Admin WhatsApp Number</span>
+                  </label>
+                  <input
+                    id="settings-admin-whatsapp"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={15}
+                    placeholder="e.g. 9876543210"
+                    value={adminWhatsappPhone}
+                    onChange={(e) =>
+                      setAdminWhatsappPhone(
+                        e.target.value.replace(/\D/g, '').slice(0, 15)
+                      )
+                    }
+                    disabled={savingSettings}
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-milk-border bg-white/90 text-ink-900 num focus:border-plum-900 transition-colors"
+                  />
+                  <p className="text-[11px] text-ink-600 mt-1">
+                    Smart Help Assistant forwards user doubts directly to this WhatsApp number. Leave blank to open WhatsApp without a fixed recipient.
+                  </p>
                 </div>
 
                 <div className="flex flex-col justify-between bg-milk-50 border border-milk-border rounded-xl p-3.5">

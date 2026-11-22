@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Sparkles, X } from 'lucide-react';
+import { BotMessageSquare, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import type { HelpAssistantRole } from '../../types';
 import type { DocsPortalTheme } from '../../utils/docsConfig';
@@ -33,11 +33,9 @@ function getAssistantRouteMeta(pathname: string): AssistantRouteMeta {
 }
 
 const LAUNCHER_STYLES: Record<DocsPortalTheme, string> = {
-  plum: 'bg-[#381932]/[0.92] text-[#FDFBF8] ring-1 ring-[#FFF3E6]/35 shadow-lg shadow-[#240F20]/30 hover:bg-[#240F20]',
-  forest:
-    'bg-[#043326]/[0.92] text-[#F9FCF6] ring-1 ring-[#E0FFC2]/35 shadow-lg shadow-[#022118]/30 hover:bg-[#022118]',
-  orange:
-    'bg-[#EC5E27]/[0.95] text-[#FDFDF1] ring-1 ring-white/40 shadow-lg shadow-[#5C1B07]/30 hover:bg-[#D44B1A]',
+  plum: 'glass-agent-plum text-[#FDFBF8]',
+  forest: 'glass-agent-forest text-[#F9FCF6]',
+  orange: 'glass-agent-orange text-[#FDFDF1]',
 };
 
 export function SmartAssistantLauncher() {
@@ -61,12 +59,19 @@ export function SmartAssistantLauncher() {
         aria-label="Smart Help Assistant"
         aria-expanded={isOpen}
         title="സഹായി (Smart Help)"
-        className={`${positionClass} h-11 w-11 rounded-full backdrop-blur-md flex items-center justify-center transition-transform duration-150 active:scale-95 ${LAUNCHER_STYLES[theme]}`}
+        className={`${positionClass} h-12 w-12 rounded-full relative overflow-hidden flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 active:scale-95 ${LAUNCHER_STYLES[theme]}`}
       >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-[1.5px] rounded-full bg-gradient-to-b from-white/30 via-white/5 to-transparent"
+        />
         {isOpen ? (
-          <X className="w-5 h-5" />
+          <X className="relative z-10 w-5 h-5" strokeWidth={2.2} />
         ) : (
-          <Sparkles className="w-5 h-5" />
+          <BotMessageSquare
+            className="relative z-10 w-[22px] h-[22px] drop-shadow-sm"
+            strokeWidth={2.1}
+          />
         )}
       </button>
 

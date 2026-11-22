@@ -153,7 +153,8 @@ INSERT INTO app_settings (key, value) VALUES
   ('division_target', '10000'),
   ('challenge_title', 'SSF Wandoor Division Payasam Challenge'),
   ('is_challenge_open', 'true'),
-  ('admin_seen_doc_pages', '[]')
+  ('admin_seen_doc_pages', '[]'),
+  ('admin_whatsapp_phone', '')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO app_internal_secrets (key, value)
@@ -782,6 +783,7 @@ BEGIN
       'must_change_password', false,
       'seen_doc_pages', v_seen_jsonb,
       'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
+      'admin_whatsapp_phone', COALESCE((SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'), ''),
       'expires_at', v_expires
     );
   END IF;
@@ -820,6 +822,7 @@ BEGIN
       'must_change_password', v_sector.must_change_password,
       'seen_doc_pages', to_jsonb(COALESCE(v_sector.seen_doc_pages, '{}'::TEXT[])),
       'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
+      'admin_whatsapp_phone', COALESCE((SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'), ''),
       'expires_at', v_expires
     );
   END IF;
@@ -860,6 +863,7 @@ BEGIN
       'must_change_password', v_unit.must_change_password,
       'seen_doc_pages', to_jsonb(COALESCE(v_unit.seen_doc_pages, '{}'::TEXT[])),
       'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
+      'admin_whatsapp_phone', COALESCE((SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'), ''),
       'expires_at', v_expires
     );
   END IF;
@@ -1002,6 +1006,7 @@ BEGIN
     'must_change_password', v_must_change,
     'seen_doc_pages', v_seen_doc_pages,
     'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
+    'admin_whatsapp_phone', COALESCE((SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'), ''),
     'entity_id', v_sess.entity_id,
     'sector_name', v_sector_name,
     'expires_at', v_new_expires
@@ -2222,7 +2227,8 @@ BEGIN
       COALESCE(MAX(CASE WHEN key = 'unit_rate' THEN value END), '250')::NUMERIC AS unit_rate,
       COALESCE(MAX(CASE WHEN key = 'division_target' THEN value END), '10000')::NUMERIC AS division_target,
       COALESCE(MAX(CASE WHEN key = 'challenge_title' THEN value END), 'SSF Wandoor Division Payasam Challenge') AS challenge_title,
-      COALESCE(MAX(CASE WHEN key = 'is_challenge_open' THEN value END), 'true') = 'true' AS is_challenge_open
+      COALESCE(MAX(CASE WHEN key = 'is_challenge_open' THEN value END), 'true') = 'true' AS is_challenge_open,
+      COALESCE(MAX(CASE WHEN key = 'admin_whatsapp_phone' THEN value END), '') AS admin_whatsapp_phone
     FROM app_settings
   ),
   unit_agg AS (
@@ -2451,18 +2457,22 @@ END;
 $$;
 
 -- 6.21 ADMIN: UPDATE SETTINGS (WITH ZERO-MINUS GUARD)
+DROP FUNCTION IF EXISTS admin_update_settings(TEXT, NUMERIC, NUMERIC, TEXT, BOOLEAN);
 CREATE OR REPLACE FUNCTION admin_update_settings(
   p_code TEXT,
   p_unit_rate NUMERIC,
   p_division_target NUMERIC,
   p_challenge_title TEXT,
-  p_is_challenge_open BOOLEAN
+  p_is_challenge_open BOOLEAN,
+  p_admin_whatsapp_phone TEXT DEFAULT NULL
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
+DECLARE
+  v_clean_phone TEXT;
 BEGIN
   IF NOT is_valid_admin_auth(p_code) THEN
     RAISE EXCEPTION 'Unauthorized admin code';
@@ -2486,6 +2496,16 @@ BEGIN
 
   IF TRIM(COALESCE(p_challenge_title, '')) = '' THEN
     RAISE EXCEPTION 'Challenge title is required';
+  END IF;
+
+  IF p_admin_whatsapp_phone IS NOT NULL THEN
+    v_clean_phone := regexp_replace(TRIM(COALESCE(p_admin_whatsapp_phone, '')), '[^0-9]', '', 'g');
+    IF v_clean_phone <> '' AND (length(v_clean_phone) < 10 OR length(v_clean_phone) > 15) THEN
+      RAISE EXCEPTION 'Admin WhatsApp number must be 10 to 15 digits';
+    END IF;
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('admin_whatsapp_phone', v_clean_phone, now())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
   END IF;
 
   INSERT INTO app_settings (key, value, updated_at) VALUES
@@ -3828,18 +3848,29 @@ SET search_path = public, extensions
 AS $$
 DECLARE
   v_row help_kb_store%ROWTYPE;
+  v_admin_phone TEXT := COALESCE((SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'), '');
 BEGIN
   SELECT * INTO v_row FROM help_kb_store WHERE id = 1;
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('up_to_date', true, 'version', 0, 'payload', NULL);
+    RETURN jsonb_build_object(
+      'up_to_date', true,
+      'version', 0,
+      'admin_whatsapp_phone', v_admin_phone,
+      'payload', NULL
+    );
   END IF;
   IF COALESCE(p_client_version, 0) >= v_row.version THEN
-    RETURN jsonb_build_object('up_to_date', true, 'version', v_row.version);
+    RETURN jsonb_build_object(
+      'up_to_date', true,
+      'version', v_row.version,
+      'admin_whatsapp_phone', v_admin_phone
+    );
   END IF;
   RETURN jsonb_build_object(
     'up_to_date', false,
     'version', v_row.version,
     'updated_at', v_row.updated_at,
+    'admin_whatsapp_phone', v_admin_phone,
     'payload', v_row.payload
   );
 END;
@@ -3870,7 +3901,7 @@ GRANT EXECUTE ON FUNCTION
   admin_get_dashboard(TEXT),
   admin_update_entry(TEXT, INT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
   admin_delete_entry(TEXT, INT),
-  admin_update_settings(TEXT, NUMERIC, NUMERIC, TEXT, BOOLEAN),
+  admin_update_settings(TEXT, NUMERIC, NUMERIC, TEXT, BOOLEAN, TEXT),
   admin_bulk_upsert_units(TEXT, JSONB),
   admin_delete_unit(TEXT, INT),
   admin_delete_sector(TEXT, INT),

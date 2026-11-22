@@ -41,6 +41,7 @@ export interface AppSettings {
   division_target: number;
   challenge_title: string;
   is_challenge_open: boolean;
+  admin_whatsapp_phone?: string;
 }
 
 export interface PublicDivisionSummary {

@@ -135,11 +135,20 @@ const AUTOCOMPLETE_CASES = [
 ];
 
 let preTestUnit = null;
+let preTestAdminWhatsapp = null;
 const tokensToLogout = [];
 
 try {
   await initTransport();
   console.log('=== SMART HELP ASSISTANT KB & PREDICTION VERIFICATION ===');
+
+  const phoneSnap = await ownerClient.query(
+    `SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'`
+  );
+  preTestAdminWhatsapp = {
+    existed: phoneSnap.rows.length > 0,
+    value: phoneSnap.rows[0]?.value ?? '',
+  };
 
   // 1. DB Sync Short-Circuit Check
   const { data: syncCold, error: syncColdErr } = await rpc('get_help_kb_sync', {
@@ -202,10 +211,12 @@ try {
   let top3Hits = 0;
   let totalSearchMs = 0;
 
-  // Warm WeakMap index once before timing individual lookups (also verifies index build time)
+  // Warm WeakMap index and Latin-fuzzy + Malayalam JIT paths before measuring steady-state latency
   const indexStart = performance.now();
   searchHelpKb(kbPayload, 'password', 'LOGIN', 3);
   const indexWarmMs = performance.now() - indexStart;
+  searchHelpKb(kbPayload, 'unpiad paisa', 'UNIT', 3);
+  searchHelpKb(kbPayload, 'പാസ്വേർഡ് മറന്നു', 'LOGIN', 3);
 
   for (const tc of PREDICTION_CASES) {
     const start = performance.now();
@@ -263,11 +274,85 @@ try {
     );
   }
   console.log(`PASS: 6. Instant 3-char autocomplete verified (${AUTOCOMPLETE_CASES.length}/${AUTOCOMPLETE_CASES.length})`);
+
+  // 6. Division Admin WhatsApp Number Setting & Sync Propagation Check
+  {
+    const { data: adminLogin, error: adminLoginErr } = await rpc('auth_login', {
+      p_username: 'SSF Wandoor',
+      p_password: 'WDR100',
+    });
+    assert.ifError(adminLoginErr);
+    assert.equal(adminLogin?.valid, true, 'Expected Admin WDR100 login to succeed');
+    const adminJwt = adminLogin.token;
+    tokensToLogout.push(adminJwt);
+
+    const { data: dashBefore, error: dashBeforeErr } = await rpc('admin_get_dashboard', {
+      p_code: adminJwt,
+    });
+    assert.ifError(dashBeforeErr);
+    const curSettings = dashBefore?.settings;
+    assert.ok(curSettings, 'Expected admin_get_dashboard to return settings');
+
+    const { data: updOk, error: updErr } = await rpc('admin_update_settings', {
+      p_code: adminJwt,
+      p_unit_rate: Number(curSettings.unit_rate),
+      p_division_target: Number(curSettings.division_target),
+      p_challenge_title: String(curSettings.challenge_title),
+      p_is_challenge_open: Boolean(curSettings.is_challenge_open),
+      p_admin_whatsapp_phone: '9876543210',
+    });
+    assert.ifError(updErr);
+    assert.equal(updOk, true, 'Expected admin_update_settings to return true');
+
+    const { data: dashAfter, error: dashAfterErr } = await rpc('admin_get_dashboard', {
+      p_code: adminJwt,
+    });
+    assert.ifError(dashAfterErr);
+    assert.equal(
+      dashAfter?.settings?.admin_whatsapp_phone,
+      '9876543210',
+      'Expected admin_get_dashboard to return updated admin_whatsapp_phone'
+    );
+
+    const { data: syncWithPhone, error: syncPhoneErr } = await rpc('get_help_kb_sync', {
+      p_client_version: 1,
+    });
+    assert.ifError(syncPhoneErr);
+    assert.equal(syncWithPhone?.up_to_date, true);
+    assert.equal(syncWithPhone?.admin_whatsapp_phone, '9876543210');
+    assert.equal('payload' in syncWithPhone, false, 'Expected payload to stay omitted on short-circuit');
+
+    const { data: unitPhoneCheck, error: unitPhoneErr } = await rpc('auth_login', {
+      p_username: preTestUnit.username,
+      p_password: 'WDR202',
+    });
+    assert.ifError(unitPhoneErr);
+    assert.equal(unitPhoneCheck?.valid, true);
+    assert.equal(unitPhoneCheck?.help_kb_version, 1);
+    assert.equal(unitPhoneCheck?.admin_whatsapp_phone, '9876543210');
+    tokensToLogout.push(unitPhoneCheck.token);
+
+    await rpc('auth_logout', { p_token: adminJwt });
+    await rpc('auth_logout', { p_token: unitPhoneCheck.token });
+    console.log('PASS: 7. Division Admin WhatsApp number persisted, synced in short-circuit & auth responses');
+  }
 } catch (err) {
   console.error('FAIL:', err instanceof Error ? err.message : err);
   process.exitCode = 1;
 } finally {
   try {
+    if (ownerClient && preTestAdminWhatsapp) {
+      if (preTestAdminWhatsapp.existed) {
+        await ownerClient.query(
+          `UPDATE app_settings SET value = $1 WHERE key = 'admin_whatsapp_phone'`,
+          [preTestAdminWhatsapp.value]
+        );
+      } else {
+        await ownerClient.query(
+          `DELETE FROM app_settings WHERE key = 'admin_whatsapp_phone'`
+        );
+      }
+    }
     if (ownerClient && preTestUnit && preTestUnit.password_hash !== null) {
       await ownerClient.query(
         `UPDATE units
@@ -280,7 +365,7 @@ try {
     for (const tok of tokensToLogout) {
       await rpc('auth_logout', { p_token: tok }).catch(() => {});
     }
-    console.log('PASS: 7. Clean teardown restored WDR202 pre-test state.');
+    console.log('PASS: 8. Clean teardown restored WDR202 and pre-test admin_whatsapp_phone states.');
   } catch (cleanupErr) {
     console.error('Cleanup error:', cleanupErr);
     process.exitCode = 1;
