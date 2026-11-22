@@ -353,18 +353,18 @@
 
   .glass-crimson {
     background: linear-gradient(
-      135deg,
-      #8F0D14 0%,
-      #5C0A0E 65%,
-      #4A070A 100%
+      138deg,
+      rgba(155, 16, 24, 0.90) 0%,
+      rgba(92, 10, 14, 0.94) 55%,
+      rgba(68, 6, 10, 0.98) 100%
     );
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(252, 227, 109, 0.28);
+    backdrop-filter: blur(22px) saturate(165%);
+    -webkit-backdrop-filter: blur(22px) saturate(165%);
+    border: 1px solid rgba(255, 232, 200, 0.28);
     box-shadow:
-      inset 0 1.5px 0.5px rgba(255, 255, 255, 0.28),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.32),
-      0 12px 30px -8px rgba(92, 10, 14, 0.44);
+      inset 0 1.5px 1px rgba(255, 255, 255, 0.38),
+      inset 0 -1.5px 2px rgba(32, 2, 4, 0.42),
+      0 16px 36px -10px rgba(92, 10, 14, 0.48);
   }
 
   .glass-rose-header {

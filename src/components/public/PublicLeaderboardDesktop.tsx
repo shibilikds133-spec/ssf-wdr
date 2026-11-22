@@ -219,10 +219,9 @@ export function PublicLeaderboardDesktop({
             totalOrders={summary.total_orders}
             divisionLimit={Number(summary.division_limit) || 1000}
             percentComplete={progressPct}
+            upiPercent={Number(summary.upi_percent) || 0}
+            cashPercent={Number(summary.cash_percent) || 0}
             ordersOpen={Boolean(summary.orders_open)}
-            activeUnitsCount={activeUnitsCount}
-            totalUnitsCount={totalUnitsCount}
-            sectorsCount={sectors.length}
             topSectorName={topSector?.name}
             topSectorLiters={topSector ? Number(topSector.total_liters) : 0}
             onQuickEntry={onOpenQuickEntry}

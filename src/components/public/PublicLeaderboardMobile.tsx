@@ -87,14 +87,6 @@ export function PublicLeaderboardMobile({
 
   const progressPct = Math.min(100, Math.max(0, Number(summary.percent_complete) || 0));
   const topSector = sectors[0] ?? null;
-  const activeUnitsCount = sectors.reduce(
-    (sum, s) => sum + s.active_units_count,
-    0
-  );
-  const totalUnitsCount = sectors.reduce(
-    (sum, s) => sum + s.total_units_count,
-    0
-  );
 
   return (
     <div className="min-h-dvh public-theme-bg flex flex-col">
@@ -158,10 +150,9 @@ export function PublicLeaderboardMobile({
           totalOrders={summary.total_orders}
           divisionLimit={Number(summary.division_limit) || 1000}
           percentComplete={progressPct}
+          upiPercent={Number(summary.upi_percent) || 0}
+          cashPercent={Number(summary.cash_percent) || 0}
           ordersOpen={Boolean(summary.orders_open)}
-          activeUnitsCount={activeUnitsCount}
-          totalUnitsCount={totalUnitsCount}
-          sectorsCount={sectors.length}
           topSectorName={topSector?.name}
           topSectorLiters={topSector ? Number(topSector.total_liters) : 0}
           onQuickEntry={onOpenQuickEntry}

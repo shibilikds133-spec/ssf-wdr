@@ -1656,7 +1656,25 @@ BEGIN
   all_entries_agg AS (
     SELECT
       COUNT(e.id)::INT AS total_orders,
-      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters
+      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters,
+      COALESCE(
+        ROUND(
+          (
+            COALESCE(SUM(CASE WHEN e.payment_status = 'PAID' AND e.payment_mode = 'UPI' THEN e.quantity ELSE 0 END), 0)
+            / NULLIF(COALESCE(SUM(e.quantity), 0), 0)
+          ) * 100
+        ),
+        0
+      )::INT AS upi_percent,
+      COALESCE(
+        ROUND(
+          (
+            COALESCE(SUM(CASE WHEN e.payment_status = 'PAID' AND e.payment_mode = 'CASH' THEN e.quantity ELSE 0 END), 0)
+            / NULLIF(COALESCE(SUM(e.quantity), 0), 0)
+          ) * 100
+        ),
+        0
+      )::INT AS cash_percent
     FROM entries e
     LEFT JOIN units u ON u.id = e.unit_id
     LEFT JOIN sectors s ON s.id = u.sector_id
@@ -1680,7 +1698,9 @@ BEGIN
         'per_liter_rate', sm.per_liter_rate,
         'orders_open', sm.orders_open,
         'challenge_title', sm.challenge_title,
-        'percent_complete', ROUND((a.total_liters / sm.division_limit) * 100.0, 2)
+        'percent_complete', ROUND((a.total_liters / sm.division_limit) * 100.0, 2),
+        'upi_percent', a.upi_percent,
+        'cash_percent', a.cash_percent
       )
       FROM all_entries_agg a
       CROSS JOIN settings_map sm

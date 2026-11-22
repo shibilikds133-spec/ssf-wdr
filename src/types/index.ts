@@ -88,6 +88,8 @@ export interface PublicLeaderboardSummary {
   orders_open: boolean;
   challenge_title?: string;
   percent_complete: number;
+  upi_percent?: number;
+  cash_percent?: number;
 }
 
 export interface PublicLeaderboardSector {
