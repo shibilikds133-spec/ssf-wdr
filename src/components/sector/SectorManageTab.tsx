@@ -101,12 +101,14 @@ export function SectorManageTab({
   const [dirFetching, setDirFetching] = useState<boolean>(false);
   const dirReqSeqRef = useRef(0);
 
-  // Mobile accordion state (collapsed by default so all cards are visible at a glance)
+  // Mobile accordion state (all cards collapsed by default)
   const [mobileExpandedCard, setMobileExpandedCard] = useState<
-    'quick' | 'csv' | 'directory' | 'rules' | null
+    'credentials' | 'quick' | 'csv' | 'directory' | 'rules' | null
   >(null);
 
-  const toggleMobileCard = (card: 'quick' | 'csv' | 'directory' | 'rules') => {
+  const toggleMobileCard = (
+    card: 'credentials' | 'quick' | 'csv' | 'directory' | 'rules'
+  ) => {
     setMobileExpandedCard((prev) => (prev === card ? null : card));
   };
 
@@ -742,19 +744,54 @@ export function SectorManageTab({
     );
   }
 
-  // Mobile Accordion Layout (All 4 cards collapsed by default)
+  // Mobile Accordion Layout (All cards collapsed by default)
   return (
     <div className="space-y-3">
-      <SectorCredentialsSection
-        isDesktop={isDesktop}
-        sectorName={sector.name}
-        units={units}
-        pendingResetRequests={pendingResetRequests}
-        sectorCode={sectorCode}
-        refreshKey={refreshKey}
-        onMutated={onMutated}
-        onError={onError}
-      />
+      {/* Card 0: Unit Credentials & WhatsApp Hub */}
+      <div className="glass-leaf-card rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleMobileCard('credentials')}
+          aria-expanded={mobileExpandedCard === 'credentials'}
+          className="w-full p-4 flex items-center justify-between gap-3 text-left"
+        >
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm font-bold text-forest-950">
+                Unit Credentials &amp; WhatsApp Hub
+              </h2>
+              {pendingResetRequests.length > 0 && (
+                <span className="bg-vibrant-coral text-white text-[10px] font-bold px-2 py-0.5 rounded-full num">
+                  {pendingResetRequests.length} pending
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-forest-600 mt-0.5">
+              {units.length} units · User IDs, phones, password resets &amp; WhatsApp
+            </p>
+          </div>
+          <ChevronDown
+            className={`w-4 h-4 text-forest-700 shrink-0 transition-transform duration-200 ${
+              mobileExpandedCard === 'credentials' ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+        {mobileExpandedCard === 'credentials' && (
+          <div className="px-4 pb-4 pt-3 border-t border-leaf-border/60">
+            <SectorCredentialsSection
+              isDesktop={isDesktop}
+              sectorName={sector.name}
+              units={units}
+              pendingResetRequests={pendingResetRequests}
+              sectorCode={sectorCode}
+              refreshKey={refreshKey}
+              embedded={true}
+              onMutated={onMutated}
+              onError={onError}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Card 1: Quick Add / Rename Unit */}
       <div className="glass-leaf-card rounded-2xl overflow-hidden">

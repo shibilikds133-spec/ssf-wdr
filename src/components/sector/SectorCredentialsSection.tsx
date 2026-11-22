@@ -39,6 +39,7 @@ interface SectorCredentialsSectionProps {
   pendingResetRequests: PasswordResetRequest[];
   sectorCode: string;
   refreshKey?: number;
+  embedded?: boolean;
   onMutated: (msg: string) => Promise<void>;
   onError: (msg: string) => void;
 }
@@ -74,6 +75,7 @@ export function SectorCredentialsSection({
   pendingResetRequests,
   sectorCode,
   refreshKey = 0,
+  embedded = false,
   onMutated,
   onError,
 }: SectorCredentialsSectionProps) {
@@ -533,22 +535,30 @@ export function SectorCredentialsSection({
       )}
 
       {/* Units Credentials & WhatsApp Hub */}
-      <div className="glass-leaf-card rounded-2xl p-4 sm:p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-forest-950 flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-forest-800" />
-              <span>Unit Credentials &amp; WhatsApp Hub</span>
-            </h2>
-            <p className="text-xs text-forest-600 mt-0.5">
-              Manage Unit User IDs, contact phones, password resets, and
-              one-click WhatsApp login links for {sectorName}.
-            </p>
+      <div
+        className={
+          embedded
+            ? 'space-y-4'
+            : 'glass-leaf-card rounded-2xl p-4 sm:p-6 space-y-4'
+        }
+      >
+        {!embedded && (
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+            <div>
+              <h2 className="text-base font-semibold text-forest-950 flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-forest-800" />
+                <span>Unit Credentials &amp; WhatsApp Hub</span>
+              </h2>
+              <p className="text-xs text-forest-600 mt-0.5">
+                Manage Unit User IDs, contact phones, password resets, and
+                one-click WhatsApp login links for {sectorName}.
+              </p>
+            </div>
+            <span className="glass-leaf-pill px-2.5 py-1 rounded-full text-[11px] font-semibold text-forest-900 self-start num shrink-0">
+              {totalCount} {totalCount === 1 ? 'unit' : 'units'}
+            </span>
           </div>
-          <span className="glass-leaf-pill px-2.5 py-1 rounded-full text-[11px] font-semibold text-forest-900 self-start num shrink-0">
-            {totalCount} {totalCount === 1 ? 'unit' : 'units'}
-          </span>
-        </div>
+        )}
 
         {/* Filter Toolbar */}
         <div
