@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   AlertCircle,
+  Building2,
+  Check,
   CheckCircle2,
+  ChevronRight,
   Clock,
   KeyRound,
   Lock,
+  MapPin,
   MessageCircle,
   Minus,
   Plus,
+  Search,
   Smartphone,
   Wallet,
   X,
@@ -35,7 +40,6 @@ import {
 } from '../../utils/publicQuickUnit';
 import { notifyOrderCreated } from '../../utils/pushNotifications';
 import { buildWhatsAppReceiptUrl } from '../../utils/whatsapp';
-import { SelectDropdown } from '../SelectDropdown';
 
 interface PublicQuickEntryModalProps {
   sectors: PublicLeaderboardSector[];
@@ -75,6 +79,8 @@ export function PublicQuickEntryModal({
   );
   const [selectedSectorId, setSelectedSectorId] = useState<string>('');
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
+  const [sectorQuery, setSectorQuery] = useState('');
+  const [unitQuery, setUnitQuery] = useState('');
   const [unitCode, setUnitCode] = useState<string>('');
 
   const [contributorName, setContributorName] = useState('');
@@ -118,35 +124,29 @@ export function PublicQuickEntryModal({
     [sectors]
   );
 
-  const sectorSelectOptions = useMemo(
-    () => [
-      { value: '', label: 'സെക്ടർ തിരഞ്ഞെടുക്കുക (Select Sector)' },
-      ...sortedSectors.map((s) => ({
-        value: String(s.id),
-        label: s.name,
-      })),
-    ],
-    [sortedSectors]
+  const filteredSectors = useMemo(() => {
+    const q = sectorQuery.trim().toLowerCase();
+    if (!q) return sortedSectors;
+    return sortedSectors.filter((s) => s.name.toLowerCase().includes(q));
+  }, [sortedSectors, sectorQuery]);
+
+  const selectedSector = useMemo(
+    () =>
+      selectedSectorId
+        ? sortedSectors.find((s) => String(s.id) === selectedSectorId) ?? null
+        : null,
+    [sortedSectors, selectedSectorId]
   );
 
   const filteredSectorUnits = useMemo(() => {
     if (!selectedSectorId) return [];
     const secIdNum = Number(selectedSectorId);
+    const q = unitQuery.trim().toLowerCase();
     return units
       .filter((u) => u.sector_id === secIdNum)
+      .filter((u) => (!q ? true : u.name.toLowerCase().includes(q)))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [units, selectedSectorId]);
-
-  const unitSelectOptions = useMemo(
-    () => [
-      { value: '', label: 'യൂണിറ്റ് തിരഞ്ഞെടുക്കുക (Select Unit)' },
-      ...filteredSectorUnits.map((u) => ({
-        value: String(u.id),
-        label: u.name,
-      })),
-    ],
-    [filteredSectorUnits]
-  );
+  }, [units, selectedSectorId, unitQuery]);
 
   const activeUnit = useMemo(() => {
     if (validRemembered) {
@@ -159,7 +159,7 @@ export function PublicQuickEntryModal({
     }
     if (!selectedSectorId || !selectedUnitId) return null;
     const unitNum = Number(selectedUnitId);
-    const found = filteredSectorUnits.find((u) => u.id === unitNum);
+    const found = units.find((u) => u.id === unitNum);
     if (!found) return null;
     return {
       id: found.id,
@@ -167,20 +167,21 @@ export function PublicQuickEntryModal({
       sectorId: found.sector_id,
       sectorName: found.sector_name,
     };
-  }, [validRemembered, selectedSectorId, selectedUnitId, filteredSectorUnits]);
+  }, [validRemembered, selectedSectorId, selectedUnitId, units]);
 
   const parsedQty = Number.parseFloat(quantity);
   const safeQty = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 0;
   const previewTotal = Math.round(safeQty * perLiterRate * 100) / 100;
 
-  const handleSectorChange = (val: string) => {
-    setSelectedSectorId(val);
+  const handleSectorSelect = (secId: string) => {
+    setSelectedSectorId(secId);
     setSelectedUnitId('');
+    setUnitQuery('');
     setError(null);
   };
 
-  const handleUnitChange = (val: string) => {
-    setSelectedUnitId(val);
+  const handleUnitSelect = (unitId: string) => {
+    setSelectedUnitId(unitId);
     setError(null);
   };
 
@@ -189,6 +190,8 @@ export function PublicQuickEntryModal({
     setRemembered(null);
     setSelectedSectorId('');
     setSelectedUnitId('');
+    setSectorQuery('');
+    setUnitQuery('');
     setUnitCode('');
     setError(null);
   };
@@ -345,25 +348,25 @@ export function PublicQuickEntryModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="public-quick-entry-title"
-      className="fixed inset-0 z-[70] bg-[#2B0406]/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-[70] bg-[#2B0406]/55 backdrop-blur-md flex items-start justify-center pt-[max(1rem,env(safe-area-inset-top))] px-3 pb-4 sm:items-center sm:p-4 overflow-y-auto"
       onClick={() => {
         if (!submitting) onClose();
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-lg max-h-[92dvh] flex flex-col bg-[#FFF8F6]/[0.96] backdrop-blur-2xl rounded-t-3xl sm:rounded-3xl border border-[#5C0A0E]/20 shadow-[0_24px_64px_-12px_rgba(43,4,6,0.45)] overflow-hidden"
+        className="w-full max-w-lg min-h-[70dvh] sm:min-h-0 max-h-[90dvh] flex flex-col bg-[#FFF8F6]/[0.92] backdrop-blur-2xl rounded-3xl border border-[#5C0A0E]/20 shadow-[0_24px_64px_-12px_rgba(43,4,6,0.48),inset_0_1px_0_rgba(255,255,255,0.95)] overflow-hidden"
       >
-        {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-[#5C0A0E]/[0.06] to-[#C40E16]/[0.04] border-b border-[#5C0A0E]/12 flex items-center justify-between shrink-0">
+        {/* Frosted Glass Header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-[#5C0A0E]/[0.08] via-[#C40E16]/[0.04] to-transparent border-b border-[#5C0A0E]/14 flex items-center justify-between shrink-0">
           <div>
             <h2
               id="public-quick-entry-title"
-              className="font-ml text-base font-bold text-[#2B0406]"
+              className="font-ml text-base sm:text-lg font-bold text-[#2B0406]"
             >
               ക്വിക്ക് ഓർഡർ എൻട്രി
             </h2>
-            <p className="text-[11px] font-medium text-[#7A2E33] num">
+            <p className="text-[11px] sm:text-xs font-semibold text-[#7A2E33] num">
               Rate: {formatCurrency(perLiterRate)} / L
             </p>
           </div>
@@ -372,16 +375,16 @@ export function PublicQuickEntryModal({
             disabled={submitting}
             onClick={onClose}
             aria-label="ക്ലോസ് ചെയ്യുക"
-            className="p-2 rounded-full text-[#4A070A]/75 hover:text-[#2B0406] hover:bg-[#5C0A0E]/10 transition-colors"
+            className="p-2 rounded-full bg-white/70 border border-[#5C0A0E]/15 text-[#4A070A] hover:text-[#2B0406] hover:bg-white transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1">
+        {/* Scrollable Body */}
+        <div className="overflow-y-auto flex-1 flex flex-col">
           {!ordersOpen && !receipt ? (
-            <div className="p-6 text-center space-y-4">
+            <div className="p-6 text-center space-y-4 my-auto">
               <div className="w-12 h-12 rounded-2xl bg-[#5C0A0E]/10 text-[#5C0A0E] flex items-center justify-center mx-auto">
                 <Lock className="w-6 h-6" />
               </div>
@@ -403,7 +406,7 @@ export function PublicQuickEntryModal({
             </div>
           ) : receipt ? (
             <div className="p-5 sm:p-6 space-y-5">
-              <div className="rounded-2xl bg-emerald-50/90 border border-emerald-200 p-4 flex items-center gap-3">
+              <div className="rounded-2xl bg-emerald-50/90 backdrop-blur-md border border-emerald-200 p-4 flex items-center gap-3">
                 <CheckCircle2 className="w-7 h-7 text-emerald-700 shrink-0" />
                 <div>
                   <h3 className="font-ml text-sm font-bold text-emerald-950">
@@ -420,7 +423,7 @@ export function PublicQuickEntryModal({
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/12 p-4 space-y-2 text-xs">
+              <div className="rounded-2xl bg-white/80 backdrop-blur-md border border-[#5C0A0E]/14 p-4 space-y-2 text-xs">
                 <div className="flex justify-between gap-2">
                   <span className="text-[#7A2E33]">Customer</span>
                   <span className="font-semibold text-[#2B0406] text-right">
@@ -477,7 +480,7 @@ export function PublicQuickEntryModal({
               </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 flex-1">
               {error && (
                 <div
                   role="alert"
@@ -488,16 +491,16 @@ export function PublicQuickEntryModal({
                 </div>
               )}
 
-              {/* Remembered Unit Pill (14-Day Device Memory) OR Progressive Sector -> Unit Filters */}
+              {/* Remembered Unit Pill (14-Day Device Memory) OR Modern Frosted Glass Sector -> Unit Selector */}
               {validRemembered ? (
-                <div className="rounded-2xl bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3">
+                <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/18 px-3.5 py-3 flex items-center justify-between gap-3 shadow-xs">
                   <div className="min-w-0">
                     <p className="font-ml text-[10px] font-semibold uppercase tracking-wide text-[#7A2E33]">
                       തിരഞ്ഞെടുത്ത യൂണിറ്റ് (14 ദിവസത്തേക്ക് ഓർമ്മിച്ചിരിക്കുന്നു)
                     </p>
                     <p className="text-xs sm:text-sm font-bold text-[#2B0406] truncate mt-0.5">
                       {validRemembered.unitName}{' '}
-                      <span className="font-normal text-[#7A2E33]">
+                      <span className="font-medium text-[#7A2E33]">
                         • {validRemembered.sectorName}
                       </span>
                     </p>
@@ -505,38 +508,144 @@ export function PublicQuickEntryModal({
                   <button
                     type="button"
                     onClick={handleSwitchUnit}
-                    className="shrink-0 px-2.5 py-1 rounded-lg bg-white border border-[#5C0A0E]/20 text-[11px] font-ml font-bold text-[#5C0A0E] hover:bg-[#FFF8F6] transition-colors"
+                    className="shrink-0 px-3 py-1.5 rounded-xl bg-[#5C0A0E]/[0.08] border border-[#5C0A0E]/18 text-[11px] font-ml font-bold text-[#5C0A0E] hover:bg-[#5C0A0E]/15 transition-colors"
                   >
                     മാറ്റുക
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {/* Step 1: Sector Dropdown ONLY */}
-                  <div>
-                    <label className="block font-ml text-xs font-bold text-[#2B0406] mb-1">
-                      1. സെക്ടർ തിരഞ്ഞെടുക്കുക (Select Sector)
-                    </label>
-                    <SelectDropdown
-                      value={selectedSectorId}
-                      onChange={handleSectorChange}
-                      options={sectorSelectOptions}
-                      ariaLabel="Select Sector"
-                    />
-                  </div>
+                  {/* Step 1: Sector Glass Picker */}
+                  {!selectedSector ? (
+                    <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/16 p-3.5 space-y-2.5 shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-ml text-xs font-bold text-[#2B0406] inline-flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#C40E16]" />
+                          1. സെക്ടർ തിരഞ്ഞെടുക്കുക (Select Sector)
+                        </span>
+                        <span className="text-[11px] font-semibold text-[#7A2E33] num">
+                          {filteredSectors.length} Sectors
+                        </span>
+                      </div>
 
-                  {/* Step 2: Unit Dropdown — strictly hidden until a Sector is selected */}
-                  {selectedSectorId !== '' && (
-                    <div>
-                      <label className="block font-ml text-xs font-bold text-[#2B0406] mb-1">
-                        2. യൂണിറ്റ് തിരഞ്ഞെടുക്കുക (Select Unit)
-                      </label>
-                      <SelectDropdown
-                        value={selectedUnitId}
-                        onChange={handleUnitChange}
-                        options={unitSelectOptions}
-                        ariaLabel="Select Unit"
-                      />
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-[#7A2E33]/70 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={sectorQuery}
+                          onChange={(e) => setSectorQuery(e.target.value)}
+                          placeholder="സെക്ടർ തിരയുക..."
+                          className="w-full pl-8 pr-3 py-2 text-xs font-ml rounded-xl border border-[#5C0A0E]/16 bg-white/90 text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[42dvh] overflow-y-auto pr-0.5">
+                        {filteredSectors.map((sec) => (
+                          <button
+                            key={sec.id}
+                            type="button"
+                            onClick={() => handleSectorSelect(String(sec.id))}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white/80 hover:bg-white backdrop-blur-md border border-[#5C0A0E]/14 hover:border-[#5C0A0E]/35 text-xs sm:text-sm font-bold text-[#2B0406] flex items-center justify-between gap-2 shadow-2xs transition-all"
+                          >
+                            <span className="truncate">{sec.name}</span>
+                            <ChevronRight className="w-4 h-4 text-[#7A2E33] shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Selected Sector Glass Pill */
+                    <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-xl glass-crimson text-white inline-flex items-center justify-center shrink-0">
+                          <Check className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-ml text-[10px] font-semibold text-[#7A2E33]">
+                            തിരഞ്ഞെടുത്ത സെക്ടർ
+                          </p>
+                          <p className="text-xs sm:text-sm font-bold text-[#2B0406] truncate">
+                            {selectedSector.name}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSectorId('');
+                          setSelectedUnitId('');
+                          setUnitQuery('');
+                        }}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-[#5C0A0E]/[0.08] border border-[#5C0A0E]/18 text-[11px] font-ml font-bold text-[#5C0A0E] hover:bg-[#5C0A0E]/15 transition-colors"
+                      >
+                        മാറ്റുക
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Step 2: Unit Glass Picker — strictly hidden until Sector is selected */}
+                  {selectedSector && !activeUnit && (
+                    <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/16 p-3.5 space-y-2.5 shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-ml text-xs font-bold text-[#2B0406] inline-flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-[#C40E16]" />
+                          2. യൂണിറ്റ് തിരഞ്ഞെടുക്കുക (Select Unit)
+                        </span>
+                        <span className="text-[11px] font-semibold text-[#7A2E33] num">
+                          {filteredSectorUnits.length} Units
+                        </span>
+                      </div>
+
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-[#7A2E33]/70 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={unitQuery}
+                          onChange={(e) => setUnitQuery(e.target.value)}
+                          placeholder="യൂണിറ്റ് തിരയുക..."
+                          className="w-full pl-8 pr-3 py-2 text-xs font-ml rounded-xl border border-[#5C0A0E]/16 bg-white/90 text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[38dvh] overflow-y-auto pr-0.5">
+                        {filteredSectorUnits.map((unit) => (
+                          <button
+                            key={unit.id}
+                            type="button"
+                            onClick={() => handleUnitSelect(String(unit.id))}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-white/80 hover:bg-white backdrop-blur-md border border-[#5C0A0E]/14 hover:border-[#5C0A0E]/35 text-xs sm:text-sm font-bold text-[#2B0406] flex items-center justify-between gap-2 shadow-2xs transition-all"
+                          >
+                            <span className="truncate">{unit.name}</span>
+                            <ChevronRight className="w-4 h-4 text-[#7A2E33] shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Selected Unit Glass Pill (before first submit) */}
+                  {selectedSector && activeUnit && (
+                    <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/18 px-3.5 py-2.5 flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-xl glass-crimson text-white inline-flex items-center justify-center shrink-0">
+                          <Check className="w-3.5 h-3.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-ml text-[10px] font-semibold text-[#7A2E33]">
+                            തിരഞ്ഞെടുത്ത യൂണിറ്റ്
+                          </p>
+                          <p className="text-xs sm:text-sm font-bold text-[#2B0406] truncate">
+                            {activeUnit.name}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUnitId('')}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-[#5C0A0E]/[0.08] border border-[#5C0A0E]/18 text-[11px] font-ml font-bold text-[#5C0A0E] hover:bg-[#5C0A0E]/15 transition-colors"
+                      >
+                        മാറ്റുക
+                      </button>
                     </div>
                   )}
                 </div>
@@ -567,13 +676,13 @@ export function PublicQuickEntryModal({
                           setUnitCode(e.target.value.toUpperCase())
                         }
                         placeholder="ഉദാ: WDR12"
-                        className="w-full pl-9 pr-3 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-[#2B0406] placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="w-full pl-9 pr-3 py-2.5 text-sm font-bold uppercase tracking-wider rounded-xl border border-[#5C0A0E]/20 bg-white/90 backdrop-blur-md text-[#2B0406] placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                     </div>
                   </div>
 
                   {/* Quantity */}
-                  <div className="rounded-2xl bg-white/80 border border-[#5C0A0E]/14 p-3.5 space-y-3">
+                  <div className="rounded-2xl bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/16 p-3.5 space-y-3">
                     <div className="flex items-center justify-between">
                       <label
                         htmlFor="pub-qty-input"
@@ -597,7 +706,7 @@ export function PublicQuickEntryModal({
                             className={`py-2 rounded-xl text-xs font-bold num transition-all ${
                               active
                                 ? 'glass-crimson text-white shadow-sm'
-                                : 'bg-white border border-[#5C0A0E]/15 text-[#4A070A] hover:bg-[#FFF1EE]'
+                                : 'bg-white/90 border border-[#5C0A0E]/15 text-[#4A070A] hover:bg-white'
                             }`}
                           >
                             {q}L
@@ -611,7 +720,7 @@ export function PublicQuickEntryModal({
                         type="button"
                         onClick={() => handleStep(-1)}
                         aria-label="Decrease quantity"
-                        className="w-10 h-10 rounded-xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#FFF1EE] shrink-0"
+                        className="w-10 h-10 rounded-xl bg-white/90 border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-white shrink-0"
                       >
                         <Minus className="w-4 h-4" />
                       </button>
@@ -625,13 +734,13 @@ export function PublicQuickEntryModal({
                           setQuantity(sanitizePositiveDecimal(e.target.value))
                         }
                         placeholder="Custom Liters"
-                        className="flex-1 text-center py-2 px-3 rounded-xl border border-[#5C0A0E]/20 bg-white text-sm font-bold text-[#2B0406] num focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="flex-1 text-center py-2 px-3 rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-sm font-bold text-[#2B0406] num focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                       <button
                         type="button"
                         onClick={() => handleStep(1)}
                         aria-label="Increase quantity"
-                        className="w-10 h-10 rounded-xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#FFF1EE] shrink-0"
+                        className="w-10 h-10 rounded-xl bg-white/90 border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-white shrink-0"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -654,7 +763,7 @@ export function PublicQuickEntryModal({
                         value={contributorName}
                         onChange={(e) => setContributorName(e.target.value)}
                         placeholder="Customer Name"
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/90 backdrop-blur-md text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                     </div>
                     <div>
@@ -677,7 +786,7 @@ export function PublicQuickEntryModal({
                           )
                         }
                         placeholder="10-digit WhatsApp No."
-                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-[#2B0406] num placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-[#5C0A0E]/20 bg-white/90 backdrop-blur-md text-[#2B0406] num placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                       />
                     </div>
                   </div>
@@ -702,7 +811,7 @@ export function PublicQuickEntryModal({
                         className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                           paymentStatus === 'PAID'
                             ? 'bg-emerald-700 border-emerald-800 text-white shadow-sm'
-                            : 'bg-white/90 border-[#5C0A0E]/18 text-[#2B0406] hover:bg-white'
+                            : 'bg-white/85 border-[#5C0A0E]/18 text-[#2B0406] hover:bg-white'
                         }`}
                       >
                         <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -718,7 +827,7 @@ export function PublicQuickEntryModal({
                         className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                           paymentStatus === 'UNPAID'
                             ? 'bg-amber-600 border-amber-700 text-white shadow-sm'
-                            : 'bg-white/90 border-[#5C0A0E]/18 text-[#2B0406] hover:bg-white'
+                            : 'bg-white/85 border-[#5C0A0E]/18 text-[#2B0406] hover:bg-white'
                         }`}
                       >
                         <Clock className="w-4 h-4 shrink-0" />
@@ -734,7 +843,7 @@ export function PublicQuickEntryModal({
                           className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                             paymentMethod === 'CASH'
                               ? 'glass-crimson text-white shadow-sm'
-                              : 'bg-white/90 border-[#5C0A0E]/18 text-[#4A070A] hover:bg-white'
+                              : 'bg-white/85 border-[#5C0A0E]/18 text-[#4A070A] hover:bg-white'
                           }`}
                         >
                           <Wallet className="w-3.5 h-3.5 shrink-0" />
@@ -747,7 +856,7 @@ export function PublicQuickEntryModal({
                           className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                             paymentMethod === 'UPI'
                               ? 'glass-crimson text-white shadow-sm'
-                              : 'bg-white/90 border-[#5C0A0E]/18 text-[#4A070A] hover:bg-white'
+                              : 'bg-white/85 border-[#5C0A0E]/18 text-[#4A070A] hover:bg-white'
                           }`}
                         >
                           <Smartphone className="w-3.5 h-3.5 shrink-0" />

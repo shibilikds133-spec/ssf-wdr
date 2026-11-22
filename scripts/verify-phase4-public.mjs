@@ -159,10 +159,18 @@ try {
 
   const perLiterRate = Number(lbBefore.summary.per_liter_rate);
   assert.ok(perLiterRate > 0, 'Expected positive per_liter_rate');
+  assert.equal(lbBefore.sectors.length, 8, 'Expected strictly 8 real sectors (zero mock/test sectors)');
+  assert.equal(lbBefore.units.length, 92, 'Expected strictly 92 real units (zero mock/test units)');
+  assert.equal(
+    serializedLb.toLowerCase().includes('test sector') ||
+      serializedLb.toLowerCase().includes('test unit'),
+    false,
+    'Mock/Test accounts must never appear in public_get_leaderboard'
+  );
   const beforeLiters = Number(lbBefore.summary.total_liters);
   const beforeOrders = Number(lbBefore.summary.total_orders);
   console.log(
-    `PASS: 1. public_get_leaderboard() anon response clean (${lbBefore.sectors.length} sectors, ${lbBefore.units.length} units, 0 codes/PII exposed)`
+    `PASS: 1. public_get_leaderboard() anon response clean (${lbBefore.sectors.length} real sectors, ${lbBefore.units.length} real units, 0 codes/PII/mock data exposed)`
   );
 
   // 2. Call public_add_order against WDR202 with WRONG code -> must reject INVALID_UNIT_CODE
@@ -218,13 +226,11 @@ try {
 
   const { data: lbAfter, error: lbAfterErr } = await rpc('public_get_leaderboard');
   assert.ifError(lbAfterErr);
-  assert.equal(Number(lbAfter.summary.total_orders), beforeOrders + 1);
-  assert.equal(
-    Number(lbAfter.summary.total_liters),
-    Math.round((beforeLiters + 2) * 100) / 100
-  );
+  // Test unit WDR202 order must NOT pollute real public_get_leaderboard totals
+  assert.equal(Number(lbAfter.summary.total_orders), beforeOrders);
+  assert.equal(Number(lbAfter.summary.total_liters), beforeLiters);
   console.log(
-    `PASS: 4. Valid public_add_order on WDR202 succeeded (id=${createdOrderId}) and leaderboard incremented accurately (+2L, +1 order)`
+    `PASS: 4. Valid public_add_order on WDR202 succeeded (id=${createdOrderId}) and public leaderboard stayed isolated from test data`
   );
 
   // 5. Verify 'public' role works in push_subscriptions + clean removal

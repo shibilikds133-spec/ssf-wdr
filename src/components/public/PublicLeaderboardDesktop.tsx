@@ -509,15 +509,17 @@ export function PublicLeaderboardDesktop({
                           </span>
                         </td>
                         <td className="py-3 px-4 font-bold text-[#2B0406]">
-                          {sec.name}
+                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12 shadow-2xs">
+                            {sec.name}
+                          </span>
                         </td>
                         <td className="py-3 px-4 text-right text-xs font-medium text-[#7A2E33] num">
                           {sec.active_units_count}/{sec.total_units_count}
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num">
+                        <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num bg-[#5C0A0E]/[0.02]">
                           {sec.total_orders}
                         </td>
-                        <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num">
+                        <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num bg-[#5C0A0E]/[0.03]">
                           {formatQuantity(liters)} L
                         </td>
                         <td className="py-3 px-4">
@@ -582,13 +584,15 @@ export function PublicLeaderboardDesktop({
                           <td className="py-3 px-4 font-bold text-[#2B0406]">
                             {unit.name}
                           </td>
-                          <td className="py-3 px-4 text-xs font-medium text-[#7A2E33]">
-                            {unit.sector_name}
+                          <td className="py-3 px-4 text-xs font-medium text-[#4A070A]">
+                            <span className="inline-block px-2 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12">
+                              {unit.sector_name}
+                            </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num">
+                          <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num bg-[#5C0A0E]/[0.02]">
                             {unit.total_orders}
                           </td>
-                          <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num">
+                          <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num bg-[#5C0A0E]/[0.03]">
                             {formatQuantity(liters)} L
                           </td>
                           <td className="py-3 px-4">

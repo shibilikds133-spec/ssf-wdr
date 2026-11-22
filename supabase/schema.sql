@@ -1633,6 +1633,10 @@ BEGIN
     FROM units u
     JOIN sectors s ON s.id = u.sector_id
     LEFT JOIN entries e ON e.unit_id = u.id AND e.is_deleted = false
+    WHERE s.login_code NOT IN ('WDR200', 'WDR201')
+      AND u.login_code NOT IN ('WDR202', 'WDR203', 'WDR204', 'WDR205')
+      AND s.name NOT ILIKE 'Test Sector%'
+      AND u.name NOT ILIKE 'Test Unit%'
     GROUP BY u.id, u.sector_id, s.name, u.name
   ),
   sector_agg AS (
@@ -1645,14 +1649,27 @@ BEGIN
       COUNT(ua.id)::INT AS total_units_count
     FROM sectors s
     LEFT JOIN unit_agg ua ON ua.sector_id = s.id
+    WHERE s.login_code NOT IN ('WDR200', 'WDR201')
+      AND s.name NOT ILIKE 'Test Sector%'
     GROUP BY s.id, s.name
   ),
   all_entries_agg AS (
     SELECT
-      COUNT(*)::INT AS total_orders,
-      COALESCE(SUM(quantity), 0)::NUMERIC(10, 2) AS total_liters
-    FROM entries
-    WHERE is_deleted = false
+      COUNT(e.id)::INT AS total_orders,
+      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters
+    FROM entries e
+    LEFT JOIN units u ON u.id = e.unit_id
+    LEFT JOIN sectors s ON s.id = u.sector_id
+    WHERE e.is_deleted = false
+      AND (
+        e.unit_id IS NULL
+        OR (
+          u.login_code NOT IN ('WDR202', 'WDR203', 'WDR204', 'WDR205')
+          AND s.login_code NOT IN ('WDR200', 'WDR201')
+          AND u.name NOT ILIKE 'Test Unit%'
+          AND s.name NOT ILIKE 'Test Sector%'
+        )
+      )
   )
   SELECT jsonb_build_object(
     'summary', (

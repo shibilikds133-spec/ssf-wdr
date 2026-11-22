@@ -269,7 +269,7 @@ export function PublicLeaderboardMobile({
                 return (
                   <div
                     key={sec.id}
-                    className="rounded-2xl bg-white/85 border border-[#5C0A0E]/12 p-3 space-y-2 shadow-xs"
+                    className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/15 p-3 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_-6px_rgba(92,10,14,0.08)]"
                   >
                     <div className="flex items-center justify-between gap-2.5">
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -281,10 +281,10 @@ export function PublicLeaderboardMobile({
                           {rank}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-[#2B0406] truncate">
+                          <span className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-[#5C0A0E]/[0.06] backdrop-blur-md border border-[#5C0A0E]/12 text-xs sm:text-sm font-bold text-[#2B0406] truncate">
                             {sec.name}
-                          </p>
-                          <p className="text-[11px] text-[#7A2E33] num">
+                          </span>
+                          <p className="text-[11px] text-[#7A2E33] num mt-0.5">
                             {sec.active_units_count}/{sec.total_units_count}{' '}
                             active units • {sec.total_orders} orders
                           </p>
@@ -346,7 +346,7 @@ export function PublicLeaderboardMobile({
                     return (
                       <div
                         key={unit.id}
-                        className="rounded-2xl bg-white/85 border border-[#5C0A0E]/12 p-3 flex items-center justify-between gap-2.5"
+                        className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/15 p-3 flex items-center justify-between gap-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_-6px_rgba(92,10,14,0.08)]"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <span
@@ -361,7 +361,10 @@ export function PublicLeaderboardMobile({
                               {unit.name}
                             </p>
                             <p className="text-[11px] text-[#7A2E33] truncate num">
-                              {unit.sector_name} • {unit.total_orders} orders
+                              <span className="inline-block px-1.5 py-0.2 rounded bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/10 text-[#4A070A] font-semibold mr-1">
+                                {unit.sector_name}
+                              </span>
+                              • {unit.total_orders} orders
                             </p>
                             <div className="mt-1 h-1 w-24 rounded-full bg-[#5C0A0E]/[0.08] overflow-hidden">
                               <div
