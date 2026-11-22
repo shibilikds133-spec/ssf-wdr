@@ -400,29 +400,37 @@ export function AdminDashboardMobile({
               return (
                 <div
                   key={item.key}
-                  className="flex items-center gap-2 sm:gap-3 group"
+                  className="space-y-1.5 group"
                 >
-                  {/* Rank & Name */}
-                  <div className="w-20 sm:w-24 shrink-0 flex items-center gap-1.5 min-w-0">
-                    <span
-                      className={`w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 num ${
-                        idx === 0
-                          ? 'bg-vibrant-goldSoft text-vibrant-gold'
-                          : 'bg-milk-200 text-ink-600'
-                      }`}
-                    >
-                      {idx + 1}
-                    </span>
-                    <span
-                      title={item.name}
-                      className="text-xs font-semibold text-plum-900 truncate block"
-                    >
-                      {item.name}
-                    </span>
+                  {/* Top Row: Rank + Full Name + Share % & Revenue */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <span
+                        className={`w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 num ${
+                          idx === 0
+                            ? 'bg-vibrant-goldSoft text-vibrant-gold'
+                            : 'bg-milk-200 text-ink-600'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs font-semibold text-plum-900 leading-snug break-words">
+                        {item.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 num">
+                      <span className="text-xs font-bold text-plum-900">
+                        {share}%
+                      </span>
+                      <span className="text-[10px] text-ink-600">
+                        {formatCurrency(item.amount)}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Horizontal Bar */}
-                  <div className="flex-1 bg-milk-100/90 rounded-xl h-7 sm:h-8 relative flex items-center p-1 overflow-hidden border border-milk-border/60">
+                  {/* Bottom Row: Full-width Horizontal Bar */}
+                  <div className="w-full bg-milk-100/90 rounded-xl h-7 relative flex items-center p-1 overflow-hidden border border-milk-border/60">
                     <div
                       className={`h-full rounded-lg transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
                         showLabelInside ? 'px-2.5' : ''
@@ -432,30 +440,20 @@ export function AdminDashboardMobile({
                       }}
                     >
                       {showLabelInside && (
-                        <span className="text-[11px] sm:text-xs font-bold num drop-shadow-xs whitespace-nowrap">
+                        <span className="text-[11px] font-bold num drop-shadow-xs whitespace-nowrap">
                           {formatQuantity(item.quantity)} L
                         </span>
                       )}
                     </div>
                     {!showLabelInside && (
                       <span
-                        className={`ml-2 text-[11px] sm:text-xs font-bold num whitespace-nowrap ${
+                        className={`ml-2 text-[11px] font-bold num whitespace-nowrap ${
                           item.quantity > 0 ? 'text-plum-900' : 'text-ink-600'
                         }`}
                       >
                         {formatQuantity(item.quantity)} L
                       </span>
                     )}
-                  </div>
-
-                  {/* Share % & Revenue */}
-                  <div className="w-14 sm:w-16 text-right shrink-0 num">
-                    <span className="text-xs font-bold text-plum-900 block leading-tight">
-                      {share}%
-                    </span>
-                    <span className="text-[10px] text-ink-600 block truncate">
-                      {formatCurrency(item.amount)}
-                    </span>
                   </div>
                 </div>
               );

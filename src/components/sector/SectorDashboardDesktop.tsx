@@ -470,7 +470,7 @@ export function SectorDashboardDesktop({
                     className="bg-leaf-50 border border-leaf-border rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <span className="text-xs font-semibold text-forest-950 truncate block">
+                      <span className="text-xs font-semibold text-forest-950 leading-snug break-words block">
                         {item.name}
                       </span>
                       <span className="text-[11px] text-forest-600 num">
@@ -579,14 +579,11 @@ export function SectorDashboardDesktop({
                         className="flex items-center gap-3 group"
                       >
                         {/* 1. Name label */}
-                        <div className="w-20 sm:w-24 shrink-0 flex items-center gap-1.5">
+                        <div className="w-40 lg:w-48 shrink-0 flex items-center gap-1.5 min-w-0">
                           <span className="w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center text-forest-700 bg-leaf-100 shrink-0 num">
                             {idx + 1}
                           </span>
-                          <span
-                            title={item.name}
-                            className="text-xs font-semibold text-forest-950 truncate"
-                          >
+                          <span className="text-xs font-semibold text-forest-950 leading-snug break-words">
                             {item.name}
                           </span>
                         </div>
