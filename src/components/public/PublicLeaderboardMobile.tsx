@@ -106,9 +106,6 @@ export function PublicLeaderboardMobile({
                   Live
                 </span>
               </div>
-              <p className="font-ml text-[10px] font-medium text-[#7A2E33] truncate leading-tight">
-                പാലട പായസം ചലഞ്ച്
-              </p>
             </div>
           </div>
 
@@ -140,7 +137,7 @@ export function PublicLeaderboardMobile({
       </header>
 
       {/* Main Scrollable Content */}
-      <main className="flex-1 px-3.5 pt-3 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] space-y-4">
+      <main className="flex-1 px-3 pt-2.5 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] space-y-3">
         {/* Slot 1: Top Promotional Poster Window (Contact Removed) */}
         <PublicPosterWindow />
 
@@ -161,7 +158,7 @@ export function PublicLeaderboardMobile({
         {/* Slot 3: Interactive Live Leaderboard Tabs (Sectors | Top Units) */}
         <section
           aria-label="Live Rankings"
-          className="glass-rose-card rounded-3xl p-3.5 space-y-3.5"
+          className="glass-rose-card rounded-3xl p-3 space-y-2.5"
         >
           {/* Tab Switcher */}
           <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl glass-rose-pill">

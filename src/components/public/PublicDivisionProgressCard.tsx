@@ -47,14 +47,8 @@ export function PublicDivisionProgressCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl glass-crimson text-white p-4 sm:p-5 flex flex-col justify-between gap-3 shadow-xl ${className}`}
+      className={`relative overflow-hidden rounded-3xl glass-crimson text-white p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 shadow-lg ${className}`}
     >
-      {/* Top Frosted Specular Glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/[0.12] to-transparent"
-      />
-
       {/* Top Row: Title + Quick Entry Plus */}
       <div className="relative z-10 flex items-center justify-between gap-2.5">
         <div className="flex items-center gap-2 min-w-0">
@@ -128,31 +122,16 @@ export function PublicDivisionProgressCard({
                   y2="0%"
                 >
                   <stop offset="0%" stopColor="#FFF099" />
-                  <stop offset="45%" stopColor="#FCE36D" />
+                  <stop offset="50%" stopColor="#FCE36D" />
                   <stop offset="100%" stopColor="#F59E0B" />
                 </linearGradient>
-                <filter
-                  id="payasamGaugeGlow"
-                  x="-20%"
-                  y="-20%"
-                  width="140%"
-                  height="140%"
-                >
-                  <feDropShadow
-                    dx="0"
-                    dy="2"
-                    stdDeviation="3.5"
-                    floodColor="#FCE36D"
-                    floodOpacity="0.45"
-                  />
-                </filter>
               </defs>
 
               {/* Outer Glass Rim */}
               <path
                 d="M 26 98 A 74 74 0 0 1 174 98"
                 fill="none"
-                stroke="rgba(255, 255, 255, 0.22)"
+                stroke="rgba(255, 255, 255, 0.20)"
                 strokeWidth="26"
                 strokeLinecap="round"
               />
@@ -161,12 +140,12 @@ export function PublicDivisionProgressCard({
               <path
                 d="M 26 98 A 74 74 0 0 1 174 98"
                 fill="none"
-                stroke="rgba(43, 4, 6, 0.42)"
+                stroke="rgba(43, 4, 6, 0.44)"
                 strokeWidth="22"
                 strokeLinecap="round"
               />
 
-              {/* Progress Arc */}
+              {/* Progress Arc (Crisp Glassy Fill, Zero Glow) */}
               {visualPct > 0 && (
                 <path
                   d="M 26 98 A 74 74 0 0 1 174 98"
@@ -176,7 +155,6 @@ export function PublicDivisionProgressCard({
                   strokeLinecap="round"
                   strokeDasharray={arcLength}
                   strokeDashoffset={dashOffset}
-                  filter="url(#payasamGaugeGlow)"
                   className="transition-all duration-700 ease-out"
                 />
               )}
