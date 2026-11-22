@@ -1,3 +1,5 @@
+import { initPwaAutoUpdate } from './pwaAutoUpdate';
+
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
@@ -88,25 +90,5 @@ export function initPwaInstallCapture(): void {
 }
 
 export function registerServiceWorker(): void {
-  if (
-    typeof window === 'undefined' ||
-    !import.meta.env.PROD ||
-    !('serviceWorker' in navigator)
-  ) {
-    return;
-  }
-
-  const register = () => {
-    navigator.serviceWorker
-      .register('/sw.js', { scope: '/', updateViaCache: 'none' })
-      .catch(() => {
-        // Non-fatal: app continues normally without SW
-      });
-  };
-
-  if (document.readyState === 'complete') {
-    register();
-  } else {
-    window.addEventListener('load', register, { once: true });
-  }
+  initPwaAutoUpdate();
 }

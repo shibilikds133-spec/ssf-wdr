@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLoader } from './components/AppLoader';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { PwaUpdateModal } from './components/PwaUpdateModal';
 import { SmartAssistantLauncher } from './components/assistant/SmartAssistantLauncher';
 import { AuthProvider } from './context/AuthContext';
 import { DocsProvider } from './context/DocsContext';
@@ -59,6 +60,7 @@ export default function App() {
             <PageDocsModal />
           </Suspense>
           <SmartAssistantLauncher />
+          <PwaUpdateModal />
         </DocsProvider>
       </AuthProvider>
     </BrowserRouter>

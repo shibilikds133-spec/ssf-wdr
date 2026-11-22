@@ -2,13 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
-import {
-  initPwaInstallCapture,
-  registerServiceWorker,
-} from './utils/registerSw';
+import { initPwaAutoUpdate } from './utils/pwaAutoUpdate';
+import { initPwaInstallCapture } from './utils/registerSw';
 
 initPwaInstallCapture();
-registerServiceWorker();
+initPwaAutoUpdate();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

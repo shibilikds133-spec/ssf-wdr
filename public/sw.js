@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'ssf-payasam-shell-v1';
-const ASSETS_CACHE = 'ssf-payasam-assets-v1';
+const CACHE_PREFIX = 'ssf-payasam-';
+const CACHE_NAME = 'ssf-payasam-__BUILD_VERSION__';
 
 const PRECACHE_URLS = [
   '/manifest.webmanifest',
@@ -11,22 +11,26 @@ const PRECACHE_URLS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
-      .open(SHELL_CACHE)
+      .open(CACHE_NAME)
       .then((cache) => cache.addAll(PRECACHE_URLS))
       .catch(() => undefined)
-      .then(() => self.skipWaiting())
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('activate', (event) => {
-  const validCaches = new Set([SHELL_CACHE, ASSETS_CACHE]);
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => !validCaches.has(key))
+            .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
             .map((key) => caches.delete(key))
         )
       )
@@ -37,6 +41,8 @@ self.addEventListener('activate', (event) => {
 function isBypassedRequest(request, url) {
   if (request.method !== 'GET') return true;
   if (url.origin !== self.location.origin) return true;
+  if (url.hostname.endsWith('.supabase.co')) return true;
+
   const path = url.pathname;
   if (
     path === '/sw.js' ||
@@ -44,7 +50,9 @@ function isBypassedRequest(request, url) {
     path.startsWith('/auth/') ||
     path.startsWith('/rpc/') ||
     path.startsWith('/api/') ||
-    path.startsWith('/functions/')
+    path.startsWith('/functions/') ||
+    path.startsWith('/storage/') ||
+    path.startsWith('/realtime/')
   ) {
     return true;
   }
@@ -68,14 +76,17 @@ self.addEventListener('fetch', (event) => {
             const copy = response.clone();
             event.waitUntil(
               caches
-                .open(SHELL_CACHE)
+                .open(CACHE_NAME)
                 .then((cache) => cache.put('/index.html', copy))
             );
           }
           return response;
         })
         .catch(async () => {
-          const cached = await caches.match('/index.html');
+          const cache = await caches.open(CACHE_NAME);
+          const cached =
+            (await cache.match('/index.html')) ||
+            (await caches.match('/index.html'));
           return cached || Response.error();
         })
     );
@@ -85,7 +96,7 @@ self.addEventListener('fetch', (event) => {
   // Cache-first for Vite immutable hashed bundles
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
-      caches.open(ASSETS_CACHE).then(async (cache) => {
+      caches.open(CACHE_NAME).then(async (cache) => {
         const cached = await cache.match(request);
         if (cached) return cached;
         const response = await fetch(request);
@@ -105,7 +116,7 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/favicon.svg'
   ) {
     event.respondWith(
-      caches.open(SHELL_CACHE).then(async (cache) => {
+      caches.open(CACHE_NAME).then(async (cache) => {
         try {
           const response = await fetch(request);
           if (response && response.ok && response.type === 'basic') {
