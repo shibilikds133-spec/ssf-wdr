@@ -5,13 +5,13 @@
   "description": "SSF വണ്ടൂർ ഡിവിഷൻ പാലട പായസം ചലഞ്ച് — ലൈവ് ലീഡർബോർഡ് & ക്വിക്ക് ഓർഡർ",
   "start_url": "/?source=public_pwa",
   "scope": "/",
-  "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone"],
+  "display": "standalone",
+  "display_override": ["standalone"],
   "orientation": "portrait",
   "lang": "ml",
   "prefer_related_applications": false,
-  "background_color": "#5C0A0E",
-  "theme_color": "#FFF8F6",
+  "background_color": "#4A070A",
+  "theme_color": "#4A070A",
   "icons": [
     {
       "src": "/icons/icon-192.png",

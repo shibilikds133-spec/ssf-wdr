@@ -351,7 +351,7 @@ export function PublicQuickEntryModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="public-quick-entry-title"
-      className="fixed inset-0 z-[70] bg-[#2B0406]/55 backdrop-blur-md flex items-start justify-center pt-[max(1rem,env(safe-area-inset-top))] px-3 pb-4 sm:items-center sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-[70] bg-[#2B0406]/55 backdrop-blur-md flex items-start justify-center pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:items-center sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))] overflow-y-auto"
       onClick={() => {
         if (!submitting) onClose();
       }}

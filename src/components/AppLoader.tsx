@@ -14,8 +14,8 @@ export const AppLoader: React.FC<AppLoaderProps> = ({
   return (
     <div
       className={`${
-        fullScreen ? 'min-h-screen bg-milk-50' : 'min-h-[60vh]'
-      } flex flex-col items-center justify-center p-6 gap-4`}
+        fullScreen ? 'min-h-[100dvh] bg-transparent' : 'min-h-[60vh]'
+      } flex flex-col items-center justify-center p-6 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] gap-4`}
     >
       <SsfLogo animated className="w-16 h-auto drop-shadow-md" />
       {message && (

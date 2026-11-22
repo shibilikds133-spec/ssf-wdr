@@ -25,9 +25,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-transparent text-ink-900">
-      <header className="h-14 sticky top-0 z-30 glass-milk-header text-plum-900">
-        <div className="max-w-6xl mx-auto h-full px-4 flex items-center justify-between gap-3">
+    <div className="min-h-[100dvh] bg-transparent text-ink-900">
+      <header className="sticky top-0 inset-x-0 z-30 glass-milk-header text-plum-900 pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
+        <div className="max-w-6xl mx-auto h-14 px-4 flex items-center justify-between gap-3">
           <Link
             to="/"
             className="flex items-center gap-2 truncate hover:opacity-90 transition-opacity"
@@ -80,7 +80,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+      <main className="max-w-6xl mx-auto pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">{children}</main>
     </div>
   );
 }

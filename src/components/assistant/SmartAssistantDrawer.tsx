@@ -541,8 +541,8 @@ export function SmartAssistantDrawer({
   );
 
   const drawerPositionClass = hasMobileBottomNav
-    ? 'fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-h-[72dvh] sm:inset-x-auto sm:right-6 sm:w-[376px] sm:max-w-[calc(100vw-2rem)] lg:bottom-[5.25rem] lg:max-h-[72vh] rounded-[26px] z-[55]'
-    : 'fixed inset-x-3 bottom-4 max-h-[72dvh] sm:inset-x-auto sm:right-6 sm:bottom-[5.25rem] sm:w-[376px] sm:max-w-[calc(100vw-2rem)] sm:max-h-[72vh] rounded-[26px] z-[55]';
+    ? 'fixed left-[calc(0.75rem+env(safe-area-inset-left,0px))] right-[calc(0.75rem+env(safe-area-inset-right,0px))] bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-h-[72dvh] sm:left-auto sm:right-[calc(1.5rem+env(safe-area-inset-right,0px))] sm:w-[376px] sm:max-w-[calc(100vw-2rem)] lg:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:max-h-[72dvh] rounded-[26px] z-[55]'
+    : 'fixed left-[calc(0.75rem+env(safe-area-inset-left,0px))] right-[calc(0.75rem+env(safe-area-inset-right,0px))] bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] max-h-[72dvh] sm:left-auto sm:right-[calc(1.5rem+env(safe-area-inset-right,0px))] sm:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] sm:w-[376px] sm:max-w-[calc(100vw-2rem)] sm:max-h-[72dvh] rounded-[26px] z-[55]';
 
   return (
     <>

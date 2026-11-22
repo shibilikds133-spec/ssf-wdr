@@ -284,7 +284,7 @@ export function PwaUpdateModal() {
             pillInteractingRef.current = false;
           }, 400);
         }}
-        className="fixed top-3 top-[max(0.75rem,env(safe-area-inset-top))] inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-[80] pointer-events-none"
+        className="fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-[80] pointer-events-none"
       >
         <div
           className={`pointer-events-auto ${styles.cardSurface} ${styles.cardBorderShadow} ${portalCta.pillBorderAccent} rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none gpu-chrome ${
@@ -335,7 +335,7 @@ export function PwaUpdateModal() {
       aria-labelledby="pwa-update-modal-title"
       aria-describedby="pwa-update-modal-desc"
       onClick={handleApplyUpdate}
-      className={`fixed inset-0 z-[80] ${styles.backdrop} flex items-center justify-center p-4 transition-opacity duration-200 motion-reduce:transition-none ${
+      className={`fixed inset-0 z-[80] ${styles.backdrop} flex items-center justify-center pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] transition-opacity duration-200 motion-reduce:transition-none ${
         entered ? 'opacity-100' : 'opacity-0'
       }`}
     >

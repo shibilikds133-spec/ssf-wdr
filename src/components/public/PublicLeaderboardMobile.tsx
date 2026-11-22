@@ -218,15 +218,9 @@ export function PublicLeaderboardMobile({
   );
 
   return (
-    <div className="relative min-h-dvh public-theme-bg flex flex-col">
-      {/* Static zero-blur ambient radial gradient layer */}
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 -z-10 pointer-events-none public-ambient-bg transform-gpu"
-      />
-
+    <div className="relative min-h-[100dvh] public-theme-bg flex flex-col">
       {/* Compact Sticky Edge-to-Edge Top Header */}
-      <header className="sticky top-0 z-30 glass-rose-header pt-[env(safe-area-inset-top)] gpu-chrome">
+      <header className="sticky top-0 inset-x-0 z-30 glass-rose-header pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] gpu-chrome">
         <div className="px-3.5 py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <SsfLogo className="h-6 w-auto shrink-0" />
@@ -272,7 +266,7 @@ export function PublicLeaderboardMobile({
       </header>
 
       {/* Main Scrollable Content */}
-      <main className="flex-1 px-3 pt-2.5 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] space-y-3">
+      <main className="flex-1 pl-[calc(0.75rem+env(safe-area-inset-left,0px))] pr-[calc(0.75rem+env(safe-area-inset-right,0px))] pt-2.5 pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] space-y-3">
         {/* Slot 1: Top Promotional Poster Window (Contact Removed) */}
         <PublicPosterWindow />
 
@@ -403,7 +397,7 @@ export function PublicLeaderboardMobile({
       {/* Edge-to-Edge Bottom Navigation Bar — SINGLE BUTTON ONLY (MANDATORY) */}
       <nav
         aria-label="Quick Entry Navigation"
-        className="fixed bottom-0 inset-x-0 z-40 glass-rose-header border-t border-[#5C0A0E]/15 border-b-0 px-4 pt-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom,0px))] gpu-chrome"
+        className="fixed bottom-0 inset-x-0 z-40 glass-rose-header border-t border-[#5C0A0E]/15 border-b-0 pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pt-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom,0px))] gpu-chrome"
       >
         {summary.orders_open ? (
           <button

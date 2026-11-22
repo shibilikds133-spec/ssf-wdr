@@ -62,8 +62,8 @@ export function UnitDesktopShell({
   }, [location.pathname]);
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col unit-theme-bg text-[#261812]">
-      <div className="shrink-0 w-full [scrollbar-gutter:stable]">
+    <div className="h-[100dvh] overflow-hidden flex flex-col unit-theme-bg text-[#261812]">
+      <div className="shrink-0 w-full pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] [scrollbar-gutter:stable]">
         <header className="max-w-[1360px] mx-auto px-6 pt-5 pb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           {/* Left: SSF Brand Logo + SSF <Unit Name> + Active Page */}
           <div className="flex items-center gap-3 min-w-0 justify-self-start">
@@ -176,7 +176,7 @@ export function UnitDesktopShell({
         ref={mainRef}
         className="flex-1 min-w-0 overflow-y-auto [scrollbar-gutter:stable]"
       >
-        <div className="max-w-[1360px] mx-auto px-6 pt-2 pb-10">{children}</div>
+        <div className="max-w-[1360px] mx-auto pl-[calc(1.5rem+env(safe-area-inset-left,0px))] pr-[calc(1.5rem+env(safe-area-inset-right,0px))] pt-2 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]">{children}</div>
       </main>
     </div>
   );

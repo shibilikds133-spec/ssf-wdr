@@ -266,7 +266,7 @@ export function PublicLeaderboardDesktop({
       />
 
       {/* Sticky Desktop Top Header */}
-      <header className="sticky top-0 z-30 glass-rose-header gpu-chrome">
+      <header className="sticky top-0 inset-x-0 z-30 glass-rose-header pt-[env(safe-area-inset-top,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] gpu-chrome">
         <div className="max-w-[1440px] mx-auto px-5 xl:px-8 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <SsfLogo className="h-8 w-auto shrink-0" />
@@ -338,7 +338,7 @@ export function PublicLeaderboardDesktop({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-5 xl:px-8 py-5 space-y-5">
+      <main className="flex-1 max-w-[1440px] w-full mx-auto pl-[calc(1.25rem+env(safe-area-inset-left,0px))] pr-[calc(1.25rem+env(safe-area-inset-right,0px))] xl:pl-[calc(2rem+env(safe-area-inset-left,0px))] xl:pr-[calc(2rem+env(safe-area-inset-right,0px))] pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] space-y-5">
         {/* Section 1: Compact Top Hero Row (Promotional Poster + Division Live Progress) */}
         <section
           aria-label="Campaign Poster and Live Division Progress"

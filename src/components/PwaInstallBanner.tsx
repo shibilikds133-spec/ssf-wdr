@@ -21,7 +21,6 @@ const SHOW_DELAY_MS = 1500;
 type BannerMode = 'chromium' | 'ios-safari' | 'ios-other' | null;
 
 interface PortalBannerTheme {
-  themeColor: string;
   cardBorder: string;
   cardTint: string;
   titleText: string;
@@ -35,7 +34,6 @@ interface PortalBannerTheme {
 function getBannerTheme(pathname: string): PortalBannerTheme {
   if (pathname.startsWith('/sector')) {
     return {
-      themeColor: '#043326',
       cardBorder: 'border-forest-200',
       cardTint: 'bg-leaf-50/90',
       titleText: 'text-forest-950',
@@ -49,7 +47,6 @@ function getBannerTheme(pathname: string): PortalBannerTheme {
   }
   if (pathname.startsWith('/dashboard')) {
     return {
-      themeColor: '#EC5E27',
       cardBorder: 'border-ember-200',
       cardTint: 'bg-[#FFF9F4]/90',
       titleText: 'text-[#261812]',
@@ -63,7 +60,6 @@ function getBannerTheme(pathname: string): PortalBannerTheme {
   }
   if (pathname === '/') {
     return {
-      themeColor: '#5C0A0E',
       cardBorder: 'border-[#5C0A0E]/20',
       cardTint: 'bg-[#FFF8F6]/92',
       titleText: 'text-[#2B0406]',
@@ -76,7 +72,6 @@ function getBannerTheme(pathname: string): PortalBannerTheme {
     };
   }
   return {
-    themeColor: '#381932',
     cardBorder: 'border-milk-border',
     cardTint: 'bg-milk-50/90',
     titleText: 'text-plum-950',
@@ -177,16 +172,6 @@ export function PwaInstallBanner() {
   const [prompting, setPrompting] = useState(false);
   const [entered, setEntered] = useState(false);
 
-  // Sync <meta name="theme-color"> dynamically with active portal
-  useEffect(() => {
-    const meta = document.querySelector<HTMLMetaElement>(
-      'meta[name="theme-color"]'
-    );
-    if (meta) {
-      meta.content = theme.themeColor;
-    }
-  }, [theme.themeColor]);
-
   // Polite delay before showing banner so splash/login isn't interrupted
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -274,7 +259,7 @@ export function PwaInstallBanner() {
     <aside
       role="region"
       aria-label="Install Application"
-      className="fixed top-3 top-[max(0.75rem,env(safe-area-inset-top))] inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md z-[60] pointer-events-none"
+      className="fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] inset-x-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-md z-[60] pointer-events-none"
     >
       <div
         className={`pointer-events-auto ${theme.cardTint} backdrop-blur-md border ${theme.cardBorder} rounded-2xl shadow-lg p-3.5 sm:p-4 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none gpu-chrome ${

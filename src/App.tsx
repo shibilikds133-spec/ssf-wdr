@@ -1,10 +1,17 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 import { AppLoader } from './components/AppLoader';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { SmartAssistantLauncher } from './components/assistant/SmartAssistantLauncher';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DocsProvider, useDocs } from './context/DocsContext';
+import { usePortalEdgeTheme } from './utils/portalEdgeTheme';
 import {
   isAppInstalledStandalone,
   isPwaUpdateAvailable,
@@ -30,6 +37,19 @@ function isAuthenticatedPortalRoute(pathname: string, role?: string): boolean {
   if (role === 'SECTOR') return pathname.startsWith('/sector');
   if (role === 'UNIT') return pathname.startsWith('/dashboard');
   return false;
+}
+
+function PortalEdgeBackdrop() {
+  const { pathname } = useLocation();
+  const theme = usePortalEdgeTheme(pathname);
+
+  return (
+    <div
+      aria-hidden="true"
+      data-portal-edge={theme.key}
+      className={`fixed inset-0 -z-10 pointer-events-none min-h-[100lvh] w-full ${theme.canvasClass}`}
+    />
+  );
 }
 
 /**
@@ -102,6 +122,7 @@ function LazyGlobalOverlays() {
 export default function App() {
   return (
     <BrowserRouter>
+      <PortalEdgeBackdrop />
       <AuthProvider>
         <DocsProvider>
           <Suspense fallback={<AppLoader fullScreen />}>

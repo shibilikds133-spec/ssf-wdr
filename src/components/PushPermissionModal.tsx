@@ -330,7 +330,7 @@ export function PushPermissionModal() {
       aria-modal="true"
       data-push-permission-modal="true"
       aria-labelledby="push-permission-title"
-      className={`fixed inset-0 z-[65] ${styles.backdrop} flex items-center justify-center p-4 transition-opacity duration-200 motion-reduce:transition-none ${
+      className={`fixed inset-0 z-[65] ${styles.backdrop} flex items-center justify-center pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] transition-opacity duration-200 motion-reduce:transition-none ${
         entered ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={handleDismiss}

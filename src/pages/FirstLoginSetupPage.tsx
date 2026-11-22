@@ -90,8 +90,8 @@ export default function FirstLoginSetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center px-4 pt-14 pb-8 sm:p-6 sm:pt-16 text-ink-900">
-      <div className="fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 sm:top-5 sm:right-5 z-40">
+    <div className="min-h-[100dvh] bg-transparent flex flex-col items-center justify-center pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))] sm:pl-[calc(1.5rem+env(safe-area-inset-left,0px))] sm:pr-[calc(1.5rem+env(safe-area-inset-right,0px))] sm:pt-[calc(4rem+env(safe-area-inset-top,0px))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] text-ink-900">
+      <div className="fixed top-[calc(0.75rem+env(safe-area-inset-top,0px))] right-[calc(0.75rem+env(safe-area-inset-right,0px))] sm:top-[calc(1.25rem+env(safe-area-inset-top,0px))] sm:right-[calc(1.25rem+env(safe-area-inset-right,0px))] z-40">
         <PageDocsButton
           theme="plum"
           pageKey="setup_password"

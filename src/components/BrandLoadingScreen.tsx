@@ -26,7 +26,7 @@ export const BrandLoadingScreen: React.FC<BrandLoadingScreenProps> = ({
   }, [minDurationMs, onReady]);
 
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 gap-4">
+    <div className="min-h-[100dvh] bg-transparent flex flex-col items-center justify-center p-6 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] gap-4">
       <SsfLogo animated className="w-16 h-auto drop-shadow-md" />
       {message && (
         <div className="text-center">

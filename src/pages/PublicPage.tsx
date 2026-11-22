@@ -14,13 +14,13 @@ import { PublicLeaderboardMobile } from '../components/public/PublicLeaderboardM
 import { useDocs, useRegisterPageDocs } from '../context/DocsContext';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useIsDesktop } from '../hooks/useIsDesktop';
-import { usePortalThemeColor } from '../hooks/usePortalThemeColor';
 import { clearCached, getCached, setCached } from '../lib/cache';
 import type {
   PublicLeaderboardResponse,
   PublicLeaderboardUnit,
 } from '../types';
 import { DOCS_THEME_STYLES } from '../utils/docsConfig';
+import { usePortalEdgeTheme } from '../utils/portalEdgeTheme';
 import {
   isPwaUpdateAvailable,
   subscribePwaUpdate,
@@ -159,7 +159,7 @@ export default function PublicPage() {
   const isDesktop = useIsDesktop();
   const { isOpen: isDocsOpen } = useDocs();
 
-  usePortalThemeColor('#FFF8F6', '/manifest-public.webmanifest');
+  usePortalEdgeTheme('public');
   useRegisterPageDocs('public_leaderboard', 'public');
 
   const [data, setData] = useState<PublicLeaderboardResponse | null>(() =>
@@ -608,7 +608,7 @@ export default function PublicPage() {
           aria-modal="true"
           data-public-push-modal="true"
           aria-labelledby="public-push-title"
-          className={`fixed inset-0 z-[65] ${publicStyles.backdrop} flex items-center justify-center p-4`}
+          className={`fixed inset-0 z-[65] ${publicStyles.backdrop} flex items-center justify-center pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]`}
           onClick={handleDismissPublicPush}
         >
           <div

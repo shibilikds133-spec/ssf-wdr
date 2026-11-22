@@ -49,8 +49,8 @@ export function SmartAssistantLauncher() {
   );
 
   const positionClass = hasMobileBottomNav
-    ? 'fixed right-3.5 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:right-5 lg:bottom-5 z-[45]'
-    : 'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:right-5 sm:bottom-5 z-[45]';
+    ? 'fixed right-[calc(0.875rem+env(safe-area-inset-right,0px))] bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:right-[calc(1.25rem+env(safe-area-inset-right,0px))] lg:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] z-[45]'
+    : 'fixed right-[calc(1rem+env(safe-area-inset-right,0px))] bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:right-[calc(1.25rem+env(safe-area-inset-right,0px))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] z-[45]';
 
   return (
     <>
