@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useEffect,
   useMemo,
   useRef,
@@ -114,16 +115,18 @@ export function AdminSettingsTab({
 
   // Card 3 Directory Server-Side Search, Sector Filter & Pagination
   const [dirSearch, setDirSearch] = useState('');
-  const debouncedDirSearch = useDebouncedValue(dirSearch, 300);
+  const debouncedDirSearch = useDebouncedValue(dirSearch, 100);
   const [dirSectorFilter, setDirSectorFilter] = useState<string>('ALL');
   const [dirPage, setDirPage] = useState<number>(1);
-  const [dirPageSize, setDirPageSize] = useState<number>(15);
-  const [dirRows, setDirRows] = useState<UnitSummaryRow[]>([]);
+  const [dirPageSize, setDirPageSize] = useState<number>(10);
+  const [dirRows, setDirRows] = useState<UnitSummaryRow[]>(() =>
+    unitSummaries.slice(0, 10)
+  );
   const [dirTotalCount, setDirTotalCount] = useState<number>(
     unitSummaries.length
   );
   const [dirTotalPages, setDirTotalPages] = useState<number>(
-    Math.max(Math.ceil(unitSummaries.length / 15), 1)
+    Math.max(Math.ceil(unitSummaries.length / 10), 1)
   );
   const [dirFetching, setDirFetching] = useState<boolean>(false);
   const dirReqSeqRef = useRef(0);
@@ -158,14 +161,14 @@ export function AdminSettingsTab({
 
   useEffect(() => {
     const seq = ++dirReqSeqRef.current;
+    const controller = new AbortController();
     let active = true;
     setDirFetching(true);
 
     const fetchDirUnits = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'admin_list_units',
-          {
+        const { data, error: rpcError } = await supabase
+          .rpc('admin_list_units', {
             p_code: adminCode,
             p_sector_id:
               dirSectorFilter === 'ALL' ? null : Number(dirSectorFilter),
@@ -173,12 +176,13 @@ export function AdminSettingsTab({
             p_sort: 'code',
             p_page: dirPage,
             p_page_size: dirPageSize,
-          }
-        );
+          })
+          .abortSignal(controller.signal);
 
         if (!active || seq !== dirReqSeqRef.current) return;
 
         if (rpcError) {
+          if (controller.signal.aborted) return;
           onError(rpcError.message || 'Failed to load units directory.');
           return;
         }
@@ -186,13 +190,16 @@ export function AdminSettingsTab({
         const res = data as PaginatedUnitsResponse | null;
         if (!res) return;
 
-        setDirRows(res.items ?? []);
-        setDirTotalCount(Number(res.total_count) || 0);
-        setDirTotalPages(Math.max(Number(res.total_pages) || 1, 1));
-        if (typeof res.page === 'number' && res.page !== dirPage) {
-          setDirPage(res.page);
-        }
+        startTransition(() => {
+          setDirRows(res.items ?? []);
+          setDirTotalCount(Number(res.total_count) || 0);
+          setDirTotalPages(Math.max(Number(res.total_pages) || 1, 1));
+          if (typeof res.page === 'number' && res.page !== dirPage) {
+            setDirPage(res.page);
+          }
+        });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!active || seq !== dirReqSeqRef.current) return;
         onError(
           err instanceof Error
@@ -209,6 +216,7 @@ export function AdminSettingsTab({
     void fetchDirUnits();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [
     adminCode,

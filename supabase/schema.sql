@@ -1605,6 +1605,11 @@ END;
 $$;
 
 -- 6.11b PUBLIC: LIVE LEADERBOARD (PHASE 4, ZERO UNIT CODES, ZERO PII)
+CREATE INDEX IF NOT EXISTS idx_units_name ON units(name);
+CREATE INDEX IF NOT EXISTS idx_units_sector_id ON units(sector_id);
+CREATE INDEX IF NOT EXISTS idx_entries_unit_id_active ON entries(unit_id) WHERE is_deleted = false;
+CREATE INDEX IF NOT EXISTS idx_sectors_name ON sectors(name);
+
 CREATE OR REPLACE FUNCTION public_get_leaderboard()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -1638,6 +1643,19 @@ BEGIN
       AND s.name NOT ILIKE 'Test Sector%'
       AND u.name NOT ILIKE 'Test Unit%'
     GROUP BY u.id, u.sector_id, s.name, u.name
+  ),
+  ranked_units AS (
+    SELECT
+      ua.id,
+      ua.sector_id,
+      ua.sector_name,
+      ua.name,
+      ua.total_liters,
+      ua.total_orders,
+      ROW_NUMBER() OVER (
+        ORDER BY ua.total_liters DESC, ua.total_orders DESC, ua.name ASC
+      )::INT AS global_rank
+    FROM unit_agg ua
   ),
   sector_agg AS (
     SELECT
@@ -1710,13 +1728,243 @@ BEGIN
       '[]'::jsonb
     ),
     'units', COALESCE(
-      (SELECT jsonb_agg(row_to_json(ua)::jsonb ORDER BY ua.total_liters DESC, ua.name ASC) FROM unit_agg ua),
+      (SELECT jsonb_agg(row_to_json(ru)::jsonb ORDER BY ru.global_rank ASC) FROM ranked_units ru),
       '[]'::jsonb
     ),
     'fetched_at', now()
   ) INTO v_result;
 
   RETURN v_result;
+END;
+$$;
+
+-- 6.11c PUBLIC: BACKEND PAGINATED & SEARCHABLE LEADERBOARD (10/PAGE, TRUE GLOBAL RANK, ZERO UNIT CODES)
+CREATE OR REPLACE FUNCTION get_public_leaderboard_page(
+  p_page INT DEFAULT 1,
+  p_page_size INT DEFAULT 10,
+  p_search TEXT DEFAULT '',
+  p_sector_id INT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_search TEXT := TRIM(COALESCE(p_search, ''));
+  v_page_size INT := LEAST(GREATEST(COALESCE(p_page_size, 10), 1), 100);
+  v_page INT := GREATEST(COALESCE(p_page, 1), 1);
+  v_total_count INT := 0;
+  v_total_units_count INT := 0;
+  v_total_pages INT := 1;
+  v_offset INT := 0;
+  v_max_unit_liters NUMERIC(10, 2) := 1;
+  v_items JSONB := '[]'::jsonb;
+  v_top_units JSONB := '[]'::jsonb;
+  v_sectors JSONB := '[]'::jsonb;
+  v_summary JSONB;
+BEGIN
+  WITH settings_map AS (
+    SELECT
+      COALESCE(MAX(CASE WHEN key = 'unit_rate' THEN value END), '250')::NUMERIC AS per_liter_rate,
+      GREATEST(COALESCE(MAX(CASE WHEN key = 'division_target' THEN value END), '10000')::NUMERIC, 1) AS division_limit,
+      COALESCE(MAX(CASE WHEN key = 'challenge_title' THEN value END), 'SSF Wandoor Division Payasam Challenge') AS challenge_title,
+      COALESCE(MAX(CASE WHEN key = 'is_challenge_open' THEN value END), 'true') = 'true' AS orders_open
+    FROM app_settings
+  ),
+  unit_agg AS (
+    SELECT
+      u.id,
+      u.sector_id,
+      s.name AS sector_name,
+      u.name,
+      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters,
+      COUNT(e.id)::INT AS total_orders
+    FROM units u
+    JOIN sectors s ON s.id = u.sector_id
+    LEFT JOIN entries e ON e.unit_id = u.id AND e.is_deleted = false
+    WHERE s.login_code NOT IN ('WDR200', 'WDR201')
+      AND u.login_code NOT IN ('WDR202', 'WDR203', 'WDR204', 'WDR205')
+      AND s.name NOT ILIKE 'Test Sector%'
+      AND u.name NOT ILIKE 'Test Unit%'
+    GROUP BY u.id, u.sector_id, s.name, u.name
+  ),
+  ranked_units AS (
+    SELECT
+      ua.id,
+      ua.sector_id,
+      ua.sector_name,
+      ua.name,
+      ua.total_liters,
+      ua.total_orders,
+      ROW_NUMBER() OVER (
+        ORDER BY ua.total_liters DESC, ua.total_orders DESC, ua.name ASC
+      )::INT AS global_rank
+    FROM unit_agg ua
+  ),
+  filtered_units AS (
+    SELECT *
+    FROM ranked_units ru
+    WHERE (p_sector_id IS NULL OR ru.sector_id = p_sector_id)
+      AND (
+        v_search = ''
+        OR ru.name ILIKE '%' || v_search || '%'
+        OR ru.sector_name ILIKE '%' || v_search || '%'
+      )
+  ),
+  sector_agg AS (
+    SELECT
+      s.id,
+      s.name,
+      COALESCE(SUM(ua.total_liters), 0)::NUMERIC(10, 2) AS total_liters,
+      COALESCE(SUM(ua.total_orders), 0)::INT AS total_orders,
+      COUNT(CASE WHEN ua.total_orders > 0 THEN 1 END)::INT AS active_units_count,
+      COUNT(ua.id)::INT AS total_units_count
+    FROM sectors s
+    LEFT JOIN unit_agg ua ON ua.sector_id = s.id
+    WHERE s.login_code NOT IN ('WDR200', 'WDR201')
+      AND s.name NOT ILIKE 'Test Sector%'
+    GROUP BY s.id, s.name
+  ),
+  all_entries_agg AS (
+    SELECT
+      COUNT(e.id)::INT AS total_orders,
+      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters,
+      COALESCE(
+        ROUND(
+          (
+            COALESCE(SUM(CASE WHEN e.payment_status = 'PAID' AND e.payment_mode = 'UPI' THEN e.quantity ELSE 0 END), 0)
+            / NULLIF(COALESCE(SUM(e.quantity), 0), 0)
+          ) * 100
+        ),
+        0
+      )::INT AS upi_percent,
+      COALESCE(
+        ROUND(
+          (
+            COALESCE(SUM(CASE WHEN e.payment_status = 'PAID' AND e.payment_mode = 'CASH' THEN e.quantity ELSE 0 END), 0)
+            / NULLIF(COALESCE(SUM(e.quantity), 0), 0)
+          ) * 100
+        ),
+        0
+      )::INT AS cash_percent
+    FROM entries e
+    LEFT JOIN units u ON u.id = e.unit_id
+    LEFT JOIN sectors s ON s.id = u.sector_id
+    WHERE e.is_deleted = false
+      AND (
+        e.unit_id IS NULL
+        OR (
+          u.login_code NOT IN ('WDR202', 'WDR203', 'WDR204', 'WDR205')
+          AND s.login_code NOT IN ('WDR200', 'WDR201')
+          AND u.name NOT ILIKE 'Test Unit%'
+          AND s.name NOT ILIKE 'Test Sector%'
+        )
+      )
+  )
+  SELECT
+    (SELECT COUNT(*)::INT FROM filtered_units),
+    (SELECT COUNT(*)::INT FROM ranked_units),
+    GREATEST(COALESCE((SELECT MAX(total_liters) FROM ranked_units), 0), 1),
+    COALESCE(
+      (
+        SELECT jsonb_agg(row_to_json(t)::jsonb ORDER BY t.global_rank ASC)
+        FROM (SELECT * FROM ranked_units WHERE global_rank <= 3 ORDER BY global_rank ASC) t
+      ),
+      '[]'::jsonb
+    ),
+    COALESCE(
+      (SELECT jsonb_agg(row_to_json(sa)::jsonb ORDER BY sa.total_liters DESC, sa.name ASC) FROM sector_agg sa),
+      '[]'::jsonb
+    ),
+    (
+      SELECT jsonb_build_object(
+        'total_liters', a.total_liters,
+        'total_orders', a.total_orders,
+        'division_limit', sm.division_limit,
+        'per_liter_rate', sm.per_liter_rate,
+        'orders_open', sm.orders_open,
+        'challenge_title', sm.challenge_title,
+        'percent_complete', ROUND((a.total_liters / sm.division_limit) * 100.0, 2),
+        'upi_percent', a.upi_percent,
+        'cash_percent', a.cash_percent
+      )
+      FROM all_entries_agg a
+      CROSS JOIN settings_map sm
+    )
+  INTO
+    v_total_count,
+    v_total_units_count,
+    v_max_unit_liters,
+    v_top_units,
+    v_sectors,
+    v_summary;
+
+  v_total_pages := GREATEST(CEIL(v_total_count::NUMERIC / v_page_size)::INT, 1);
+  v_page := LEAST(v_page, v_total_pages);
+  v_offset := (v_page - 1) * v_page_size;
+
+  WITH unit_agg AS (
+    SELECT
+      u.id,
+      u.sector_id,
+      s.name AS sector_name,
+      u.name,
+      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters,
+      COUNT(e.id)::INT AS total_orders
+    FROM units u
+    JOIN sectors s ON s.id = u.sector_id
+    LEFT JOIN entries e ON e.unit_id = u.id AND e.is_deleted = false
+    WHERE s.login_code NOT IN ('WDR200', 'WDR201')
+      AND u.login_code NOT IN ('WDR202', 'WDR203', 'WDR204', 'WDR205')
+      AND s.name NOT ILIKE 'Test Sector%'
+      AND u.name NOT ILIKE 'Test Unit%'
+    GROUP BY u.id, u.sector_id, s.name, u.name
+  ),
+  ranked_units AS (
+    SELECT
+      ua.id,
+      ua.sector_id,
+      ua.sector_name,
+      ua.name,
+      ua.total_liters,
+      ua.total_orders,
+      ROW_NUMBER() OVER (
+        ORDER BY ua.total_liters DESC, ua.total_orders DESC, ua.name ASC
+      )::INT AS global_rank
+    FROM unit_agg ua
+  ),
+  page_rows AS (
+    SELECT *
+    FROM ranked_units ru
+    WHERE (p_sector_id IS NULL OR ru.sector_id = p_sector_id)
+      AND (
+        v_search = ''
+        OR ru.name ILIKE '%' || v_search || '%'
+        OR ru.sector_name ILIKE '%' || v_search || '%'
+      )
+    ORDER BY ru.global_rank ASC
+    LIMIT v_page_size OFFSET v_offset
+  )
+  SELECT COALESCE(jsonb_agg(row_to_json(pr)::jsonb ORDER BY pr.global_rank ASC), '[]'::jsonb)
+  INTO v_items
+  FROM page_rows pr;
+
+  RETURN jsonb_build_object(
+    'summary', v_summary,
+    'sectors', v_sectors,
+    'items', v_items,
+    'units', v_items,
+    'top_units', v_top_units,
+    'max_unit_liters', v_max_unit_liters,
+    'total_count', v_total_count,
+    'total_units_count', v_total_units_count,
+    'total_pages', v_total_pages,
+    'current_page', v_page,
+    'page', v_page,
+    'page_size', v_page_size,
+    'fetched_at', now()
+  );
 END;
 $$;
 
@@ -4115,6 +4363,7 @@ GRANT EXECUTE ON FUNCTION
   admin_update_account_contact(TEXT, TEXT, INT, TEXT),
   get_public_stats(),
   public_get_leaderboard(),
+  get_public_leaderboard_page(INT, INT, TEXT, INT),
   public_add_order(TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
   public_add_order(INT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
   unit_add_entry(TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT),

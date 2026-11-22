@@ -1,15 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { Bell, Loader2, Sparkles, X } from 'lucide-react';
 import { BrandLoadingScreen } from '../components/BrandLoadingScreen';
 import { PublicLeaderboardDesktop } from '../components/public/PublicLeaderboardDesktop';
 import { PublicLeaderboardMobile } from '../components/public/PublicLeaderboardMobile';
 import { PublicQuickEntryModal } from '../components/public/PublicQuickEntryModal';
 import { useDocs, useRegisterPageDocs } from '../context/DocsContext';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { usePortalThemeColor } from '../hooks/usePortalThemeColor';
 import { clearCached, getCached, setCached } from '../lib/cache';
 import { supabase } from '../lib/supabase';
-import type { PublicLeaderboardResponse } from '../types';
+import type {
+  PublicLeaderboardResponse,
+  PublicLeaderboardUnit,
+} from '../types';
 import { DOCS_THEME_STYLES } from '../utils/docsConfig';
 import {
   getNotificationPermission,
@@ -31,6 +41,71 @@ const LEADERBOARD_CACHE_KEY = 'wdr_public_leaderboard_v1';
 const LEADERBOARD_CACHE_TTL_MS = 20_000;
 const POSTER_PRELOAD_TIMEOUT_MS = 2500;
 const PUBLIC_PUSH_DELAY_MS = 6500;
+const PUBLIC_UNITS_PAGE_SIZE = 10;
+
+async function fetchPublicLeaderboardPage(params: {
+  page: number;
+  pageSize: number;
+  search: string;
+  sectorFilter: string;
+  fresh?: boolean;
+  signal?: AbortSignal;
+}): Promise<PublicLeaderboardResponse> {
+  const { page, pageSize, search, sectorFilter, fresh, signal } = params;
+  const sectorId =
+    sectorFilter !== 'ALL' && sectorFilter !== '' ? Number(sectorFilter) : null;
+
+  // 1. Try Cloudflare Pages Edge Function (/api/public/leaderboard)
+  try {
+    const qs = new URLSearchParams({
+      page: String(page),
+      limit: String(pageSize),
+      search: search.trim(),
+      sectorId: sectorId ? String(sectorId) : '',
+      ...(fresh ? { fresh: '1' } : {}),
+    });
+    const edgeRes = await fetch(`/api/public/leaderboard?${qs.toString()}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal,
+    });
+    const contentType = edgeRes.headers.get('content-type') || '';
+    if (edgeRes.ok && contentType.toLowerCase().includes('application/json')) {
+      const parsed = (await edgeRes.json()) as PublicLeaderboardResponse & {
+        ok?: boolean;
+        error?: string;
+      };
+      if (parsed && parsed.summary && Array.isArray(parsed.sectors)) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err;
+    }
+    // Fall back to direct Supabase RPC (e.g. local Vite dev)
+  }
+
+  // 2. Direct Supabase RPC fallback
+  let rpcBuilder = supabase.rpc('get_public_leaderboard_page', {
+    p_page: page,
+    p_page_size: pageSize,
+    p_search: search.trim(),
+    p_sector_id: sectorId,
+  });
+  if (signal && typeof rpcBuilder.abortSignal === 'function') {
+    rpcBuilder = rpcBuilder.abortSignal(signal);
+  }
+
+  const { data: rpcData, error: rpcError } = await rpcBuilder;
+  if (rpcError) {
+    throw new Error(rpcError.message || 'Unable to load live leaderboard.');
+  }
+  if (!rpcData) {
+    throw new Error('No leaderboard data returned from server.');
+  }
+  return rpcData as PublicLeaderboardResponse;
+}
 
 function preloadResponsivePoster(): Promise<void> {
   if (typeof window === 'undefined' || typeof Image === 'undefined') {
@@ -104,8 +179,18 @@ export default function PublicPage() {
         LEADERBOARD_CACHE_TTL_MS
       )
   );
+  const [unitsFetching, setUnitsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
+  const [quickEntryUnits, setQuickEntryUnits] = useState<
+    PublicLeaderboardUnit[]
+  >([]);
+
+  // Backend search, sector filter & 10-per-page pagination state
+  const [unitSearch, setUnitSearch] = useState('');
+  const debouncedUnitSearch = useDebouncedValue(unitSearch, 100);
+  const [sectorFilter, setSectorFilter] = useState('ALL');
+  const [unitPage, setUnitPage] = useState(1);
 
   // Public Push Permission Prompt states
   const [pushVapReady, setPushVapReady] = useState(() =>
@@ -127,65 +212,110 @@ export default function PublicPage() {
 
   const mountedRef = useRef(true);
   const publicPushStartAtRef = useRef<number | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const reqSeqRef = useRef(0);
 
-  const loadLeaderboard = useCallback(async (force = false): Promise<void> => {
-    if (!force) {
-      const cached = getCached<PublicLeaderboardResponse>(
-        LEADERBOARD_CACHE_KEY,
-        LEADERBOARD_CACHE_TTL_MS
-      );
-      if (cached) {
-        if (mountedRef.current) {
-          setData(cached);
-          setError(null);
-          setLoading(false);
-        }
-        return;
-      }
-    } else {
-      clearCached(LEADERBOARD_CACHE_KEY);
-    }
-
-    if (mountedRef.current) {
-      setLoading(true);
-      setError(null);
-    }
-
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        'public_get_leaderboard'
-      );
-      if (!mountedRef.current) return;
-
-      if (rpcError) {
-        setError(rpcError.message || 'Unable to load live leaderboard.');
-        return;
-      }
-
-      if (!rpcData) {
-        setError('No leaderboard data returned from server.');
-        return;
-      }
-
-      const leaderboard = rpcData as PublicLeaderboardResponse;
-      setCached(LEADERBOARD_CACHE_KEY, leaderboard);
-      setData(leaderboard);
-      setError(null);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to connect for live leaderboard.'
-      );
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-    }
+  const handleUnitSearchChange = useCallback((nextSearch: string) => {
+    setUnitSearch(nextSearch);
+    setUnitPage(1);
   }, []);
 
-  // Concurrent initial load: decode poster + fetch live leaderboard
+  const handleSectorFilterChange = useCallback((nextSector: string) => {
+    setSectorFilter(nextSector);
+    setUnitPage(1);
+  }, []);
+
+  const handleUnitPageChange = useCallback((nextPage: number) => {
+    setUnitPage(nextPage);
+  }, []);
+
+  const loadLeaderboard = useCallback(
+    async (force = false): Promise<void> => {
+      const isDefaultQuery =
+        unitPage === 1 &&
+        debouncedUnitSearch.trim() === '' &&
+        sectorFilter === 'ALL';
+
+      if (!force && isDefaultQuery) {
+        const cached = getCached<PublicLeaderboardResponse>(
+          LEADERBOARD_CACHE_KEY,
+          LEADERBOARD_CACHE_TTL_MS
+        );
+        if (cached && Array.isArray(cached.units) && cached.units.length <= PUBLIC_UNITS_PAGE_SIZE) {
+          if (mountedRef.current) {
+            setData(cached);
+            setError(null);
+            setLoading(false);
+            setUnitsFetching(false);
+          }
+          return;
+        }
+      } else if (force) {
+        clearCached(LEADERBOARD_CACHE_KEY);
+      }
+
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const seq = ++reqSeqRef.current;
+
+      if (mountedRef.current) {
+        if (!data) {
+          setLoading(true);
+        } else if (force) {
+          setLoading(true);
+        }
+        setUnitsFetching(true);
+        setError(null);
+      }
+
+      try {
+        const leaderboard = await fetchPublicLeaderboardPage({
+          page: unitPage,
+          pageSize: PUBLIC_UNITS_PAGE_SIZE,
+          search: debouncedUnitSearch,
+          sectorFilter,
+          fresh: force,
+          signal: controller.signal,
+        });
+
+        if (!mountedRef.current || seq !== reqSeqRef.current) return;
+
+        if (isDefaultQuery) {
+          setCached(LEADERBOARD_CACHE_KEY, leaderboard);
+        }
+
+        startTransition(() => {
+          setData(leaderboard);
+          if (
+            typeof leaderboard.current_page === 'number' &&
+            leaderboard.current_page !== unitPage
+          ) {
+            setUnitPage(leaderboard.current_page);
+          }
+          setError(null);
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        if (!mountedRef.current || seq !== reqSeqRef.current) return;
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to connect for live leaderboard.'
+        );
+      } finally {
+        if (mountedRef.current && seq === reqSeqRef.current) {
+          setLoading(false);
+          setUnitsFetching(false);
+        }
+      }
+    },
+    [unitPage, debouncedUnitSearch, sectorFilter, data]
+  );
+
+  // Initial poster decode
   useEffect(() => {
     mountedRef.current = true;
     void preloadResponsivePoster().then(() => {
@@ -193,12 +323,39 @@ export default function PublicPage() {
         setPosterReady(true);
       }
     });
-    void loadLeaderboard(false);
 
     return () => {
       mountedRef.current = false;
+      abortControllerRef.current?.abort();
     };
-  }, [loadLeaderboard]);
+  }, []);
+
+  // Fetch paginated leaderboard whenever page, debounced search (100ms), or sector filter changes
+  useEffect(() => {
+    void loadLeaderboard(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unitPage, debouncedUnitSearch, sectorFilter]);
+
+  // Lazy-fetch complete 92-unit list only when Quick Entry modal is opened
+  useEffect(() => {
+    if (!quickEntryOpen || quickEntryUnits.length >= 20) return;
+    let active = true;
+    void fetchPublicLeaderboardPage({
+      page: 1,
+      pageSize: 100,
+      search: '',
+      sectorFilter: 'ALL',
+    })
+      .then((res) => {
+        if (active && Array.isArray(res.units) && res.units.length > 0) {
+          setQuickEntryUnits(res.units);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [quickEntryOpen, quickEntryUnits.length]);
 
   // Background periodic live refresh (every 60s when visible)
   useEffect(() => {
@@ -336,6 +493,13 @@ export default function PublicPage() {
         <PublicLeaderboardDesktop
           data={data}
           refreshing={loading}
+          unitsFetching={unitsFetching}
+          unitSearch={unitSearch}
+          onUnitSearchChange={handleUnitSearchChange}
+          sectorFilter={sectorFilter}
+          onSectorFilterChange={handleSectorFilterChange}
+          unitPage={unitPage}
+          onUnitPageChange={handleUnitPageChange}
           onRefresh={() => void loadLeaderboard(true)}
           onOpenQuickEntry={() => setQuickEntryOpen(true)}
         />
@@ -343,6 +507,13 @@ export default function PublicPage() {
         <PublicLeaderboardMobile
           data={data}
           refreshing={loading}
+          unitsFetching={unitsFetching}
+          unitSearch={unitSearch}
+          onUnitSearchChange={handleUnitSearchChange}
+          sectorFilter={sectorFilter}
+          onSectorFilterChange={handleSectorFilterChange}
+          unitPage={unitPage}
+          onUnitPageChange={handleUnitPageChange}
           onRefresh={() => void loadLeaderboard(true)}
           onOpenQuickEntry={() => setQuickEntryOpen(true)}
         />
@@ -351,7 +522,7 @@ export default function PublicPage() {
       {quickEntryOpen && (
         <PublicQuickEntryModal
           sectors={data.sectors}
-          units={data.units}
+          units={quickEntryUnits.length > 0 ? quickEntryUnits : data.units}
           perLiterRate={Number(data.summary.per_liter_rate) || 250}
           challengeTitle={
             data.summary.challenge_title ||

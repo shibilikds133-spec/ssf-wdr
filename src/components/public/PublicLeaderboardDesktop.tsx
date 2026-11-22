@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Award,
   Crown,
+  Loader2,
   Lock,
   LogIn,
   PlusCircle,
@@ -10,10 +11,15 @@ import {
   Search,
   Users,
 } from 'lucide-react';
-import type { PublicLeaderboardResponse } from '../../types';
+import type {
+  PublicLeaderboardResponse,
+  PublicLeaderboardSector,
+  PublicLeaderboardUnit,
+} from '../../types';
 import { formatCurrency, formatQuantity } from '../../utils/format';
 import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
+import { PaginationBar } from '../PaginationBar';
 import { SelectDropdown } from '../SelectDropdown';
 import { SsfLogo } from '../SsfLogo';
 import { PublicDivisionProgressCard } from './PublicDivisionProgressCard';
@@ -22,6 +28,13 @@ import { PublicPosterWindow } from './PublicPosterWindow';
 interface PublicLeaderboardDesktopProps {
   data: PublicLeaderboardResponse;
   refreshing: boolean;
+  unitsFetching?: boolean;
+  unitSearch: string;
+  onUnitSearchChange: (nextSearch: string) => void;
+  sectorFilter: string;
+  onSectorFilterChange: (nextSector: string) => void;
+  unitPage: number;
+  onUnitPageChange: (nextPage: number) => void;
   onRefresh: () => void;
   onOpenQuickEntry: () => void;
 }
@@ -51,25 +64,139 @@ function rankBadgeClass(rank: number): string {
   return 'bg-[#5C0A0E]/[0.07] text-[#4A070A] border border-[#5C0A0E]/12';
 }
 
+const DesktopSectorRow = memo(function DesktopSectorRow({
+  sec,
+  rank,
+  maxSectorLiters,
+}: {
+  sec: PublicLeaderboardSector;
+  rank: number;
+  maxSectorLiters: number;
+}) {
+  const liters = Number(sec.total_liters) || 0;
+  const pct = Math.min(100, Math.round((liters / maxSectorLiters) * 100));
+  return (
+    <tr className="hover:bg-white/60 transition-colors">
+      <td className="py-3 px-4">
+        <span
+          className={`w-7 h-7 rounded-lg text-xs font-extrabold num inline-flex items-center justify-center ${rankBadgeClass(
+            rank
+          )}`}
+        >
+          {rank}
+        </span>
+      </td>
+      <td className="py-3 px-4 font-bold text-[#2B0406]">
+        <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12 shadow-2xs">
+          {sec.name}
+        </span>
+      </td>
+      <td className="py-3 px-4 text-right text-xs font-medium text-[#7A2E33] num">
+        {sec.active_units_count}/{sec.total_units_count}
+      </td>
+      <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num bg-[#5C0A0E]/[0.02]">
+        {sec.total_orders}
+      </td>
+      <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num bg-[#5C0A0E]/[0.03]">
+        {formatQuantity(liters)} L
+      </td>
+      <td className="py-3 px-4">
+        <div className="h-2 w-full rounded-full bg-[#5C0A0E]/[0.08] overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#C40E16] to-[#5C0A0E]"
+            style={{
+              width: `${liters > 0 ? Math.max(4, pct) : 0}%`,
+            }}
+          />
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+const DesktopUnitRow = memo(function DesktopUnitRow({
+  unit,
+  globalRank,
+  maxUnitLiters,
+}: {
+  unit: PublicLeaderboardUnit;
+  globalRank: number;
+  maxUnitLiters: number;
+}) {
+  const liters = Number(unit.total_liters) || 0;
+  const pct = Math.min(100, Math.round((liters / maxUnitLiters) * 100));
+  return (
+    <tr className="hover:bg-white/60 transition-colors">
+      <td className="py-3 px-4">
+        <span
+          className={`w-7 h-7 rounded-lg text-xs font-extrabold num inline-flex items-center justify-center ${rankBadgeClass(
+            globalRank
+          )}`}
+        >
+          {globalRank}
+        </span>
+      </td>
+      <td className="py-3 px-4 font-bold text-[#2B0406]">{unit.name}</td>
+      <td className="py-3 px-4 text-xs font-medium text-[#4A070A]">
+        <span className="inline-block px-2 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12">
+          {unit.sector_name}
+        </span>
+      </td>
+      <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num bg-[#5C0A0E]/[0.02]">
+        {unit.total_orders}
+      </td>
+      <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num bg-[#5C0A0E]/[0.03]">
+        {formatQuantity(liters)} L
+      </td>
+      <td className="py-3 px-4">
+        <div className="h-2 w-full rounded-full bg-[#5C0A0E]/[0.08] overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#C40E16] to-[#5C0A0E]"
+            style={{
+              width: `${liters > 0 ? Math.max(5, pct) : 0}%`,
+            }}
+          />
+        </div>
+      </td>
+    </tr>
+  );
+});
+
 export function PublicLeaderboardDesktop({
   data,
   refreshing,
+  unitsFetching = false,
+  unitSearch,
+  onUnitSearchChange,
+  sectorFilter,
+  onSectorFilterChange,
+  unitPage,
+  onUnitPageChange,
   onRefresh,
   onOpenQuickEntry,
 }: PublicLeaderboardDesktopProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('SECTORS');
-  const [unitSearch, setUnitSearch] = useState('');
-  const [sectorFilter, setSectorFilter] = useState('ALL');
+  const unitsListTopRef = useRef<HTMLDivElement | null>(null);
 
-  const { summary, sectors, units } = data;
-  const maxSectorLiters = Math.max(
-    1,
-    ...sectors.map((s) => Number(s.total_liters) || 0)
+  const { summary, sectors } = data;
+  const pageUnits = data.items ?? data.units;
+  const overallTopUnits =
+    data.top_units && data.top_units.length > 0 ? data.top_units : pageUnits;
+
+  const maxSectorLiters = useMemo(
+    () =>
+      Math.max(1, ...sectors.map((s) => Number(s.total_liters) || 0)),
+    [sectors]
   );
-  const maxUnitLiters = Math.max(
-    1,
-    ...units.map((u) => Number(u.total_liters) || 0)
+  const maxUnitLiters = useMemo(
+    () =>
+      Math.max(
+        1,
+        Number(data.max_unit_liters) ||
+          Math.max(1, ...pageUnits.map((u) => Number(u.total_liters) || 0))
+      ),
+    [data.max_unit_liters, pageUnits]
   );
 
   const sectorFilterOptions = useMemo(
@@ -85,53 +212,66 @@ export function PublicLeaderboardDesktop({
     [sectors]
   );
 
-  const filteredUnits = useMemo(() => {
-    const q = unitSearch.trim().toLowerCase();
-    return units.filter((u) => {
-      if (sectorFilter !== 'ALL' && String(u.sector_id) !== sectorFilter) {
-        return false;
-      }
-      if (!q) return true;
-      return `${u.name} ${u.sector_name}`.toLowerCase().includes(q);
-    });
-  }, [units, unitSearch, sectorFilter]);
-
   const topSector = sectors[0] ?? null;
-  const topUnit = units[0] ?? null;
-  const activeUnitsCount = sectors.reduce(
-    (sum, s) => sum + s.active_units_count,
-    0
+  const topUnit = overallTopUnits[0] ?? null;
+  const activeUnitsCount = useMemo(
+    () => sectors.reduce((sum, s) => sum + s.active_units_count, 0),
+    [sectors]
   );
-  const totalUnitsCount = sectors.reduce(
-    (sum, s) => sum + s.total_units_count,
-    0
+  const totalUnitsCount = useMemo(
+    () => sectors.reduce((sum, s) => sum + s.total_units_count, 0),
+    [sectors]
   );
+  const allUnitsTabCount =
+    data.total_units_count ?? totalUnitsCount ?? pageUnits.length;
+  const filteredTotalCount = data.total_count ?? pageUnits.length;
+  const pageSize = data.page_size ?? 10;
+  const totalPages = Math.max(
+    1,
+    data.total_pages ?? Math.ceil(filteredTotalCount / pageSize)
+  );
+  const currentPage = data.current_page ?? data.page ?? unitPage;
+
+  const handlePageChange = useCallback(
+    (nextPage: number) => {
+      onUnitPageChange(nextPage);
+      unitsListTopRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    },
+    [onUnitPageChange]
+  );
+
   const progressPct = Math.min(
     100,
     Math.max(0, Number(summary.percent_complete) || 0)
   );
 
-  const activePodiumItems =
-    activeTab === 'SECTORS'
-      ? sectors.slice(0, 3).map((s, idx) => ({
-          key: `sec-${s.id}`,
-          rank: idx + 1,
-          title: s.name,
-          subtitle: `${s.active_units_count}/${s.total_units_count} active units • ${s.total_orders} orders`,
-          liters: Number(s.total_liters) || 0,
-        }))
-      : units.slice(0, 3).map((u, idx) => ({
-          key: `unit-${u.id}`,
-          rank: idx + 1,
-          title: u.name,
-          subtitle: `${u.sector_name} • ${u.total_orders} orders`,
-          liters: Number(u.total_liters) || 0,
-        }));
+  const activePodiumItems = useMemo(
+    () =>
+      activeTab === 'SECTORS'
+        ? sectors.slice(0, 3).map((s, idx) => ({
+            key: `sec-${s.id}`,
+            rank: idx + 1,
+            title: s.name,
+            subtitle: `${s.active_units_count}/${s.total_units_count} active units • ${s.total_orders} orders`,
+            liters: Number(s.total_liters) || 0,
+          }))
+        : overallTopUnits.slice(0, 3).map((u, idx) => ({
+            key: `unit-${u.id}`,
+            rank: u.global_rank ?? idx + 1,
+            title: u.name,
+            subtitle: `${u.sector_name} • ${u.total_orders} orders`,
+            liters: Number(u.total_liters) || 0,
+          })),
+    [activeTab, sectors, overallTopUnits]
+  );
 
   return (
-    <div className="min-h-screen public-theme-bg flex flex-col">
+    <div className="min-h-[100dvh] public-theme-bg flex flex-col">
       {/* Sticky Desktop Top Header */}
-      <header className="sticky top-0 z-30 glass-rose-header">
+      <header className="sticky top-0 z-30 glass-rose-header gpu-chrome">
         <div className="max-w-[1440px] mx-auto px-5 xl:px-8 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <SsfLogo className="h-8 w-auto shrink-0" />
@@ -342,7 +482,7 @@ export function PublicLeaderboardDesktop({
               <button
                 type="button"
                 onClick={() => setActiveTab('SECTORS')}
-                className={`py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all ${
+                className={`py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-[background-color,color,box-shadow,opacity] ${
                   activeTab === 'SECTORS'
                     ? 'glass-crimson text-white shadow-sm'
                     : 'text-[#4A070A] hover:bg-white/60'
@@ -354,14 +494,14 @@ export function PublicLeaderboardDesktop({
               <button
                 type="button"
                 onClick={() => setActiveTab('UNITS')}
-                className={`py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all ${
+                className={`py-2 px-4 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-[background-color,color,box-shadow,opacity] ${
                   activeTab === 'UNITS'
                     ? 'glass-crimson text-white shadow-sm'
                     : 'text-[#4A070A] hover:bg-white/60'
                 }`}
               >
                 <Users className="w-3.5 h-3.5 shrink-0" />
-                <span>Top Units ({units.length})</span>
+                <span>Top Units ({allUnitsTabCount})</span>
               </button>
             </div>
           </div>
@@ -403,20 +543,26 @@ export function PublicLeaderboardDesktop({
 
           {/* Search & Filter Controls for Units Tab */}
           {activeTab === 'UNITS' && (
-            <div className="flex flex-wrap items-center gap-3">
+            <div
+              ref={unitsListTopRef}
+              className="flex flex-wrap items-center gap-3 scroll-mt-20"
+            >
               <div className="relative flex-1 min-w-[240px]">
                 <Search className="w-4 h-4 text-[#7A2E33]/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={unitSearch}
-                  onChange={(e) => setUnitSearch(e.target.value)}
+                  onChange={(e) => onUnitSearchChange(e.target.value)}
                   placeholder="യൂണിറ്റ് അല്ലെങ്കിൽ സെക്ടർ പേര് തിരയുക..."
-                  className="w-full pl-9 pr-3 py-2 text-sm font-ml rounded-xl border border-[#5C0A0E]/18 bg-white/95 text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                  className="w-full pl-9 pr-8 py-2 text-sm font-ml rounded-xl border border-[#5C0A0E]/18 bg-white/95 text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
+                {unitsFetching && (
+                  <Loader2 className="w-4 h-4 text-[#5C0A0E] animate-spin absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                )}
               </div>
               <SelectDropdown
                 value={sectorFilter}
-                onChange={setSectorFilter}
+                onChange={onSectorFilterChange}
                 options={sectorFilterOptions}
                 ariaLabel="Filter units by sector"
                 className="w-60"
@@ -439,130 +585,72 @@ export function PublicLeaderboardDesktop({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#5C0A0E]/10 text-sm">
-                  {sectors.map((sec, idx) => {
-                    const rank = idx + 1;
-                    const liters = Number(sec.total_liters) || 0;
-                    const pct = Math.min(
-                      100,
-                      Math.round((liters / maxSectorLiters) * 100)
-                    );
-                    return (
-                      <tr
-                        key={sec.id}
-                        className="hover:bg-white/60 transition-colors"
-                      >
-                        <td className="py-3 px-4">
-                          <span
-                            className={`w-7 h-7 rounded-lg text-xs font-extrabold num inline-flex items-center justify-center ${rankBadgeClass(
-                              rank
-                            )}`}
-                          >
-                            {rank}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-bold text-[#2B0406]">
-                          <span className="inline-block px-2.5 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12 shadow-2xs">
-                            {sec.name}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right text-xs font-medium text-[#7A2E33] num">
-                          {sec.active_units_count}/{sec.total_units_count}
-                        </td>
-                        <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num bg-[#5C0A0E]/[0.02]">
-                          {sec.total_orders}
-                        </td>
-                        <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num bg-[#5C0A0E]/[0.03]">
-                          {formatQuantity(liters)} L
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="h-2 w-full rounded-full bg-[#5C0A0E]/[0.08] overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-[#C40E16] to-[#5C0A0E]"
-                              style={{
-                                width: `${liters > 0 ? Math.max(4, pct) : 0}%`,
-                              }}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {sectors.map((sec, idx) => (
+                    <DesktopSectorRow
+                      key={sec.id}
+                      sec={sec}
+                      rank={idx + 1}
+                      maxSectorLiters={maxSectorLiters}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <div className="glass-rose-table rounded-2xl overflow-hidden">
-              {filteredUnits.length === 0 ? (
-                <p className="font-ml text-sm text-center text-[#7A2E33] py-10">
-                  തിരയുന്ന പേരിൽ യൂണിറ്റുകളൊന്നും കണ്ടെത്തിയില്ല.
-                </p>
-              ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead className="glass-rose-head border-b border-[#5C0A0E]/12 text-[11px] font-bold uppercase tracking-wider text-[#7A2E33]">
-                    <tr>
-                      <th className="py-3 px-4 w-20">Rank</th>
-                      <th className="py-3 px-4">Unit</th>
-                      <th className="py-3 px-4">Sector</th>
-                      <th className="py-3 px-4 text-right">Orders</th>
-                      <th className="py-3 px-4 text-right w-40">
-                        Quantity (L)
-                      </th>
-                      <th className="py-3 px-4 w-48">Progress</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#5C0A0E]/10 text-sm">
-                    {filteredUnits.map((unit) => {
-                      const globalRank =
-                        units.findIndex((u) => u.id === unit.id) + 1;
-                      const liters = Number(unit.total_liters) || 0;
-                      const pct = Math.min(
-                        100,
-                        Math.round((liters / maxUnitLiters) * 100)
-                      );
-                      return (
-                        <tr
-                          key={unit.id}
-                          className="hover:bg-white/60 transition-colors"
-                        >
-                          <td className="py-3 px-4">
-                            <span
-                              className={`w-7 h-7 rounded-lg text-xs font-extrabold num inline-flex items-center justify-center ${rankBadgeClass(
-                                globalRank
-                              )}`}
-                            >
-                              {globalRank}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-bold text-[#2B0406]">
-                            {unit.name}
-                          </td>
-                          <td className="py-3 px-4 text-xs font-medium text-[#4A070A]">
-                            <span className="inline-block px-2 py-0.5 rounded-lg bg-white/70 backdrop-blur-md border border-[#5C0A0E]/12">
-                              {unit.sector_name}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-semibold text-[#4A070A] num bg-[#5C0A0E]/[0.02]">
-                            {unit.total_orders}
-                          </td>
-                          <td className="py-3 px-4 text-right font-extrabold text-[#5C0A0E] num bg-[#5C0A0E]/[0.03]">
-                            {formatQuantity(liters)} L
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="h-2 w-full rounded-full bg-[#5C0A0E]/[0.08] overflow-hidden">
-                              <div
-                                className="h-full rounded-full bg-gradient-to-r from-[#C40E16] to-[#5C0A0E]"
-                                style={{
-                                  width: `${liters > 0 ? Math.max(5, pct) : 0}%`,
-                                }}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
+            <div className="space-y-3">
+              <div
+                className={`glass-rose-table rounded-2xl overflow-hidden transition-opacity duration-150 ${
+                  unitsFetching ? 'opacity-75' : 'opacity-100'
+                }`}
+              >
+                {pageUnits.length === 0 ? (
+                  <p className="font-ml text-sm text-center text-[#7A2E33] py-10">
+                    തിരയുന്ന പേരിൽ യൂണിറ്റുകളൊന്നും കണ്ടെത്തിയില്ല.
+                  </p>
+                ) : (
+                  <table className="w-full text-left border-collapse">
+                    <thead className="glass-rose-head border-b border-[#5C0A0E]/12 text-[11px] font-bold uppercase tracking-wider text-[#7A2E33]">
+                      <tr>
+                        <th className="py-3 px-4 w-20">Rank</th>
+                        <th className="py-3 px-4">Unit</th>
+                        <th className="py-3 px-4">Sector</th>
+                        <th className="py-3 px-4 text-right">Orders</th>
+                        <th className="py-3 px-4 text-right w-40">
+                          Quantity (L)
+                        </th>
+                        <th className="py-3 px-4 w-48">Progress</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#5C0A0E]/10 text-sm">
+                      {pageUnits.map((unit, idx) => {
+                        const globalRank =
+                          unit.global_rank ??
+                          (currentPage - 1) * pageSize + idx + 1;
+                        return (
+                          <DesktopUnitRow
+                            key={unit.id}
+                            unit={unit}
+                            globalRank={globalRank}
+                            maxUnitLiters={maxUnitLiters}
+                          />
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                totalCount={filteredTotalCount}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                theme="public"
+                locale="ml"
+                loading={unitsFetching}
+                isDesktop={true}
+              />
             </div>
           )}
         </section>

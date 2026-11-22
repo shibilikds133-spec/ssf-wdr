@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Download,
@@ -59,19 +59,19 @@ export function SectorEntriesTab({
   onError,
 }: SectorEntriesTabProps) {
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
+  const debouncedSearch = useDebouncedValue(search, 100);
   const [unitFilter, setUnitFilter] = useState<string>(
     initialUnitId === 'ALL' ? 'ALL' : String(initialUnitId)
   );
   const [statusFilter, setStatusFilter] = useState<'ALL' | PaymentStatus>('ALL');
   const [modeFilter, setModeFilter] = useState<'ALL' | PaymentMode>('ALL');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  const [rows, setRows] = useState<EntryItem[]>(() => entries.slice(0, 20));
+  const [rows, setRows] = useState<EntryItem[]>(() => entries.slice(0, 10));
   const [totalCount, setTotalCount] = useState<number>(entries.length);
   const [totalPages, setTotalPages] = useState<number>(
-    Math.max(Math.ceil(entries.length / 20), 1)
+    Math.max(Math.ceil(entries.length / 10), 1)
   );
   const [fetching, setFetching] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
@@ -107,14 +107,14 @@ export function SectorEntriesTab({
 
   useEffect(() => {
     const seq = ++requestSeqRef.current;
+    const controller = new AbortController();
     let active = true;
     setFetching(true);
 
     const fetchEntries = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'sector_list_entries',
-          {
+        const { data, error: rpcError } = await supabase
+          .rpc('sector_list_entries', {
             p_code: sectorCode,
             p_unit_id: unitFilter === 'ALL' ? null : Number(unitFilter),
             p_payment_status: statusFilter,
@@ -122,12 +122,13 @@ export function SectorEntriesTab({
             p_search: debouncedSearch,
             p_page: page,
             p_page_size: pageSize,
-          }
-        );
+          })
+          .abortSignal(controller.signal);
 
         if (!active || seq !== requestSeqRef.current) return;
 
         if (rpcError) {
+          if (controller.signal.aborted) return;
           onError(rpcError.message || 'Failed to load sector orders.');
           return;
         }
@@ -135,13 +136,16 @@ export function SectorEntriesTab({
         const res = data as PaginatedResponse<EntryItem> | null;
         if (!res) return;
 
-        setRows(res.items ?? []);
-        setTotalCount(Number(res.total_count) || 0);
-        setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
-        if (typeof res.page === 'number' && res.page !== page) {
-          setPage(res.page);
-        }
+        startTransition(() => {
+          setRows(res.items ?? []);
+          setTotalCount(Number(res.total_count) || 0);
+          setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
+          if (typeof res.page === 'number' && res.page !== page) {
+            setPage(res.page);
+          }
+        });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!active || seq !== requestSeqRef.current) return;
         onError(
           err instanceof Error ? err.message : 'Unable to load sector orders.'
@@ -156,6 +160,7 @@ export function SectorEntriesTab({
     void fetchEntries();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [
     sectorCode,

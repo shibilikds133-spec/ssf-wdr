@@ -82,6 +82,7 @@ export function PublicPosterWindow({
                   alt="SSF വണ്ടൂർ ഡിവിഷൻ പാലട പായസം ചലഞ്ച്"
                   width={1200}
                   height={531}
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               </picture>

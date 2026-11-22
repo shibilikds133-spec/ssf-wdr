@@ -17,6 +17,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { clearCached } from '../../lib/cache';
 import { supabase } from '../../lib/supabase';
 import type {
@@ -81,6 +82,8 @@ export function PublicQuickEntryModal({
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [sectorQuery, setSectorQuery] = useState('');
   const [unitQuery, setUnitQuery] = useState('');
+  const debouncedSectorQuery = useDebouncedValue(sectorQuery, 100);
+  const debouncedUnitQuery = useDebouncedValue(unitQuery, 100);
   const [unitCode, setUnitCode] = useState<string>('');
 
   const [contributorName, setContributorName] = useState('');
@@ -95,10 +98,10 @@ export function PublicQuickEntryModal({
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<CreatedPublicReceipt | null>(null);
 
-  // Verify remembered unit still exists in live units list (if loaded)
+  // Verify remembered unit still exists in live units list (if full directory is loaded)
   const validRemembered = useMemo(() => {
     if (!remembered) return null;
-    if (units.length === 0) return remembered;
+    if (units.length < 20) return remembered;
     const found = units.find((u) => u.id === remembered.unitId);
     if (!found) return null;
     return {
@@ -125,10 +128,10 @@ export function PublicQuickEntryModal({
   );
 
   const filteredSectors = useMemo(() => {
-    const q = sectorQuery.trim().toLowerCase();
+    const q = debouncedSectorQuery.trim().toLowerCase();
     if (!q) return sortedSectors;
     return sortedSectors.filter((s) => s.name.toLowerCase().includes(q));
-  }, [sortedSectors, sectorQuery]);
+  }, [sortedSectors, debouncedSectorQuery]);
 
   const selectedSector = useMemo(
     () =>
@@ -141,12 +144,12 @@ export function PublicQuickEntryModal({
   const filteredSectorUnits = useMemo(() => {
     if (!selectedSectorId) return [];
     const secIdNum = Number(selectedSectorId);
-    const q = unitQuery.trim().toLowerCase();
+    const q = debouncedUnitQuery.trim().toLowerCase();
     return units
       .filter((u) => u.sector_id === secIdNum)
       .filter((u) => (!q ? true : u.name.toLowerCase().includes(q)))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [units, selectedSectorId, unitQuery]);
+  }, [units, selectedSectorId, debouncedUnitQuery]);
 
   const activeUnit = useMemo(() => {
     if (validRemembered) {

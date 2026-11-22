@@ -1,4 +1,5 @@
 import {
+  startTransition,
   useEffect,
   useRef,
   useState,
@@ -83,10 +84,12 @@ export function SectorManageTab({
   );
   const [deletingUnitId, setDeletingUnitId] = useState<number | null>(null);
   const [dirSearch, setDirSearch] = useState('');
-  const debouncedDirSearch = useDebouncedValue(dirSearch, 300);
+  const debouncedDirSearch = useDebouncedValue(dirSearch, 100);
   const [dirPage, setDirPage] = useState<number>(1);
   const [dirPageSize, setDirPageSize] = useState<number>(10);
-  const [dirRows, setDirRows] = useState<UnitSummaryRow[]>([]);
+  const [dirRows, setDirRows] = useState<UnitSummaryRow[]>(() =>
+    units.slice(0, 10)
+  );
   const [dirTotalCount, setDirTotalCount] = useState<number>(units.length);
   const [dirTotalPages, setDirTotalPages] = useState<number>(
     Math.max(Math.ceil(units.length / 10), 1)
@@ -109,25 +112,26 @@ export function SectorManageTab({
 
   useEffect(() => {
     const seq = ++dirReqSeqRef.current;
+    const controller = new AbortController();
     let active = true;
     setDirFetching(true);
 
     const fetchDirUnits = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'sector_list_units',
-          {
+        const { data, error: rpcError } = await supabase
+          .rpc('sector_list_units', {
             p_code: sectorCode,
             p_search: debouncedDirSearch,
             p_sort: 'code',
             p_page: dirPage,
             p_page_size: dirPageSize,
-          }
-        );
+          })
+          .abortSignal(controller.signal);
 
         if (!active || seq !== dirReqSeqRef.current) return;
 
         if (rpcError) {
+          if (controller.signal.aborted) return;
           onError(rpcError.message || 'Failed to load sector directory.');
           return;
         }
@@ -135,13 +139,16 @@ export function SectorManageTab({
         const res = data as PaginatedUnitsResponse | null;
         if (!res) return;
 
-        setDirRows(res.items ?? []);
-        setDirTotalCount(Number(res.total_count) || 0);
-        setDirTotalPages(Math.max(Number(res.total_pages) || 1, 1));
-        if (typeof res.page === 'number' && res.page !== dirPage) {
-          setDirPage(res.page);
-        }
+        startTransition(() => {
+          setDirRows(res.items ?? []);
+          setDirTotalCount(Number(res.total_count) || 0);
+          setDirTotalPages(Math.max(Number(res.total_pages) || 1, 1));
+          if (typeof res.page === 'number' && res.page !== dirPage) {
+            setDirPage(res.page);
+          }
+        });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!active || seq !== dirReqSeqRef.current) return;
         onError(
           err instanceof Error
@@ -158,6 +165,7 @@ export function SectorManageTab({
     void fetchDirUnits();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [sectorCode, debouncedDirSearch, dirPage, dirPageSize, refreshKey, onError]);
 

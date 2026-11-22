@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -82,11 +82,11 @@ export function AdminCredentialsSection({
   onError,
 }: AdminCredentialsSectionProps) {
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
+  const debouncedSearch = useDebouncedValue(search, 100);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
   const [sectorFilter, setSectorFilter] = useState<string>('ALL');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(15);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const [rows, setRows] = useState<AccountRow[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -133,14 +133,14 @@ export function AdminCredentialsSection({
   // Server-side filtered + paginated credentials fetch
   useEffect(() => {
     const seq = ++requestSeqRef.current;
+    const controller = new AbortController();
     let active = true;
     setFetching(true);
 
     const fetchCredentials = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'admin_list_credentials',
-          {
+        const { data, error: rpcError } = await supabase
+          .rpc('admin_list_credentials', {
             p_code: adminCode,
             p_role_filter: roleFilter,
             p_sector_id:
@@ -148,12 +148,13 @@ export function AdminCredentialsSection({
             p_search: debouncedSearch,
             p_page: page,
             p_page_size: pageSize,
-          }
-        );
+          })
+          .abortSignal(controller.signal);
 
         if (!active || seq !== requestSeqRef.current) return;
 
         if (rpcError) {
+          if (controller.signal.aborted) return;
           onError(rpcError.message || 'Failed to load credentials.');
           return;
         }
@@ -175,19 +176,22 @@ export function AdminCredentialsSection({
           isResetPending: item.is_reset_pending ?? false,
         }));
 
-        setRows(mapped);
-        setTotalCount(Number(res.total_count) || 0);
-        setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
-        if (typeof res.page === 'number' && res.page !== page) {
-          setPage(res.page);
-        }
-
         const nextDrafts: Record<string, string> = {};
         for (const acc of mapped) {
           nextDrafts[acc.key] = acc.contactPhone;
         }
-        setPhoneDrafts(nextDrafts);
+
+        startTransition(() => {
+          setRows(mapped);
+          setTotalCount(Number(res.total_count) || 0);
+          setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
+          if (typeof res.page === 'number' && res.page !== page) {
+            setPage(res.page);
+          }
+          setPhoneDrafts(nextDrafts);
+        });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!active || seq !== requestSeqRef.current) return;
         onError(
           err instanceof Error ? err.message : 'Unable to load credentials.'
@@ -202,6 +206,7 @@ export function AdminCredentialsSection({
     void fetchCredentials();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [
     adminCode,

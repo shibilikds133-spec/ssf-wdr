@@ -60,7 +60,7 @@ export function SmartAssistantLauncher() {
         aria-label="Smart Help Assistant"
         aria-expanded={isOpen}
         title="സഹായി (Smart Help)"
-        className={`${positionClass} h-12 w-12 sm:h-[52px] sm:w-[52px] rounded-full shrink-0 overflow-hidden flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 active:scale-95 ${LAUNCHER_STYLES[theme]}`}
+        className={`${positionClass} h-12 w-12 sm:h-[52px] sm:w-[52px] rounded-full shrink-0 overflow-hidden flex items-center justify-center gpu-chrome transition-[transform,filter,opacity] duration-200 hover:-translate-y-0.5 hover:brightness-105 active:scale-95 ${LAUNCHER_STYLES[theme]}`}
       >
         <span
           aria-hidden="true"

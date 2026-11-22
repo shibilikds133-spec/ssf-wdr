@@ -5,12 +5,14 @@
 @layer base {
   html {
     scrollbar-gutter: stable;
+    overscroll-behavior-y: contain;
   }
 
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: contain;
     background-color: #FDFBF8;
     background-image:
       radial-gradient(at 0% 0%, rgba(56, 25, 50, 0.05) 0px, transparent 45%),
@@ -51,7 +53,10 @@
     -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid rgba(234, 226, 218, 0.95);
     box-shadow: 0 4px 20px -6px rgba(56, 25, 50, 0.05);
-    transform: translateZ(0);
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    contain: layout style;
     will-change: transform;
   }
 
@@ -135,7 +140,10 @@
     -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid rgba(220, 232, 213, 0.95);
     box-shadow: 0 4px 20px -6px rgba(4, 51, 38, 0.05);
-    transform: translateZ(0);
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    contain: layout style;
     will-change: transform;
   }
 
@@ -216,7 +224,10 @@
     -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid rgba(226, 218, 198, 0.95);
     box-shadow: 0 4px 20px -6px rgba(143, 45, 13, 0.06);
-    transform: translateZ(0);
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    contain: layout style;
     will-change: transform;
   }
 
@@ -373,7 +384,10 @@
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid rgba(92, 10, 14, 0.14);
     box-shadow: 0 4px 20px -6px rgba(92, 10, 14, 0.07);
-    transform: translateZ(0);
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    contain: layout style;
     will-change: transform;
   }
 
@@ -493,5 +507,12 @@
 @layer utilities {
   .num {
     font-variant-numeric: tabular-nums;
+  }
+
+  .gpu-chrome {
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    contain: layout style;
   }
 }

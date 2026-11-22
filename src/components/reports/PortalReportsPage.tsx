@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   BarChart3,
@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { exportReportCsv } from '../../utils/csv';
 import { exportReportPdf } from '../../utils/exportPdf';
 import { formatCurrency, formatQuantity } from '../../utils/format';
@@ -35,6 +36,7 @@ import {
   type ReportUnitSummaryRow,
 } from '../../utils/reports';
 import { BrandText } from '../BrandText';
+import { PaginationBar } from '../PaginationBar';
 import {
   PORTAL_THEME_TOKENS,
   ReportFilterControls,
@@ -200,13 +202,19 @@ export function PortalReportsPage({
     'sectors'
   );
   const [directorySearch, setDirectorySearch] = useState('');
+  const debouncedDirectorySearch = useDebouncedValue(directorySearch, 100);
   const [directorySectorFilter, setDirectorySectorFilter] =
     useState<string>('ALL');
   const [directoryTemplate, setDirectoryTemplate] =
     useState<ReportTemplateType>(
       source.role === 'SECTOR' ? 'DELIVERY_SHEET' : 'DETAILED_ORDERS'
     );
-  const [showAllUnits, setShowAllUnits] = useState(false);
+  const [dirUnitPage, setDirUnitPage] = useState<number>(1);
+  const [dirUnitPageSize, setDirUnitPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setDirUnitPage(1);
+  }, [debouncedDirectorySearch, directorySectorFilter, directoryTab]);
 
   const payload = useMemo(
     () => buildReportPayload(source, config),
@@ -312,7 +320,7 @@ export function PortalReportsPage({
       agg.set(sId, curr);
     }
 
-    const q = directorySearch.trim().toLowerCase();
+    const q = debouncedDirectorySearch.trim().toLowerCase();
     return sectors
       .map((s) => {
         const stats = agg.get(s.id) ?? {
@@ -338,7 +346,7 @@ export function PortalReportsPage({
       .sort((a, b) =>
         b.liters !== a.liters ? b.liters - a.liters : a.name.localeCompare(b.name)
       );
-  }, [source, directorySearch]);
+  }, [source, debouncedDirectorySearch]);
 
   const unitDirectoryRows = useMemo(() => {
     if (source.role === 'UNIT') return [];
@@ -349,7 +357,7 @@ export function PortalReportsPage({
             (u) => u.sector_id == null || u.sector_id === source.data.sector.id
           );
 
-    const q = directorySearch.trim().toLowerCase();
+    const q = debouncedDirectorySearch.trim().toLowerCase();
     return units
       .filter((u) => {
         if (
@@ -369,7 +377,7 @@ export function PortalReportsPage({
         if (qDiff !== 0) return qDiff;
         return a.name.localeCompare(b.name);
       });
-  }, [source, directorySearch, directorySectorFilter]);
+  }, [source, debouncedDirectorySearch, directorySectorFilter]);
 
   const unitDailyBreakdown = useMemo(() => {
     if (source.role !== 'UNIT') return [];
@@ -451,10 +459,16 @@ export function PortalReportsPage({
     25
   );
 
-  const visibleUnitsDirectory =
-    showAllUnits || directorySearch.trim() !== ''
-      ? unitDirectoryRows
-      : unitDirectoryRows.slice(0, 24);
+  const dirUnitTotalCount = unitDirectoryRows.length;
+  const dirUnitTotalPages = Math.max(
+    1,
+    Math.ceil(dirUnitTotalCount / dirUnitPageSize)
+  );
+  const safeDirUnitPage = Math.min(Math.max(1, dirUnitPage), dirUnitTotalPages);
+  const visibleUnitsDirectory = unitDirectoryRows.slice(
+    (safeDirUnitPage - 1) * dirUnitPageSize,
+    safeDirUnitPage * dirUnitPageSize
+  );
 
   return (
     <div className="space-y-5">
@@ -1315,19 +1329,20 @@ export function PortalReportsPage({
                 })}
               </div>
 
-              {directorySearch.trim() === '' && unitDirectoryRows.length > 24 && (
-                <div className="flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllUnits((prev) => !prev)}
-                    className={`${theme.pillSurface} px-4 py-2 rounded-xl text-xs font-semibold ${theme.heading} hover:bg-white transition-colors num`}
-                  >
-                    {showAllUnits
-                      ? 'Show Top 24 Units'
-                      : `Show All ${unitDirectoryRows.length} Units`}
-                  </button>
-                </div>
-              )}
+              <PaginationBar
+                page={safeDirUnitPage}
+                totalPages={dirUnitTotalPages}
+                totalCount={dirUnitTotalCount}
+                pageSize={dirUnitPageSize}
+                onPageChange={setDirUnitPage}
+                onPageSizeChange={(nextSize) => {
+                  setDirUnitPageSize(nextSize);
+                  setDirUnitPage(1);
+                }}
+                pageSizeOptions={[10, 15, 25, 50]}
+                theme={source.role === 'ADMIN' ? 'admin' : 'sector'}
+                isDesktop={isDesktop}
+              />
             </div>
           )}
         </section>

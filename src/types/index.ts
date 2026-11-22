@@ -108,12 +108,22 @@ export interface PublicLeaderboardUnit {
   name: string;
   total_liters: number;
   total_orders: number;
+  global_rank?: number;
 }
 
 export interface PublicLeaderboardResponse {
   summary: PublicLeaderboardSummary;
   sectors: PublicLeaderboardSector[];
   units: PublicLeaderboardUnit[];
+  items?: PublicLeaderboardUnit[];
+  top_units?: PublicLeaderboardUnit[];
+  max_unit_liters?: number;
+  total_count?: number;
+  total_units_count?: number;
+  total_pages?: number;
+  current_page?: number;
+  page?: number;
+  page_size?: number;
   fetched_at: string;
 }
 

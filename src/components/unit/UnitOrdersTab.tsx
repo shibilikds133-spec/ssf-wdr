@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Download,
@@ -55,16 +55,16 @@ export function UnitOrdersTab({
   onError,
 }: UnitOrdersTabProps) {
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
+  const debouncedSearch = useDebouncedValue(search, 100);
   const [statusFilter, setStatusFilter] = useState<'ALL' | PaymentStatus>('ALL');
   const [modeFilter, setModeFilter] = useState<'ALL' | PaymentMode>('ALL');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  const [rows, setRows] = useState<EntryItem[]>(() => entries.slice(0, 20));
+  const [rows, setRows] = useState<EntryItem[]>(() => entries.slice(0, 10));
   const [totalCount, setTotalCount] = useState<number>(entries.length);
   const [totalPages, setTotalPages] = useState<number>(
-    Math.max(Math.ceil(entries.length / 20), 1)
+    Math.max(Math.ceil(entries.length / 10), 1)
   );
   const [fetching, setFetching] = useState<boolean>(false);
   const [exporting, setExporting] = useState<boolean>(false);
@@ -76,26 +76,27 @@ export function UnitOrdersTab({
 
   useEffect(() => {
     const seq = ++requestSeqRef.current;
+    const controller = new AbortController();
     let active = true;
     setFetching(true);
 
     const fetchOrders = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'unit_list_entries',
-          {
+        const { data, error: rpcError } = await supabase
+          .rpc('unit_list_entries', {
             p_code: unitCode,
             p_payment_status: statusFilter,
             p_payment_mode: modeFilter,
             p_search: debouncedSearch,
             p_page: page,
             p_page_size: pageSize,
-          }
-        );
+          })
+          .abortSignal(controller.signal);
 
         if (!active || seq !== requestSeqRef.current) return;
 
         if (rpcError) {
+          if (controller.signal.aborted) return;
           onError?.(rpcError.message || 'Failed to load unit orders.');
           return;
         }
@@ -103,13 +104,16 @@ export function UnitOrdersTab({
         const res = data as PaginatedResponse<EntryItem> | null;
         if (!res) return;
 
-        setRows(res.items ?? []);
-        setTotalCount(Number(res.total_count) || 0);
-        setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
-        if (typeof res.page === 'number' && res.page !== page) {
-          setPage(res.page);
-        }
+        startTransition(() => {
+          setRows(res.items ?? []);
+          setTotalCount(Number(res.total_count) || 0);
+          setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
+          if (typeof res.page === 'number' && res.page !== page) {
+            setPage(res.page);
+          }
+        });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!active || seq !== requestSeqRef.current) return;
         onError?.(
           err instanceof Error ? err.message : 'Unable to load unit orders.'
@@ -124,6 +128,7 @@ export function UnitOrdersTab({
     void fetchOrders();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [unitCode, statusFilter, modeFilter, debouncedSearch, page, pageSize, refreshKey, onError]);
 

@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -23,6 +24,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type {
   AuthSession,
   HelpAssistantRole,
@@ -357,6 +359,8 @@ export function SmartAssistantDrawer({
   );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, 100);
+  const deferredQuery = useDeferredValue(debouncedQuery);
   const [lastTypedQuery, setLastTypedQuery] = useState('');
   const [cachedAdminPhone, setCachedAdminPhone] = useState<string>(() =>
     getCachedAdminWhatsAppPhone()
@@ -439,9 +443,9 @@ export function SmartAssistantDrawer({
   }, [kb, selectedCategoryId, role]);
 
   const livePredictions = useMemo(() => {
-    if (!kb || query.trim().length < 2) return [];
-    return searchHelpKb(kb, query, role, 4);
-  }, [kb, query, role]);
+    if (!kb || deferredQuery.trim().length < 2) return [];
+    return searchHelpKb(kb, deferredQuery, role, 4);
+  }, [kb, deferredQuery, role]);
 
   const selectQuestion = useCallback(
     (item: HelpKbItem, userPromptOverride?: string) => {

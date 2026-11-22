@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Download, Search, X } from 'lucide-react';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { supabase } from '../../lib/supabase';
@@ -41,18 +41,18 @@ export function UnitSummaryTab({
   onError,
 }: UnitSummaryTabProps) {
   const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 300);
+  const debouncedSearch = useDebouncedValue(search, 100);
   const [sectorFilter, setSectorFilter] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<SortOption>('highest');
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(15);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const [rows, setRows] = useState<UnitSummaryRow[]>(() =>
-    unitSummaries.slice(0, 15)
+    unitSummaries.slice(0, 10)
   );
   const [totalCount, setTotalCount] = useState<number>(unitSummaries.length);
   const [totalPages, setTotalPages] = useState<number>(
-    Math.max(Math.ceil(unitSummaries.length / 15), 1)
+    Math.max(Math.ceil(unitSummaries.length / 10), 1)
   );
   const [totals, setTotals] = useState<FilteredUnitTotals>(() =>
     unitSummaries.reduce(
@@ -85,14 +85,14 @@ export function UnitSummaryTab({
 
   useEffect(() => {
     const seq = ++requestSeqRef.current;
+    const controller = new AbortController();
     let active = true;
     setFetching(true);
 
     const fetchUnits = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'admin_list_units',
-          {
+        const { data, error: rpcError } = await supabase
+          .rpc('admin_list_units', {
             p_code: adminCode,
             p_sector_id:
               sectorFilter === 'ALL' ? null : Number(sectorFilter),
@@ -100,12 +100,13 @@ export function UnitSummaryTab({
             p_sort: sortBy,
             p_page: page,
             p_page_size: pageSize,
-          }
-        );
+          })
+          .abortSignal(controller.signal);
 
         if (!active || seq !== requestSeqRef.current) return;
 
         if (rpcError) {
+          if (controller.signal.aborted) return;
           onError?.(rpcError.message || 'Failed to load units summary.');
           return;
         }
@@ -113,23 +114,26 @@ export function UnitSummaryTab({
         const res = data as PaginatedUnitsResponse | null;
         if (!res) return;
 
-        setRows(res.items ?? []);
-        setTotalCount(Number(res.total_count) || 0);
-        setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
-        if (typeof res.page === 'number' && res.page !== page) {
-          setPage(res.page);
-        }
-        if (res.totals) {
-          setTotals({
-            total_entries: Number(res.totals.total_entries) || 0,
-            total_quantity: Number(res.totals.total_quantity) || 0,
-            cash_amount: Number(res.totals.cash_amount) || 0,
-            upi_amount: Number(res.totals.upi_amount) || 0,
-            unpaid_amount: Number(res.totals.unpaid_amount) || 0,
-            total_amount: Number(res.totals.total_amount) || 0,
-          });
-        }
+        startTransition(() => {
+          setRows(res.items ?? []);
+          setTotalCount(Number(res.total_count) || 0);
+          setTotalPages(Math.max(Number(res.total_pages) || 1, 1));
+          if (typeof res.page === 'number' && res.page !== page) {
+            setPage(res.page);
+          }
+          if (res.totals) {
+            setTotals({
+              total_entries: Number(res.totals.total_entries) || 0,
+              total_quantity: Number(res.totals.total_quantity) || 0,
+              cash_amount: Number(res.totals.cash_amount) || 0,
+              upi_amount: Number(res.totals.upi_amount) || 0,
+              unpaid_amount: Number(res.totals.unpaid_amount) || 0,
+              total_amount: Number(res.totals.total_amount) || 0,
+            });
+          }
+        });
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!active || seq !== requestSeqRef.current) return;
         onError?.(
           err instanceof Error ? err.message : 'Unable to load units summary.'
@@ -144,6 +148,7 @@ export function UnitSummaryTab({
     void fetchUnits();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [
     adminCode,

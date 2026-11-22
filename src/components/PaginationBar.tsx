@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-export type PaginationTheme = 'admin' | 'sector' | 'unit';
+export type PaginationTheme = 'admin' | 'sector' | 'unit' | 'public';
 
 interface PaginationBarProps {
   page: number;
@@ -13,6 +13,8 @@ interface PaginationBarProps {
   theme: PaginationTheme;
   loading?: boolean;
   isDesktop: boolean;
+  locale?: 'en' | 'ml';
+  unitLabelMl?: string;
 }
 
 const THEME_STYLES: Record<
@@ -61,6 +63,18 @@ const THEME_STYLES: Record<
     pillIdle: 'text-[#6B5449] hover:text-[#261812]',
     pillActive: 'glass-orange text-white shadow-2xs',
   },
+  public: {
+    container:
+      'bg-white/75 backdrop-blur-xl border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.88),0_4px_14px_-6px_rgba(92,10,14,0.08)]',
+    primaryText: 'text-[#2B0406]',
+    mutedText: 'text-[#7A2E33]',
+    buttonIdle:
+      'border border-[#5C0A0E]/18 bg-white/90 text-[#4A070A] hover:bg-white',
+    buttonActive: 'glass-crimson text-white border border-transparent shadow-xs',
+    pillTrack: 'glass-rose-pill',
+    pillIdle: 'text-[#7A2E33] hover:text-[#2B0406]',
+    pillActive: 'glass-crimson text-white shadow-2xs',
+  },
 };
 
 function buildPageTokens(currentPage: number, totalPages: number): (number | 'ellipsis')[] {
@@ -97,11 +111,14 @@ export function PaginationBar({
   theme,
   loading = false,
   isDesktop,
+  locale,
+  unitLabelMl = 'യൂണിറ്റുകൾ',
 }: PaginationBarProps) {
   if (totalCount <= 0) {
     return null;
   }
 
+  const isMl = locale === 'ml' || (!locale && theme === 'public');
   const styles = THEME_STYLES[theme];
   const safeTotalPages = Math.max(totalPages, 1);
   const safePage = Math.min(Math.max(page, 1), safeTotalPages);
@@ -119,57 +136,95 @@ export function PaginationBar({
         aria-label="Pagination"
       >
         <div className="flex items-center justify-between gap-2 text-[11px] num">
-          <span className={styles.mutedText}>
-            Showing{' '}
-            <strong className={styles.primaryText}>
-              {startRow}–{endRow}
-            </strong>{' '}
-            of <strong className={styles.primaryText}>{totalCount}</strong>
-          </span>
+          {isMl ? (
+            <span className={`font-ml ${styles.mutedText}`}>
+              <strong className={styles.primaryText}>
+                {startRow}–{endRow}
+              </strong>{' '}
+              / <strong className={styles.primaryText}>{totalCount}</strong>{' '}
+              {unitLabelMl}
+            </span>
+          ) : (
+            <span className={styles.mutedText}>
+              Showing{' '}
+              <strong className={styles.primaryText}>
+                {startRow}–{endRow}
+              </strong>{' '}
+              of <strong className={styles.primaryText}>{totalCount}</strong>
+            </span>
+          )}
 
-          {onPageSizeChange && (
-            <div className={`${styles.pillTrack} p-0.5 rounded-full inline-flex items-center`}>
-              {pageSizeOptions.slice(0, 3).map((sizeOpt) => (
-                <button
-                  key={sizeOpt}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => onPageSizeChange(sizeOpt)}
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors num ${
-                    pageSize === sizeOpt ? styles.pillActive : styles.pillIdle
-                  }`}
-                >
-                  {sizeOpt}
-                </button>
-              ))}
-            </div>
+          {isMl ? (
+            <span className={`font-ml font-bold ${styles.primaryText}`}>
+              പേജ് {safePage} / {safeTotalPages}
+            </span>
+          ) : (
+            onPageSizeChange && (
+              <div className={`${styles.pillTrack} p-0.5 rounded-full inline-flex items-center`}>
+                {pageSizeOptions.slice(0, 3).map((sizeOpt) => (
+                  <button
+                    key={sizeOpt}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => onPageSizeChange(sizeOpt)}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors num ${
+                      pageSize === sizeOpt ? styles.pillActive : styles.pillIdle
+                    }`}
+                  >
+                    {sizeOpt}
+                  </button>
+                ))}
+              </div>
+            )
           )}
         </div>
 
-        <div className="grid grid-cols-3 items-center gap-2">
+        <div className="flex items-center justify-between gap-1.5">
           <button
             type="button"
             disabled={!canGoPrev}
             onClick={() => onPageChange(safePage - 1)}
-            className={`${styles.buttonIdle} rounded-xl py-2 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}
+            aria-label="Previous page"
+            className={`${styles.buttonIdle} rounded-xl py-1.5 px-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0`}
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Prev</span>
+            <span>{isMl ? '‹' : 'Prev'}</span>
           </button>
 
-          <span
-            className={`text-center text-xs font-semibold ${styles.primaryText} num`}
-          >
-            Page {safePage} / {safeTotalPages}
-          </span>
+          <div className="flex items-center justify-center gap-1 overflow-x-auto py-0.5 num">
+            {pageTokens.map((token, idx) =>
+              token === 'ellipsis' ? (
+                <span
+                  key={`m-ellipsis-${idx}`}
+                  className={`px-1 text-[11px] select-none ${styles.mutedText}`}
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={token}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => onPageChange(token)}
+                  aria-current={token === safePage ? 'page' : undefined}
+                  className={`min-w-[28px] h-7 px-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                    token === safePage ? styles.buttonActive : styles.buttonIdle
+                  } disabled:cursor-not-allowed`}
+                >
+                  {token}
+                </button>
+              )
+            )}
+          </div>
 
           <button
             type="button"
             disabled={!canGoNext}
             onClick={() => onPageChange(safePage + 1)}
-            className={`${styles.buttonIdle} rounded-xl py-2 px-3 text-xs font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}
+            aria-label="Next page"
+            className={`${styles.buttonIdle} rounded-xl py-1.5 px-2.5 text-xs font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0`}
           >
-            <span>Next</span>
+            <span>{isMl ? '›' : 'Next'}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -183,13 +238,28 @@ export function PaginationBar({
       aria-label="Pagination"
     >
       <div className="flex items-center gap-3 text-xs num">
-        <span className={styles.mutedText}>
-          Showing{' '}
-          <strong className={styles.primaryText}>
-            {startRow}–{endRow}
-          </strong>{' '}
-          of <strong className={styles.primaryText}>{totalCount}</strong>
-        </span>
+        {isMl ? (
+          <span className={`font-ml ${styles.mutedText}`}>
+            പേജ്{' '}
+            <strong className={styles.primaryText}>
+              {safePage} / {safeTotalPages}
+            </strong>{' '}
+            ·{' '}
+            <strong className={styles.primaryText}>
+              {startRow}–{endRow}
+            </strong>{' '}
+            / <strong className={styles.primaryText}>{totalCount}</strong>{' '}
+            {unitLabelMl}
+          </span>
+        ) : (
+          <span className={styles.mutedText}>
+            Showing{' '}
+            <strong className={styles.primaryText}>
+              {startRow}–{endRow}
+            </strong>{' '}
+            of <strong className={styles.primaryText}>{totalCount}</strong>
+          </span>
+        )}
 
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5">
@@ -222,7 +292,7 @@ export function PaginationBar({
           className={`${styles.buttonIdle} rounded-lg px-2.5 py-1.5 text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}
         >
           <ChevronLeft className="w-3.5 h-3.5" />
-          <span>Prev</span>
+          <span>{isMl ? '‹' : 'Prev'}</span>
         </button>
 
         {pageTokens.map((token, idx) =>
@@ -256,7 +326,7 @@ export function PaginationBar({
           aria-label="Next page"
           className={`${styles.buttonIdle} rounded-lg px-2.5 py-1.5 text-xs font-semibold inline-flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}
         >
-          <span>Next</span>
+          <span>{isMl ? '›' : 'Next'}</span>
           <ChevronRight className="w-3.5 h-3.5" />
         </button>
       </div>
