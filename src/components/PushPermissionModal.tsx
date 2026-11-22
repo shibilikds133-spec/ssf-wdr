@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bell, Loader2, Sparkles, X } from 'lucide-react';
+import {
+  Bell,
+  Loader2,
+  RefreshCw,
+  Settings2,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDocs } from '../context/DocsContext';
 import type { UserRole } from '../types';
@@ -10,6 +17,7 @@ import {
   subscribePwaUpdate,
 } from '../utils/pwaAutoUpdate';
 import {
+  getDeviceNotificationGuide,
   getNotificationPermission,
   getVapidPublicKey,
   isIosNonStandalone,
@@ -19,6 +27,7 @@ import {
   resolveVapidPublicKey,
   subscribePushUiState,
   subscribeToPush,
+  watchNotificationPermissionChange,
 } from '../utils/pushNotifications';
 
 const SHOW_DELAY_MS = 8000;
@@ -160,8 +169,35 @@ export function PushPermissionModal() {
     isPushSupported() &&
     vapidReady &&
     !isIosNonStandalone() &&
-    permission === 'default' &&
+    (permission === 'default' || permission === 'denied') &&
     !dismissed;
+
+  const token = session?.token || session?.code || '';
+
+  const handleEnable = useCallback(async () => {
+    if (enabling || !token) return;
+    setError(null);
+    setEnabling(true);
+    const result = await subscribeToPush(token);
+    const latestPerm = getNotificationPermission();
+    setPermission(latestPerm);
+    setEnabling(false);
+
+    if (result.ok) {
+      setDismissed(true);
+      return;
+    }
+
+    if (latestPerm === 'denied') {
+      // Keep modal open and show the Chrome/System permission unblock guide
+      setError(
+        'ബ്രൗസറിലോ സിസ്റ്റത്തിലോ നോട്ടിഫിക്കേഷൻ ഓഫ് ആണ്. താഴെ കാണുന്ന സ്റ്റെപ്പുകൾ വഴി Allow ചെയ്ത ശേഷം വീണ്ടും ശ്രമിക്കുക.'
+      );
+      return;
+    }
+
+    setError(result.error || 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ കഴിഞ്ഞില്ല.');
+  }, [enabling, token]);
 
   useEffect(() => {
     const syncPermission = () => setPermission(getNotificationPermission());
@@ -169,11 +205,18 @@ export function PushPermissionModal() {
     const unsubUpdate = subscribePwaUpdate((available) =>
       setUpdatePending(available)
     );
+    const unsubPermWatch = watchNotificationPermissionChange((nextPerm) => {
+      setPermission(nextPerm);
+      if (nextPerm === 'granted' && inAuthenticatedPortal && !dismissed) {
+        void handleEnable();
+      }
+    });
     return () => {
       unsubPush();
       unsubUpdate();
+      unsubPermWatch();
     };
-  }, []);
+  }, [inAuthenticatedPortal, dismissed, handleEnable]);
 
   useEffect(() => {
     if (!eligible) {
@@ -219,33 +262,12 @@ export function PushPermissionModal() {
   const themeKey = resolveTheme(session.role);
   const styles = DOCS_THEME_STYLES[themeKey];
   const cta = PORTAL_STYLES[themeKey];
-  const token = session.token || session.code;
+  const isBlocked = permission === 'denied';
+  const deviceGuide = isBlocked ? getDeviceNotificationGuide() : null;
 
   const handleDismiss = () => {
     markPushPromptDismissed();
     setDismissed(true);
-  };
-
-  const handleEnable = async () => {
-    if (enabling) return;
-    setError(null);
-    setEnabling(true);
-    const result = await subscribeToPush(token);
-    setPermission(getNotificationPermission());
-    setEnabling(false);
-
-    if (result.ok) {
-      setDismissed(true);
-      return;
-    }
-
-    if (getNotificationPermission() === 'denied') {
-      markPushPromptDismissed();
-      setDismissed(true);
-      return;
-    }
-
-    setError(result.error || 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ കഴിഞ്ഞില്ല.');
   };
 
   return (
@@ -298,14 +320,34 @@ export function PushPermissionModal() {
             id="push-permission-title"
             className={`font-ml text-lg font-bold ${styles.headingText}`}
           >
-            നോട്ടിഫിക്കേഷനുകൾ ഓൺ ചെയ്യുക
+            {isBlocked
+              ? 'സിസ്റ്റം നോട്ടിഫിക്കേഷൻ അലോ ചെയ്യുക'
+              : 'നോട്ടിഫിക്കേഷനുകൾ ഓൺ ചെയ്യുക'}
           </h2>
 
           <p
             className={`font-ml text-xs sm:text-sm mt-2 leading-relaxed ${styles.bodyText}`}
           >
-            {ROLE_COPY[session.role]}
+            {isBlocked
+              ? 'നിങ്ങളുടെ ബ്രൗസറിലോ ഫോൺ/സിസ്റ്റം സെറ്റിംഗ്സിലോ നോട്ടിഫിക്കേഷനുകൾ ബ്ലോക്ക് ചെയ്തിരിക്കുകയാണ്. ഓർഡർ അപ്‌ഡേറ്റുകൾ ലഭിക്കാൻ ദയവായി ഇത് Allow ചെയ്യുക.'
+              : ROLE_COPY[session.role]}
           </p>
+
+          {isBlocked && deviceGuide && (
+            <div
+              className={`mt-3.5 w-full rounded-2xl p-3.5 text-left ${styles.tipStrip}`}
+            >
+              <div className="flex items-center gap-1.5 text-[11px] font-bold mb-1.5">
+                <Settings2 className="w-3.5 h-3.5 shrink-0" />
+                <span>{deviceGuide.platformLabel}</span>
+              </div>
+              <ol className="font-ml text-[11px] sm:text-xs space-y-1 list-decimal list-inside leading-relaxed">
+                {deviceGuide.steps.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {error && (
             <p className="font-ml text-xs text-rose-700 bg-rose-50/95 border border-rose-200 rounded-xl px-3 py-2 mt-3 w-full">
@@ -323,7 +365,12 @@ export function PushPermissionModal() {
               {enabling ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin shrink-0 text-white" />
-                  <span className="text-white">സജ്ജീകരിക്കുന്നു...</span>
+                  <span className="text-white">പരിശോധിക്കുന്നു...</span>
+                </>
+              ) : isBlocked ? (
+                <>
+                  <RefreshCw className="w-4 h-4 shrink-0 text-white" />
+                  <span className="text-white">Allow ചെയ്തു — വീണ്ടും ശ്രമിക്കുക</span>
                 </>
               ) : (
                 <>

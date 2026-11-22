@@ -49,6 +49,98 @@ export function getNotificationPermission():
   return Notification.permission;
 }
 
+export function watchNotificationPermissionChange(
+  onChange: (permission: NotificationPermission) => void
+): () => void {
+  if (
+    typeof navigator === 'undefined' ||
+    !('permissions' in navigator) ||
+    typeof navigator.permissions.query !== 'function'
+  ) {
+    return () => {};
+  }
+
+  let active = true;
+  let statusObj: PermissionStatus | null = null;
+  const handleChange = () => {
+    if (!active) return;
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      onChange(Notification.permission);
+      notifyUiListeners();
+    }
+  };
+
+  void navigator.permissions
+    .query({ name: 'notifications' as PermissionName })
+    .then((status) => {
+      if (!active) return;
+      statusObj = status;
+      status.addEventListener('change', handleChange);
+    })
+    .catch(() => {
+      // Safari / unsupported browsers
+    });
+
+  return () => {
+    active = false;
+    if (statusObj) {
+      statusObj.removeEventListener('change', handleChange);
+    }
+  };
+}
+
+export function getDeviceNotificationGuide(): {
+  platformLabel: string;
+  steps: string[];
+} {
+  if (typeof navigator === 'undefined') {
+    return {
+      platformLabel: 'Browser Settings',
+      steps: [
+        'ബ്രൗസർ അഡ്രസ് ബാറിലെ 🔒 അല്ലെങ്കിൽ ⚙️ (Site Settings) തുറക്കുക.',
+        'Notifications എന്നത് "Allow" ആക്കി മാറ്റുക.',
+        'ശേഷം താഴെയുള്ള "വീണ്ടും പരിശോധിക്കുക" ബട്ടൺ അമർത്തുക.',
+      ],
+    };
+  }
+
+  const ua = navigator.userAgent || '';
+  const isIos =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIos) {
+    return {
+      platformLabel: 'iPhone / iPad Settings',
+      steps: [
+        'ഫോണിന്റെ Settings → Notifications → SSF Payasam (അല്ലെങ്കിൽ Safari) തുറക്കുക.',
+        'Allow Notifications ഓൺ ആക്കുക.',
+        'ശേഷം ആപ്പിലേക്ക് തിരികെ വന്ന് "വീണ്ടും പരിശോധിക്കുക" അമർത്തുക.',
+      ],
+    };
+  }
+
+  const isAndroid = /Android/i.test(ua);
+  if (isAndroid) {
+    return {
+      platformLabel: 'Android Chrome / System Settings',
+      steps: [
+        'മുകളിൽ അഡ്രസ് ബാറിലെ 🔒 / ⓘ (Site settings) ടാപ്പ് ചെയ്ത് Notifications → Allow ആക്കുക.',
+        'Chrome-ന് സിസ്റ്റം നോട്ടിഫിക്കേഷൻ ഓഫ് ആണെങ്കിൽ: ഫോൺ Settings → Apps → Chrome → Notifications → Allow ആക്കുക.',
+        'ശേഷം താഴെയുള്ള "വീണ്ടും പരിശോധിക്കുക" ബട്ടൺ ടാപ്പ് ചെയ്യുക.',
+      ],
+    };
+  }
+
+  return {
+    platformLabel: 'Desktop Chrome / System Settings',
+    steps: [
+      'അഡ്രസ് ബാറിന് ഇടതുവശത്തെ 🔒 / ⚙️ (Site settings) ക്ലിക്ക് ചെയ്ത് Notifications → Allow ആക്കുക.',
+      'സിസ്റ്റം നോട്ടിഫിക്കേഷൻ ഓഫ് ആണെങ്കിൽ Windows/Mac Settings-ൽ Chrome Notifications ഓൺ ആക്കുക.',
+      'ശേഷം താഴെയുള്ള "വീണ്ടും പരിശോധിക്കുക" ബട്ടൺ ക്ലിക്ക് ചെയ്യുക.',
+    ],
+  };
+}
+
 let cachedRuntimeVapidKey = '';
 let pendingVapidKeyPromise: Promise<string> | null = null;
 

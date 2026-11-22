@@ -7,6 +7,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
+  "lang": "ml",
+  "prefer_related_applications": false,
   "background_color": "#FDFBF8",
   "theme_color": "#381932",
   "icons": [

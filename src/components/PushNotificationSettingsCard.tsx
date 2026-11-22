@@ -5,7 +5,9 @@ import {
   CheckCircle2,
   Loader2,
   Megaphone,
+  RefreshCw,
   Send,
+  Settings2,
   Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +15,7 @@ import { DOCS_THEME_STYLES, type DocsPortalTheme } from '../utils/docsConfig';
 import {
   getAdminAutoUpdatePushEnabled,
   getAppBuildVersion,
+  getDeviceNotificationGuide,
   getExistingPushSubscription,
   getNotificationPermission,
   getVapidPublicKey,
@@ -25,6 +28,7 @@ import {
   subscribeToPush,
   triggerAppUpdatePush,
   unsubscribeFromPush,
+  watchNotificationPermissionChange,
 } from '../utils/pushNotifications';
 
 interface PushNotificationSettingsCardProps {
@@ -129,9 +133,16 @@ export function PushNotificationSettingsCard({
         if (key) setHasVapid(true);
       });
     }
-    return subscribePushUiState(() => {
+    const unsubUi = subscribePushUiState(() => {
       void refreshState();
     });
+    const unsubPerm = watchNotificationPermissionChange(() => {
+      void refreshState();
+    });
+    return () => {
+      unsubUi();
+      unsubPerm();
+    };
   }, [refreshState, hasVapid]);
 
   const handleToggle = async () => {
@@ -288,17 +299,28 @@ export function PushNotificationSettingsCard({
         </div>
       )}
 
-      {isBlocked && !iosNeedsInstall && (
-        <div className="rounded-xl px-3.5 py-2.5 bg-rose-50 border border-rose-200 text-rose-900 font-ml text-xs">
-          ബ്രൗസർ സെറ്റിംഗ്സിൽ നോട്ടിഫിക്കേഷൻ അനുമതി ബ്ലോക്ക് ചെയ്തിരിക്കുകയാണ്. സൈറ്റ് പെർമിഷൻ അലോ ചെയ്ത ശേഷം വീണ്ടും ശ്രമിക്കുക.
-        </div>
-      )}
+      {isBlocked && !iosNeedsInstall && (() => {
+        const guide = getDeviceNotificationGuide();
+        return (
+          <div className="rounded-xl px-3.5 py-3 bg-rose-50/90 border border-rose-200 text-rose-950 space-y-2">
+            <div className="flex items-center gap-1.5 font-ml text-xs font-bold">
+              <Settings2 className="w-4 h-4 text-rose-700 shrink-0" />
+              <span>സിസ്റ്റം / ബ്രൗസർ നോട്ടിഫിക്കേഷൻ ബ്ലോക്ക് ചെയ്തിരിക്കുകയാണ് ({guide.platformLabel})</span>
+            </div>
+            <ol className="font-ml text-[11px] sm:text-xs space-y-1 list-decimal list-inside text-rose-900">
+              {guide.steps.map((step, idx) => (
+                <li key={idx}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        );
+      })()}
 
       {!iosNeedsInstall && supported && hasVapid && (
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            disabled={toggling || loadingSub || isBlocked}
+            disabled={toggling || loadingSub}
             onClick={() => void handleToggle()}
             className={`${
               subscribed ? meta.secondaryBtn : meta.primaryBtn
@@ -308,12 +330,16 @@ export function PushNotificationSettingsCard({
               <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
             ) : subscribed ? (
               <BellOff className="w-3.5 h-3.5 shrink-0" />
+            ) : isBlocked ? (
+              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
             ) : (
               <Bell className="w-3.5 h-3.5 shrink-0" />
             )}
             <span>
               {subscribed
                 ? 'നോട്ടിഫിക്കേഷൻ ഓഫ് ചെയ്യുക'
+                : isBlocked
+                ? 'Allow ചെയ്തു — വീണ്ടും ശ്രമിക്കുക'
                 : 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യുക'}
             </span>
           </button>
