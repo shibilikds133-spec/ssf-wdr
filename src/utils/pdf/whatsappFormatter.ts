@@ -1,5 +1,6 @@
 import {
   buildReportPayload,
+  getIstDateKey,
   type ReportDataSource,
   type ReportFilterConfig,
   type ReportPayload,
@@ -31,8 +32,28 @@ export interface FormattedWhatsAppReport {
   encodedLength: number;
 }
 
-const DIVIDER = '────────────────────';
+const DIVIDER = '━━━━━━━━━━━━━━━━━━';
 const IST_TIMEZONE = 'Asia/Kolkata';
+const DEFAULT_CAMPAIGN_PERIOD = '22 Nov – 20 Dec 2026';
+
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+function pad2(n: number): string {
+  return String(Math.max(0, Math.floor(n))).padStart(2, '0');
+}
 
 function cleanName(raw: string | null | undefined, fallback = '-'): string {
   const s = String(raw ?? '')
@@ -52,6 +73,11 @@ function formatSectorBoldHeader(sectorName: string): string {
 function formatCountIn(count: number): string {
   const safe = Number.isFinite(count) ? Math.round(count) : 0;
   return new Intl.NumberFormat('en-IN').format(safe);
+}
+
+function formatOrdersLabel(count: number): string {
+  const safe = Number.isFinite(count) ? Math.round(count) : 0;
+  return `${formatCountIn(safe)} ${safe === 1 ? 'Order' : 'Orders'}`;
 }
 
 function formatQtyIn(qty: number): string {
@@ -76,13 +102,72 @@ function formatUpdatedTimestamp(date: Date): string {
   return `${datePart}, ${timePart}`;
 }
 
+function parseIsoParts(
+  iso: string
+): { year: number; month: number; day: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year, month, day };
+}
+
+function formatCompactRange(fromIso: string, toIso: string): string {
+  const a = parseIsoParts(fromIso);
+  const b = parseIsoParts(toIso);
+  if (!a && !b) return DEFAULT_CAMPAIGN_PERIOD;
+  if (a && !b) {
+    return `From ${pad2(a.day)} ${SHORT_MONTHS[a.month - 1]} ${a.year}`;
+  }
+  if (!a && b) {
+    return `Up to ${pad2(b.day)} ${SHORT_MONTHS[b.month - 1]} ${b.year}`;
+  }
+  if (!a || !b) return DEFAULT_CAMPAIGN_PERIOD;
+
+  if (a.year === b.year && a.month === b.month && a.day === b.day) {
+    return `${pad2(a.day)} ${SHORT_MONTHS[a.month - 1]} ${a.year}`;
+  }
+  if (a.year === b.year) {
+    return `${pad2(a.day)} ${SHORT_MONTHS[a.month - 1]} – ${pad2(b.day)} ${SHORT_MONTHS[b.month - 1]} ${b.year}`;
+  }
+  return `${pad2(a.day)} ${SHORT_MONTHS[a.month - 1]} ${a.year} – ${pad2(b.day)} ${SHORT_MONTHS[b.month - 1]} ${b.year}`;
+}
+
+function shiftIsoDays(iso: string, deltaDays: number): string {
+  const p = parseIsoParts(iso);
+  if (!p) return iso;
+  const dt = new Date(Date.UTC(p.year, p.month - 1, p.day + deltaDays));
+  const y = dt.getUTCFullYear();
+  const m = pad2(dt.getUTCMonth() + 1);
+  const d = pad2(dt.getUTCDate());
+  return `${y}-${m}-${d}`;
+}
+
+function formatPeriodLabel(config: ReportFilterConfig, now: Date): string {
+  const todayKey = getIstDateKey(now);
+  if (config.datePreset === 'TODAY') {
+    return `${formatCompactRange(todayKey, todayKey)} (Today)`;
+  }
+  if (config.datePreset === 'LAST_7_DAYS') {
+    return formatCompactRange(shiftIsoDays(todayKey, -6), todayKey);
+  }
+  if (config.datePreset === 'CUSTOM') {
+    if (config.dateFrom || config.dateTo) {
+      return formatCompactRange(config.dateFrom, config.dateTo);
+    }
+  }
+  return DEFAULT_CAMPAIGN_PERIOD;
+}
+
 function formatOrderPaymentShort(
   status: 'PAID' | 'UNPAID',
   mode: 'CASH' | 'UPI' | null
 ): string {
   if (status === 'UNPAID') return 'Unpaid';
-  if (mode === 'UPI') return 'Paid/UPI';
-  if (mode === 'CASH') return 'Paid/Cash';
+  if (mode === 'UPI') return 'Paid (UPI)';
+  if (mode === 'CASH') return 'Paid (Cash)';
   return 'Paid';
 }
 
@@ -90,19 +175,58 @@ function addCents(a: number, b: number): number {
   return (Math.round(a * 100) + Math.round(b * 100)) / 100;
 }
 
+function buildHeaderLines(
+  subtitle: string,
+  periodLabel: string,
+  updatedLabel: string
+): string[] {
+  return [
+    '*SSF WANDOOR DIVISION*',
+    `Payasam Challenge — ${subtitle}`,
+    `Period : ${periodLabel}`,
+    `Updated: ${updatedLabel}`,
+    DIVIDER,
+  ];
+}
+
+function buildDetailedGrandTotalLines(params: {
+  orders: number;
+  liters: number;
+  cash: number;
+  upi: number;
+  unpaid: number;
+  total: number;
+}): string[] {
+  return [
+    DIVIDER,
+    '*GRAND TOTAL*',
+    `Orders : ${formatCountIn(params.orders)} | Liters : ${formatQtyIn(params.liters)}`,
+    `Cash   : ${formatPdfCurrency(params.cash)}`,
+    `UPI    : ${formatPdfCurrency(params.upi)}`,
+    `Unpaid : ${formatPdfCurrency(params.unpaid)}`,
+    `*TOTAL : ${formatPdfCurrency(params.total)}*`,
+  ];
+}
+
+function buildStatusGrandTotalLines(orders: number, liters: number): string[] {
+  return [
+    DIVIDER,
+    `*TOTAL ORDERS : ${formatCountIn(orders)}*`,
+    `*TOTAL LITERS : ${formatQtyIn(liters)}*`,
+  ];
+}
+
 function buildSectorWiseMessage(
   payload: ReportPayload,
   mode: ReportShareMode,
+  periodLabel: string,
   updatedLabel: string
 ): FormattedWhatsAppReport {
-  const lines: string[] = [
-    '*SSF WANDOOR DIVISION*',
-    mode === 'status'
-      ? '_Palada Payasam Challenge — Sector Order Status_'
-      : '_Palada Payasam Challenge — Detailed Sector Report_',
-    `Updated: ${updatedLabel}`,
-    '',
-  ];
+  const lines = buildHeaderLines(
+    mode === 'status' ? 'Sector Order Status' : 'Detailed Report',
+    periodLabel,
+    updatedLabel
+  );
 
   const rollup = reconcileRollupRows(payload.sectorRows);
   const direct = payload.divisionDirectBreakdown;
@@ -115,65 +239,63 @@ function buildSectorWiseMessage(
   const grandUpi = addCents(rollup.upiAmount, hasDirect ? direct.upiAmount : 0);
   const grandUnpaid = addCents(rollup.unpaidAmount, hasDirect ? direct.unpaidAmount : 0);
 
+  const sectorCount = payload.sectorRows.length;
+
   if (mode === 'status') {
-    lines.push('*SECTOR-WISE STATUS*');
-    if (payload.sectorRows.length === 0 && !hasDirect) {
-      lines.push('No sector records match the current filters.');
-    } else {
-      payload.sectorRows.forEach((sec, idx) => {
-        const orderWord = sec.orders === 1 ? 'Order' : 'Orders';
-        lines.push(
-          `${idx + 1}. ${cleanName(sec.sectorName)} : ${formatQtyIn(sec.liters)} (${formatCountIn(sec.orders)} ${orderWord})`
-        );
-      });
-      if (hasDirect) {
-        const directWord = direct.totalOrders === 1 ? 'Order' : 'Orders';
-        lines.push(
-          `Division Direct : ${formatQtyIn(direct.totalLiters)} (${formatCountIn(direct.totalOrders)} ${directWord})`
-        );
-      }
-    }
-    lines.push(DIVIDER);
-    const totalWord = grandOrders === 1 ? 'Order' : 'Orders';
-    lines.push(
-      `*TOTAL : ${formatQtyIn(grandLiters)} (${formatCountIn(grandOrders)} ${totalWord})*`
-    );
-  } else {
-    lines.push('*SUMMARY*');
-    lines.push(`Total Liters : ${formatQtyIn(grandLiters)}`);
-    lines.push(`Total Orders : ${formatCountIn(grandOrders)}`);
-    lines.push(`Total Amount : ${formatPdfCurrency(grandAmount)}`);
-    lines.push(`Paid (Cash)  : ${formatPdfCurrency(grandCash)}`);
-    lines.push(`Paid (UPI)   : ${formatPdfCurrency(grandUpi)}`);
-    lines.push(`Unpaid       : ${formatPdfCurrency(grandUnpaid)}`);
+    lines.push(`*SECTOR-WISE SUMMARY (${sectorCount} SECTORS)*`);
     lines.push('');
-    lines.push('*SECTOR BREAKDOWN*');
-    if (payload.sectorRows.length === 0 && !hasDirect) {
+    if (sectorCount === 0 && !hasDirect) {
       lines.push('No sector records match the current filters.');
     } else {
       payload.sectorRows.forEach((sec, idx) => {
-        const orderWord = sec.orders === 1 ? 'Order' : 'Orders';
         lines.push(
-          `${idx + 1}. ${cleanName(sec.sectorName)} — ${formatQtyIn(sec.liters)} (${formatCountIn(sec.orders)} ${orderWord})`
-        );
-        lines.push(
-          `   Total: ${formatPdfCurrency(sec.totalAmount)} | Cash: ${formatPdfCurrency(sec.cashAmount)} | UPI: ${formatPdfCurrency(sec.upiAmount)} | Unpaid: ${formatPdfCurrency(sec.unpaidAmount)}`
+          `${pad2(idx + 1)}. ${cleanName(sec.sectorName)} — ${formatOrdersLabel(sec.orders)} | ${formatQtyIn(sec.liters)}`
         );
       });
       if (hasDirect) {
-        const directWord = direct.totalOrders === 1 ? 'Order' : 'Orders';
         lines.push(
-          `Division Direct — ${formatQtyIn(direct.totalLiters)} (${formatCountIn(direct.totalOrders)} ${directWord})`
-        );
-        lines.push(
-          `   Total: ${formatPdfCurrency(direct.totalAmount)} | Cash: ${formatPdfCurrency(direct.cashAmount)} | UPI: ${formatPdfCurrency(direct.upiAmount)} | Unpaid: ${formatPdfCurrency(direct.unpaidAmount)}`
+          `Division Direct — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
         );
       }
     }
-    lines.push(DIVIDER);
-    const totalWord = grandOrders === 1 ? 'Order' : 'Orders';
+    lines.push(...buildStatusGrandTotalLines(grandOrders, grandLiters));
+  } else {
+    lines.push(`*SECTOR-WISE DETAILED (${sectorCount} SECTORS)*`);
+    lines.push('');
+    if (sectorCount === 0 && !hasDirect) {
+      lines.push('No sector records match the current filters.');
+    } else {
+      payload.sectorRows.forEach((sec, idx) => {
+        lines.push(
+          `${pad2(idx + 1)}. *${cleanName(sec.sectorName)}* — ${formatOrdersLabel(sec.orders)} | ${formatQtyIn(sec.liters)}`
+        );
+        lines.push(
+          `    Cash: ${formatPdfCurrency(sec.cashAmount)} | UPI: ${formatPdfCurrency(sec.upiAmount)} | Unpaid: ${formatPdfCurrency(sec.unpaidAmount)}`
+        );
+        lines.push(`    Total: *${formatPdfCurrency(sec.totalAmount)}*`);
+        if (idx < sectorCount - 1 || hasDirect) {
+          lines.push('');
+        }
+      });
+      if (hasDirect) {
+        lines.push(
+          `*Division Direct* — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
+        );
+        lines.push(
+          `    Cash: ${formatPdfCurrency(direct.cashAmount)} | UPI: ${formatPdfCurrency(direct.upiAmount)} | Unpaid: ${formatPdfCurrency(direct.unpaidAmount)}`
+        );
+        lines.push(`    Total: *${formatPdfCurrency(direct.totalAmount)}*`);
+      }
+    }
     lines.push(
-      `*GRAND TOTAL : ${formatQtyIn(grandLiters)} | ${formatCountIn(grandOrders)} ${totalWord} | ${formatPdfCurrency(grandAmount)}*`
+      ...buildDetailedGrandTotalLines({
+        orders: grandOrders,
+        liters: grandLiters,
+        cash: grandCash,
+        upi: grandUpi,
+        unpaid: grandUnpaid,
+        total: grandAmount,
+      })
     );
   }
 
@@ -190,34 +312,35 @@ function buildSectorWiseMessage(
 function buildUnitGroupedMessage(
   payload: ReportPayload,
   mode: ReportShareMode,
-  updatedLabel: string,
-  isSingleSectorScope: boolean
+  periodLabel: string,
+  updatedLabel: string
 ): FormattedWhatsAppReport {
-  const subtitle =
-    mode === 'status'
-      ? '_Palada Payasam Challenge — Unit Order Status_'
-      : '_Palada Payasam Challenge — Detailed Unit Report_';
-
-  const lines: string[] = [
-    '*SSF WANDOOR DIVISION*',
-    subtitle,
-    `Updated: ${updatedLabel}`,
-    '',
-  ];
+  const lines = buildHeaderLines(
+    mode === 'status' ? 'Unit Order Status' : 'Detailed Report',
+    periodLabel,
+    updatedLabel
+  );
 
   // Group all unit rows by Sector
   const sectorGroups = new Map<
     string,
-    { sectorName: string; totalLiters: number; units: ReportUnitSummaryRow[] }
+    {
+      sectorName: string;
+      totalOrders: number;
+      totalLiters: number;
+      units: ReportUnitSummaryRow[];
+    }
   >();
   for (const unit of payload.unitRows) {
     const sName = cleanName(unit.sectorName, 'Other Sector');
     const key = `${unit.sectorId ?? 0}::${sName.toLowerCase()}`;
     const group = sectorGroups.get(key) ?? {
       sectorName: sName,
+      totalOrders: 0,
       totalLiters: 0,
       units: [],
     };
+    group.totalOrders += unit.orders;
     group.totalLiters = addCents(group.totalLiters, unit.liters);
     group.units.push(unit);
     sectorGroups.set(key, group);
@@ -243,24 +366,25 @@ function buildUnitGroupedMessage(
 
   if (orderedGroups.length === 0 && !includeDirect) {
     lines.push('No unit records match the current filters.');
-    lines.push('');
   } else {
     orderedGroups.forEach((group, gIdx) => {
-      lines.push(formatSectorBoldHeader(group.sectorName));
+      lines.push(
+        `${formatSectorBoldHeader(group.sectorName)} (${formatOrdersLabel(group.totalOrders)} | ${formatQtyIn(group.totalLiters)})`
+      );
       group.units.forEach((unit, uIdx) => {
-        const orderWord = unit.orders === 1 ? 'Order' : 'Orders';
         const safeUnit = cleanName(unit.unitName);
         if (mode === 'status') {
           lines.push(
-            `${uIdx + 1}. ${safeUnit} : ${formatQtyIn(unit.liters)} (${formatCountIn(unit.orders)} ${orderWord})`
+            `${pad2(uIdx + 1)}. ${safeUnit} — ${formatOrdersLabel(unit.orders)} | ${formatQtyIn(unit.liters)}`
           );
         } else {
           lines.push(
-            `${uIdx + 1}. ${safeUnit} — ${formatQtyIn(unit.liters)} (${formatCountIn(unit.orders)} ${orderWord})`
+            `${pad2(uIdx + 1)}. ${safeUnit} — ${formatOrdersLabel(unit.orders)} | ${formatQtyIn(unit.liters)}`
           );
           lines.push(
-            `   Total: ${formatPdfCurrency(unit.totalAmount)} | Cash: ${formatPdfCurrency(unit.cashAmount)} | UPI: ${formatPdfCurrency(unit.upiAmount)} | Unpaid: ${formatPdfCurrency(unit.unpaidAmount)}`
+            `    Cash: ${formatPdfCurrency(unit.cashAmount)} | UPI: ${formatPdfCurrency(unit.upiAmount)} | Unpaid: ${formatPdfCurrency(unit.unpaidAmount)}`
           );
+          lines.push(`    Total: *${formatPdfCurrency(unit.totalAmount)}*`);
         }
       });
       if (gIdx < orderedGroups.length - 1 || includeDirect) {
@@ -269,36 +393,37 @@ function buildUnitGroupedMessage(
     });
 
     if (includeDirect) {
-      lines.push('*DIVISION DIRECT*');
-      const directWord = direct.totalOrders === 1 ? 'Order' : 'Orders';
+      lines.push(
+        `*DIVISION DIRECT* (${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)})`
+      );
       if (mode === 'status') {
         lines.push(
-          `Division Direct : ${formatQtyIn(direct.totalLiters)} (${formatCountIn(direct.totalOrders)} ${directWord})`
+          `01. Division Direct — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
         );
       } else {
         lines.push(
-          `Division Direct — ${formatQtyIn(direct.totalLiters)} (${formatCountIn(direct.totalOrders)} ${directWord})`
+          `01. Division Direct — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
         );
         lines.push(
-          `   Total: ${formatPdfCurrency(direct.totalAmount)} | Cash: ${formatPdfCurrency(direct.cashAmount)} | UPI: ${formatPdfCurrency(direct.upiAmount)} | Unpaid: ${formatPdfCurrency(direct.unpaidAmount)}`
+          `    Cash: ${formatPdfCurrency(direct.cashAmount)} | UPI: ${formatPdfCurrency(direct.upiAmount)} | Unpaid: ${formatPdfCurrency(direct.unpaidAmount)}`
         );
+        lines.push(`    Total: *${formatPdfCurrency(direct.totalAmount)}*`);
       }
     }
   }
 
-  lines.push(DIVIDER);
-  const totalWord = grandOrders === 1 ? 'Order' : 'Orders';
   if (mode === 'status') {
-    const label = isSingleSectorScope ? 'SECTOR TOTAL' : 'TOTAL';
-    lines.push(
-      `*${label} : ${formatQtyIn(grandLiters)} (${formatCountIn(grandOrders)} ${totalWord})*`
-    );
+    lines.push(...buildStatusGrandTotalLines(grandOrders, grandLiters));
   } else {
     lines.push(
-      `*TOTAL : ${formatQtyIn(grandLiters)} | ${formatCountIn(grandOrders)} ${totalWord} | ${formatPdfCurrency(grandAmount)}*`
-    );
-    lines.push(
-      `Cash: ${formatPdfCurrency(grandCash)} | UPI: ${formatPdfCurrency(grandUpi)} | Unpaid: ${formatPdfCurrency(grandUnpaid)}`
+      ...buildDetailedGrandTotalLines({
+        orders: grandOrders,
+        liters: grandLiters,
+        cash: grandCash,
+        upi: grandUpi,
+        unpaid: grandUnpaid,
+        total: grandAmount,
+      })
     );
   }
 
@@ -315,23 +440,19 @@ function buildUnitGroupedMessage(
 function buildSingleUnitOrDirectMessage(
   payload: ReportPayload,
   mode: ReportShareMode,
+  periodLabel: string,
   updatedLabel: string
 ): FormattedWhatsAppReport {
   const isDirect = payload.config.scope === 'DIVISION_DIRECT';
   const subtitle = isDirect
     ? mode === 'status'
-      ? '_Palada Payasam Challenge — Division Direct Order Status_'
-      : '_Palada Payasam Challenge — Division Direct Detailed Report_'
+      ? 'Division Direct Order Status'
+      : 'Division Direct Detailed Report'
     : mode === 'status'
-    ? '_Palada Payasam Challenge — Unit Order Status_'
-    : '_Palada Payasam Challenge — Unit Detailed Report_';
+    ? 'Unit Order Status'
+    : 'Unit Detailed Report';
 
-  const lines: string[] = [
-    '*SSF WANDOOR DIVISION*',
-    subtitle,
-    `Updated: ${updatedLabel}`,
-    '',
-  ];
+  const lines = buildHeaderLines(subtitle, periodLabel, updatedLabel);
 
   // Reconcile using cent-integer math from pdfAccounting directly
   const orderInputs = payload.orderRows.map((r) => ({
@@ -345,7 +466,9 @@ function buildSingleUnitOrDirectMessage(
   const reconciled = reconcileOrderEntries(orderInputs, payload.unitRate);
 
   if (isDirect) {
-    lines.push('*DIVISION DIRECT*');
+    lines.push(
+      `*DIVISION DIRECT* (${formatOrdersLabel(reconciled.totalOrders)} | ${formatQtyIn(reconciled.totalLiters)})`
+    );
   } else {
     const sectorName =
       payload.orderRows[0]?.sectorName ||
@@ -358,46 +481,58 @@ function buildSingleUnitOrDirectMessage(
       extractUnitFromScopeSubtitle(payload.scopeSubtitle) ||
       'Unit';
     lines.push(formatSectorBoldHeader(sectorName));
-    lines.push(cleanName(unitName));
-    if (mode === 'detailed') {
-      lines.push('');
-    }
+    lines.push(
+      `${cleanName(unitName)} — ${formatOrdersLabel(reconciled.totalOrders)} | ${formatQtyIn(reconciled.totalLiters)}`
+    );
   }
 
-  lines.push(`Total Liters : ${formatQtyIn(reconciled.totalLiters)}`);
-  lines.push(`Total Orders : ${formatCountIn(reconciled.totalOrders)}`);
-
-  if (mode === 'detailed') {
-    lines.push(`Total Amount : ${formatPdfCurrency(reconciled.totalAmount)}`);
-    lines.push(`Paid (Cash)  : ${formatPdfCurrency(reconciled.cashAmount)}`);
-    lines.push(`Paid (UPI)   : ${formatPdfCurrency(reconciled.upiAmount)}`);
-    lines.push(`Unpaid       : ${formatPdfCurrency(reconciled.unpaidAmount)}`);
-  }
-
-  // Append customer breakdown on delivery/unpaid/direct order lists
+  // Append customer breakdown on delivery/unpaid/direct/detailed order lists
   const includeCustomerRows =
     payload.orderRows.length > 0 &&
     (isDirect ||
       payload.config.template === 'DELIVERY_SHEET' ||
-      payload.config.template === 'UNPAID_DUES');
+      payload.config.template === 'UNPAID_DUES' ||
+      payload.config.template === 'DETAILED_ORDERS');
 
   if (includeCustomerRows) {
     lines.push('');
-    lines.push(mode === 'status' ? '*ORDER LIST*' : '*ORDERS BREAKDOWN*');
+    lines.push(
+      mode === 'status'
+        ? `*ORDER LIST (${formatCountIn(payload.orderRows.length)})*`
+        : `*ORDERS DETAILED (${formatCountIn(payload.orderRows.length)})*`
+    );
     payload.orderRows.forEach((order, idx) => {
       const custName = cleanName(order.contributorName);
       if (mode === 'status') {
-        lines.push(`${idx + 1}. ${custName} : ${formatQtyIn(order.quantity)}`);
+        lines.push(`${pad2(idx + 1)}. ${custName} — ${formatQtyIn(order.quantity)}`);
       } else {
         const payLabel = formatOrderPaymentShort(
           order.paymentStatus,
           order.paymentMode
         );
+        lines.push(`${pad2(idx + 1)}. ${custName} — ${formatQtyIn(order.quantity)}`);
         lines.push(
-          `${idx + 1}. ${custName} — ${formatQtyIn(order.quantity)} — ${formatPdfCurrency(order.totalAmount)} (${payLabel})`
+          `    ${payLabel} | Total: *${formatPdfCurrency(order.totalAmount)}*`
         );
       }
     });
+  }
+
+  if (mode === 'status') {
+    lines.push(
+      ...buildStatusGrandTotalLines(reconciled.totalOrders, reconciled.totalLiters)
+    );
+  } else {
+    lines.push(
+      ...buildDetailedGrandTotalLines({
+        orders: reconciled.totalOrders,
+        liters: reconciled.totalLiters,
+        cash: reconciled.cashAmount,
+        upi: reconciled.upiAmount,
+        unpaid: reconciled.unpaidAmount,
+        total: reconciled.totalAmount,
+      })
+    );
   }
 
   const text = lines.join('\n');
@@ -431,7 +566,8 @@ function extractUnitFromScopeSubtitle(subtitle: string): string {
  * Pure structured WhatsApp formatter integrated with the shared PDF report engine.
  * - Default mode is `'status'` (`Order Status` only — strictly ZERO money).
  * - Opt-in `'detailed'` mode shares full accounting breakdown matching `pdfAccounting.ts`.
- * - Enforces bold `*SECTOR*` header + normal-weight unit rows.
+ * - Enforces zero-padded `01.` numbering, `━━━━━━━━━━━━━━━━━━` dividers, bold `*SECTOR*`
+ *   headers + normal-weight unit rows, and zero exposed `Order Code`.
  * - Uses full filtered dataset (never truncated to 10-per-page UI pagination).
  */
 export function buildWhatsAppReportText({
@@ -442,6 +578,7 @@ export function buildWhatsAppReportText({
 }: BuildWhatsAppReportInput): FormattedWhatsAppReport {
   const updatedLabel = formatUpdatedTimestamp(now);
   const currentPayload = buildReportPayload(source, config, now);
+  const periodLabel = formatPeriodLabel(currentPayload.config, now);
 
   // Single-unit or Division Direct scopes
   if (
@@ -449,7 +586,12 @@ export function buildWhatsAppReportText({
     currentPayload.config.scope === 'UNIT_SPECIFIC' ||
     currentPayload.config.scope === 'DIVISION_DIRECT'
   ) {
-    return buildSingleUnitOrDirectMessage(currentPayload, mode, updatedLabel);
+    return buildSingleUnitOrDirectMessage(
+      currentPayload,
+      mode,
+      periodLabel,
+      updatedLabel
+    );
   }
 
   // Division Sector-wise
@@ -458,7 +600,12 @@ export function buildWhatsAppReportText({
     currentPayload.config.scope === 'ENTIRE_DIVISION' &&
     currentPayload.config.template === 'SECTOR_SUMMARY'
   ) {
-    return buildSectorWiseMessage(currentPayload, mode, updatedLabel);
+    return buildSectorWiseMessage(
+      currentPayload,
+      mode,
+      periodLabel,
+      updatedLabel
+    );
   }
 
   // Division Unit-wise / Specific Sector / Sector Portal -> Unit list grouped under Bold Sector header
@@ -471,15 +618,5 @@ export function buildWhatsAppReportText({
           now
         );
 
-  const isSingleSectorScope =
-    source.role === 'SECTOR' ||
-    currentPayload.config.scope === 'SECTOR_SPECIFIC' ||
-    currentPayload.config.scope === 'ENTIRE_SECTOR';
-
-  return buildUnitGroupedMessage(
-    unitPayload,
-    mode,
-    updatedLabel,
-    isSingleSectorScope
-  );
+  return buildUnitGroupedMessage(unitPayload, mode, periodLabel, updatedLabel);
 }

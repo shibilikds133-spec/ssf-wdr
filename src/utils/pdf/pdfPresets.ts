@@ -18,6 +18,7 @@ import {
   generateFormalPdf,
   type FormalPdfDocumentConfig,
   type PdfPresetKey,
+  type PdfSectionTableConfig,
   type PdfSummaryMetric,
   type PdfTableColumn,
 } from './sharedPdfEngine';
@@ -172,7 +173,7 @@ export function buildFormalPdfConfigFromPayload(
     }
 
     const summaryMetrics: PdfSummaryMetric[] = [
-      { label: 'Sectors', value: String(totals.count), align: 'left' },
+      { label: 'Total Sectors', value: String(totals.count), align: 'left' },
       {
         label: 'Active Units',
         value: `${totals.activeUnits} / ${totals.totalUnits}`,
@@ -193,15 +194,15 @@ export function buildFormalPdfConfigFromPayload(
     ];
 
     const columns: PdfTableColumn[] = [
-      { key: 'rank', header: 'Rank', align: 'center', widthPercent: 6 },
-      { key: 'sectorName', header: 'Sector Name', align: 'left', widthPercent: 26, bold: true },
+      { key: 'rank', header: 'Sl', align: 'center', widthPercent: 5 },
+      { key: 'sectorName', header: 'Sector Name', align: 'left', widthPercent: 25, bold: true },
       { key: 'units', header: 'Units', align: 'center', widthPercent: 9 },
       { key: 'orders', header: 'Orders', align: 'right', widthPercent: 8 },
       { key: 'liters', header: 'Liters', align: 'right', widthPercent: 10, bold: true },
-      { key: 'cash', header: 'Cash', align: 'right', widthPercent: 10 },
-      { key: 'upi', header: 'UPI', align: 'right', widthPercent: 10 },
-      { key: 'unpaid', header: 'Unpaid', align: 'right', widthPercent: 10 },
-      { key: 'total', header: 'Total', align: 'right', widthPercent: 11, bold: true },
+      { key: 'cash', header: 'Cash (Rs.)', align: 'right', widthPercent: 10.5 },
+      { key: 'upi', header: 'UPI (Rs.)', align: 'right', widthPercent: 10.5 },
+      { key: 'unpaid', header: 'Unpaid (Rs.)', align: 'right', widthPercent: 10.5 },
+      { key: 'total', header: 'Total (Rs.)', align: 'right', widthPercent: 11.5, bold: true },
     ];
 
     const rows = payload.sectorRows.map((r) => [
@@ -611,14 +612,125 @@ export function buildFormalPdfConfigFromPayload(
   }
 
   // 6. ORDERS REGISTER PRESET (Portrait unless Division shows both Sector + Unit)
+  const isAllDivisionDetailed =
+    payload.config.scope === 'ENTIRE_DIVISION' && payload.sectorRows.length > 0;
+
   const summaryMetrics: PdfSummaryMetric[] = [
-    { label: 'Orders', value: String(t.totalOrders), align: 'left' },
+    ...(isAllDivisionDetailed
+      ? [
+          {
+            label: 'Total Sectors',
+            value: String(payload.sectorRows.length),
+            align: 'left' as const,
+          },
+        ]
+      : []),
+    {
+      label: 'Orders',
+      value: String(t.totalOrders),
+      align: isAllDivisionDetailed ? 'right' : 'left',
+    },
     { label: 'Total Liters', value: formatPdfQuantity(t.totalLiters), align: 'right' },
     { label: 'Total Amount', value: formatPdfCurrency(t.totalAmount), align: 'right' },
     { label: 'Cash', value: formatPdfCurrency(t.cashAmount), align: 'right' },
     { label: 'UPI', value: formatPdfCurrency(t.upiAmount), align: 'right' },
     { label: 'Unpaid', value: formatPdfCurrency(t.unpaidAmount), align: 'right' },
   ];
+
+  // Dedicated All-Division Sector-Wise Summary & Listing Table (pure-white monochrome)
+  let prefaceTable: PdfSectionTableConfig | undefined;
+  let mainTableTitle: string | undefined;
+
+  if (isAllDivisionDetailed) {
+    const sectorTotals = reconcileRollupRows(payload.sectorRows);
+    const direct = payload.divisionDirectBreakdown;
+    const hasDirect = direct.totalOrders > 0;
+
+    const addCents = (a: number, b: number) =>
+      Math.round(a * 100 + b * 100) / 100;
+
+    const grandOrders = sectorTotals.orders + (hasDirect ? direct.totalOrders : 0);
+    const grandLiters = addCents(
+      sectorTotals.liters,
+      hasDirect ? direct.totalLiters : 0
+    );
+    const grandCash = addCents(
+      sectorTotals.cashAmount,
+      hasDirect ? direct.cashAmount : 0
+    );
+    const grandUpi = addCents(
+      sectorTotals.upiAmount,
+      hasDirect ? direct.upiAmount : 0
+    );
+    const grandUnpaid = addCents(
+      sectorTotals.unpaidAmount,
+      hasDirect ? direct.unpaidAmount : 0
+    );
+    const grandTotal = addCents(
+      sectorTotals.totalAmount,
+      hasDirect ? direct.totalAmount : 0
+    );
+
+    const sectorColumns: PdfTableColumn[] = [
+      { key: 'sl', header: 'Sl', align: 'center', widthPercent: 5 },
+      { key: 'sectorName', header: 'Sector Name', align: 'left', widthPercent: 25, bold: true },
+      { key: 'units', header: 'Units', align: 'center', widthPercent: 9 },
+      { key: 'orders', header: 'Orders', align: 'right', widthPercent: 8 },
+      { key: 'liters', header: 'Liters', align: 'right', widthPercent: 10, bold: true },
+      { key: 'cash', header: 'Cash (Rs.)', align: 'right', widthPercent: 10.5 },
+      { key: 'upi', header: 'UPI (Rs.)', align: 'right', widthPercent: 10.5 },
+      { key: 'unpaid', header: 'Unpaid (Rs.)', align: 'right', widthPercent: 10.5 },
+      { key: 'total', header: 'Total (Rs.)', align: 'right', widthPercent: 11.5, bold: true },
+    ];
+
+    const sectorBodyRows: (string | number)[][] = payload.sectorRows.map(
+      (r, idx) => [
+        idx + 1,
+        r.sectorName,
+        `${r.activeUnits}/${r.totalUnits}`,
+        r.orders,
+        formatPdfQuantity(r.liters),
+        formatPdfCurrency(r.cashAmount),
+        formatPdfCurrency(r.upiAmount),
+        formatPdfCurrency(r.unpaidAmount),
+        formatPdfCurrency(r.totalAmount),
+      ]
+    );
+
+    if (hasDirect) {
+      sectorBodyRows.push([
+        '-',
+        'Division Direct',
+        '-',
+        direct.totalOrders,
+        formatPdfQuantity(direct.totalLiters),
+        formatPdfCurrency(direct.cashAmount),
+        formatPdfCurrency(direct.upiAmount),
+        formatPdfCurrency(direct.unpaidAmount),
+        formatPdfCurrency(direct.totalAmount),
+      ]);
+    }
+
+    const sectorTotalRow: (string | number)[] = [
+      '',
+      `GRAND TOTAL (${sectorTotals.count} SECTORS)`,
+      `${sectorTotals.activeUnits}/${sectorTotals.totalUnits}`,
+      grandOrders,
+      formatPdfQuantity(grandLiters),
+      formatPdfCurrency(grandCash),
+      formatPdfCurrency(grandUpi),
+      formatPdfCurrency(grandUnpaid),
+      formatPdfCurrency(grandTotal),
+    ];
+
+    prefaceTable = {
+      sectionTitle: `Sector-Wise Summary & Listing (Total Sectors: ${sectorTotals.count})`,
+      columns: sectorColumns,
+      rows: sectorBodyRows,
+      totalRow: sectorTotalRow,
+    };
+    mainTableTitle = `Detailed Orders Register (${t.totalOrders} Orders)`;
+  }
 
   const columns: PdfTableColumn[] =
     showSector && showUnit
@@ -693,6 +805,8 @@ export function buildFormalPdfConfigFromPayload(
     filterSummary,
     rateSummary,
     summaryMetrics,
+    prefaceTable,
+    mainTableTitle,
     columns,
     rows,
     totalRow,

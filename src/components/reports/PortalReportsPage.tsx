@@ -65,8 +65,8 @@ const PRESETS_BY_ROLE: Record<ReportPortalRole, ReportPresetItem[]> = {
   ADMIN: [
     {
       id: 'div-master',
-      label: 'Full Division Master',
-      subtitle: 'All sectors, units + direct orders',
+      label: 'All Division — Detailed Print',
+      subtitle: 'All sectors listed + full order register',
       icon: Building2,
       patch: { scope: 'ENTIRE_DIVISION', template: 'DETAILED_ORDERS', paymentStatus: 'ALL', paymentMode: 'ALL' },
     },

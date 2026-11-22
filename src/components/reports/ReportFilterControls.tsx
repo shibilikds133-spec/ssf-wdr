@@ -28,6 +28,7 @@ import {
   type ReportTemplateType,
 } from '../../utils/reports';
 import { BrandText } from '../BrandText';
+import { CampaignDatePicker } from '../ui/CampaignDatePicker';
 
 export interface PortalThemeTokens {
   primaryBtn: string;
@@ -367,10 +368,16 @@ export function ReportFilterControls({
                     <div className={`text-xs font-bold leading-tight ${theme.heading}`}>
                       {scopeKey === 'UNIT_SPECIFIC' && source.role === 'SECTOR'
                         ? 'Specific Unit'
+                        : scopeKey === 'ENTIRE_DIVISION' && source.role === 'ADMIN'
+                        ? 'All Division'
                         : meta.title}
                     </div>
                     <div className={`text-[10px] leading-snug mt-0.5 ${theme.muted}`}>
-                      {meta.description}
+                      {scopeKey === 'ENTIRE_DIVISION' &&
+                      source.role === 'ADMIN' &&
+                      sectors.length > 0
+                        ? `All ${sectors.length} Sectors Listed`
+                        : meta.description}
                     </div>
                   </div>
                 </button>
@@ -824,7 +831,7 @@ export function ReportFilterControls({
           </div>
         </div>
 
-        {/* Custom From / To Dates */}
+        {/* Custom From / To Dates (Strict Campaign Window: 22 Nov – 20 Dec 2026) */}
         {config.datePreset === 'CUSTOM' && (
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             <div>
@@ -834,12 +841,20 @@ export function ReportFilterControls({
               >
                 From Date
               </label>
-              <input
+              <CampaignDatePicker
                 id={`date-from-${source.role}-${compact ? 'm' : 'p'}`}
-                type="date"
+                role={source.role}
                 value={config.dateFrom}
-                onChange={(e) => updateConfig({ dateFrom: e.target.value })}
-                className={`w-full px-2.5 py-1.5 text-xs rounded-xl border ${theme.border} bg-white ${theme.heading} num ${theme.inputFocus}`}
+                rangeStart={config.dateFrom}
+                rangeEnd={config.dateTo}
+                ariaLabel="From Date"
+                onChange={(nextFrom) => {
+                  const nextTo =
+                    nextFrom && config.dateTo && nextFrom > config.dateTo
+                      ? nextFrom
+                      : config.dateTo;
+                  updateConfig({ dateFrom: nextFrom, dateTo: nextTo });
+                }}
               />
             </div>
             <div>
@@ -849,12 +864,20 @@ export function ReportFilterControls({
               >
                 To Date
               </label>
-              <input
+              <CampaignDatePicker
                 id={`date-to-${source.role}-${compact ? 'm' : 'p'}`}
-                type="date"
+                role={source.role}
                 value={config.dateTo}
-                onChange={(e) => updateConfig({ dateTo: e.target.value })}
-                className={`w-full px-2.5 py-1.5 text-xs rounded-xl border ${theme.border} bg-white ${theme.heading} num ${theme.inputFocus}`}
+                rangeStart={config.dateFrom}
+                rangeEnd={config.dateTo}
+                ariaLabel="To Date"
+                onChange={(nextTo) => {
+                  const nextFrom =
+                    nextTo && config.dateFrom && nextTo < config.dateFrom
+                      ? nextTo
+                      : config.dateFrom;
+                  updateConfig({ dateFrom: nextFrom, dateTo: nextTo });
+                }}
               />
             </div>
           </div>

@@ -943,7 +943,10 @@ export function buildReportPayload(
         : 'Unpaid Dues / Pending Collection Report',
   };
 
-  let scopeSubtitle = 'Entire Division (All Sectors, Units & Division Direct)';
+  let scopeSubtitle =
+    source.role === 'ADMIN' && sectorsList.length > 0
+      ? `All Division — All ${sectorsList.length} Sectors (Units & Division Direct)`
+      : 'Entire Division (All Sectors, Units & Division Direct)';
   let scopeSlug = 'division';
 
   if (config.scope === 'DIVISION_DIRECT') {
@@ -1009,8 +1012,10 @@ export function buildReportPayload(
   let csvRows: (string | number)[][] = [];
   let csvTotalRow: (string | number)[] = [];
 
-  if (config.template === 'SECTOR_SUMMARY') {
-    recordNoun = 'sectors';
+  // Helper to build full division sector breakdown (used by SECTOR_SUMMARY and All-Division Detailed Print)
+  const buildDivisionSectorSummaryRows = (
+    includeZeroOrderSectors: boolean
+  ): ReportSectorSummaryRow[] => {
     const sectorUnitsCount = new Map<number, number>();
     const activeUnitSets = new Map<number, Set<number>>();
     for (const u of authorizedUnits) {
@@ -1112,7 +1117,7 @@ export function buildReportPayload(
       };
     });
 
-    if (!config.includeZeroOrderUnits) {
+    if (!includeZeroOrderSectors) {
       list = list.filter((s) => s.orders > 0);
     }
 
@@ -1129,7 +1134,17 @@ export function buildReportPayload(
       return a.sectorName.localeCompare(b.sectorName);
     });
 
-    sectorRows = list.map((row, idx) => ({ ...row, rank: idx + 1 }));
+    return list.map((row, idx) => ({ ...row, rank: idx + 1 }));
+  };
+
+  if (source.role === 'ADMIN' && config.scope === 'ENTIRE_DIVISION') {
+    sectorRows = buildDivisionSectorSummaryRows(
+      config.template === 'SECTOR_SUMMARY' ? config.includeZeroOrderUnits : true
+    );
+  }
+
+  if (config.template === 'SECTOR_SUMMARY') {
+    recordNoun = 'sectors';
     tableTotals = sumSectorRows(sectorRows);
 
     columns = [

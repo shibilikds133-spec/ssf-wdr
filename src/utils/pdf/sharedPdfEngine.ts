@@ -36,6 +36,13 @@ export interface PdfTableColumn {
   bold?: boolean;
 }
 
+export interface PdfSectionTableConfig {
+  sectionTitle: string;
+  columns: PdfTableColumn[];
+  rows: (string | number)[][];
+  totalRow: (string | number)[];
+}
+
 export interface FormalPdfDocumentConfig {
   preset: PdfPresetKey;
   orientation: 'portrait' | 'landscape';
@@ -46,6 +53,10 @@ export interface FormalPdfDocumentConfig {
   filterSummary: string;
   rateSummary: string;
   summaryMetrics: PdfSummaryMetric[];
+  /** Optional preface summary table rendered before the main table (e.g. All-Division Sector Listing). */
+  prefaceTable?: PdfSectionTableConfig;
+  /** Optional section heading rendered above the main table when a preface table is present. */
+  mainTableTitle?: string;
   columns: PdfTableColumn[];
   rows: (string | number)[][];
   totalRow: (string | number)[];
@@ -347,42 +358,23 @@ function drawRunningChrome(
 }
 
 /**
- * Build the formal monochrome A4 PDF document using jsPDF + jspdf-autotable (`plain` theme).
- * Separated from `doc.save()` so verification tests can inspect page count and output bytes.
+ * Render a pure-white monochrome AutoTable section and return its final bottom Y.
  */
-export function buildFormalPdfDocument(
-  config: FormalPdfDocumentConfig
-): JsPdfWithAutoTable {
-  const doc = new jsPDF({
-    orientation: config.orientation,
-    unit: 'mm',
-    format: 'a4',
-    compress: true,
-  }) as JsPdfWithAutoTable;
-
-  const pageWidth =
-    config.orientation === 'landscape'
-      ? PDF_LAYOUT.A4_LANDSCAPE_WIDTH
-      : PDF_LAYOUT.A4_PORTRAIT_WIDTH;
-  const pageHeight =
-    config.orientation === 'landscape'
-      ? PDF_LAYOUT.A4_LANDSCAPE_HEIGHT
-      : PDF_LAYOUT.A4_PORTRAIT_HEIGHT;
-  const usableWidth = pageWidth - PDF_LAYOUT.MARGIN_LEFT - PDF_LAYOUT.MARGIN_RIGHT;
-
-  // Zone 1 & Zone 2 (Page 1 Top)
-  const zone1BottomY = drawPageOneHeader(doc, config, pageWidth);
-  const zone2BottomY = drawSummaryStrip(
-    doc,
-    config.summaryMetrics,
-    zone1BottomY,
-    pageWidth
-  );
-
-  // Zone 3 (Formal Monochrome AutoTable)
-  const colWidths = resolveColumnWidthsMm(config.columns, usableWidth);
+function renderMonochromeTableSection(
+  doc: JsPdfWithAutoTable,
+  params: {
+    startY: number;
+    usableWidth: number;
+    columns: PdfTableColumn[];
+    rows: (string | number)[][];
+    totalRow: (string | number)[];
+    emptyMessage: string;
+  }
+): number {
+  const { startY, usableWidth, columns, rows, totalRow, emptyMessage } = params;
+  const colWidths = resolveColumnWidthsMm(columns, usableWidth);
   const columnStyles: Record<number, Partial<Styles>> = {};
-  config.columns.forEach((col, idx) => {
+  columns.forEach((col, idx) => {
     columnStyles[idx] = {
       cellWidth: colWidths[idx],
       halign: col.align,
@@ -390,36 +382,28 @@ export function buildFormalPdfDocument(
     };
   });
 
-  const headRow = [
-    config.columns.map((c) => sanitizePdfText(c.header).toUpperCase()),
-  ];
+  const headRow = [columns.map((c) => sanitizePdfText(c.header).toUpperCase())];
 
   const tickColIndices = new Set<number>(
-    config.columns
-      .map((c, idx) => (c.tickBox ? idx : -1))
-      .filter((idx) => idx >= 0)
+    columns.map((c, idx) => (c.tickBox ? idx : -1)).filter((idx) => idx >= 0)
   );
 
   const sanitizedBody =
-    config.rows.length > 0
-      ? config.rows.map((row) =>
+    rows.length > 0
+      ? rows.map((row) =>
           row.map((val, colIdx) =>
             tickColIndices.has(colIdx) ? '' : sanitizePdfText(val)
           )
         )
-      : [
-          config.columns.map((_, idx) =>
-            idx === 1 ? 'No matching records found for selected filters.' : ''
-          ),
-        ];
+      : [columns.map((_, idx) => (idx === 1 ? emptyMessage : ''))];
 
   const sanitizedFoot =
-    config.rows.length > 0 && config.totalRow.length === config.columns.length
-      ? [config.totalRow.map((val) => sanitizePdfText(val))]
+    rows.length > 0 && totalRow.length === columns.length
+      ? [totalRow.map((val) => sanitizePdfText(val))]
       : [];
 
   autoTable(doc, {
-    startY: zone2BottomY + 4,
+    startY,
     margin: {
       top: PDF_LAYOUT.CONTINUATION_TOP_Y,
       left: PDF_LAYOUT.MARGIN_LEFT,
@@ -471,12 +455,10 @@ export function buildFormalPdfDocument(
     body: sanitizedBody,
     foot: sanitizedFoot,
     didParseCell: (data: CellHookData) => {
-      // Match header/footer alignment strictly to column alignment
-      const colCfg = config.columns[data.column.index];
+      const colCfg = columns[data.column.index];
       if (colCfg) {
         data.cell.styles.halign = colCfg.align;
       }
-      // Enforce zero colored fills anywhere
       data.cell.styles.fillColor = [...PDF_COLORS.PURE_WHITE];
     },
     didDrawCell: (data: CellHookData) => {
@@ -498,7 +480,7 @@ export function buildFormalPdfDocument(
         setStrokePt(doc, 0.25);
         doc.line(x1, yBottom, x2, yBottom);
 
-        if (config.rows.length > 0 && tickColIndices.has(column.index)) {
+        if (rows.length > 0 && tickColIndices.has(column.index)) {
           const boxSize = PDF_LAYOUT.TICK_BOX_SIZE_MM;
           const boxX = cell.x + (cell.width - boxSize) / 2;
           const boxY = cell.y + (cell.height - boxSize) / 2;
@@ -520,9 +502,111 @@ export function buildFormalPdfDocument(
     },
   });
 
+  return doc.lastAutoTable?.finalY ?? startY + 12;
+}
+
+function drawSectionHeading(
+  doc: jsPDF,
+  title: string,
+  y: number,
+  pageWidth: number,
+  pageHeight: number
+): number {
+  const { MARGIN_LEFT, MARGIN_RIGHT, CONTINUATION_TOP_Y } = PDF_LAYOUT;
+  const maxY = pageHeight - PDF_LAYOUT.FOOTER_RULE_OFFSET_FROM_BOTTOM - 16;
+  let headingY = y;
+  if (headingY > maxY) {
+    doc.addPage();
+    headingY = CONTINUATION_TOP_Y + 2;
+  }
+
+  doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'bold');
+  doc.setFontSize(PDF_TYPE.META_SIZE);
+  doc.setTextColor(...PDF_COLORS.PRIMARY_INK);
+  doc.text(sanitizePdfText(title).toUpperCase(), MARGIN_LEFT, headingY);
+
+  doc.setDrawColor(...PDF_COLORS.SUBTLE_RULE);
+  setStrokePt(doc, 0.3);
+  doc.line(MARGIN_LEFT, headingY + 1.5, pageWidth - MARGIN_RIGHT, headingY + 1.5);
+
+  return headingY + 3.5;
+}
+
+/**
+ * Build the formal monochrome A4 PDF document using jsPDF + jspdf-autotable (`plain` theme).
+ * Separated from `doc.save()` so verification tests can inspect page count and output bytes.
+ */
+export function buildFormalPdfDocument(
+  config: FormalPdfDocumentConfig
+): JsPdfWithAutoTable {
+  const doc = new jsPDF({
+    orientation: config.orientation,
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
+  }) as JsPdfWithAutoTable;
+
+  const pageWidth =
+    config.orientation === 'landscape'
+      ? PDF_LAYOUT.A4_LANDSCAPE_WIDTH
+      : PDF_LAYOUT.A4_PORTRAIT_WIDTH;
+  const pageHeight =
+    config.orientation === 'landscape'
+      ? PDF_LAYOUT.A4_LANDSCAPE_HEIGHT
+      : PDF_LAYOUT.A4_PORTRAIT_HEIGHT;
+  const usableWidth = pageWidth - PDF_LAYOUT.MARGIN_LEFT - PDF_LAYOUT.MARGIN_RIGHT;
+
+  // Zone 1 & Zone 2 (Page 1 Top)
+  const zone1BottomY = drawPageOneHeader(doc, config, pageWidth);
+  const zone2BottomY = drawSummaryStrip(
+    doc,
+    config.summaryMetrics,
+    zone1BottomY,
+    pageWidth
+  );
+
+  // Optional Preface Table (e.g. All-Division Sector-Wise Listing right after Summary Strip)
+  let mainTableStartY = zone2BottomY + 4;
+  if (config.prefaceTable && config.prefaceTable.rows.length > 0) {
+    const prefaceStartY = drawSectionHeading(
+      doc,
+      config.prefaceTable.sectionTitle,
+      zone2BottomY + 6.5,
+      pageWidth,
+      pageHeight
+    );
+    const prefaceEndY = renderMonochromeTableSection(doc, {
+      startY: prefaceStartY,
+      usableWidth,
+      columns: config.prefaceTable.columns,
+      rows: config.prefaceTable.rows,
+      totalRow: config.prefaceTable.totalRow,
+      emptyMessage: 'No sector records found.',
+    });
+
+    mainTableStartY = config.mainTableTitle
+      ? drawSectionHeading(
+          doc,
+          config.mainTableTitle,
+          prefaceEndY + 8,
+          pageWidth,
+          pageHeight
+        )
+      : prefaceEndY + 6;
+  }
+
+  // Zone 3 (Main Formal Monochrome AutoTable)
+  const finalY = renderMonochromeTableSection(doc, {
+    startY: mainTableStartY,
+    usableWidth,
+    columns: config.columns,
+    rows: config.rows,
+    totalRow: config.totalRow,
+    emptyMessage: 'No matching records found for selected filters.',
+  });
+
   // Zone 4 (Sign-Off / Settlement on final page)
   if (config.includeSignOff !== false) {
-    const finalY = doc.lastAutoTable?.finalY ?? zone2BottomY + 20;
     drawSignOffBlock(doc, config, finalY, pageWidth, pageHeight);
   }
 
