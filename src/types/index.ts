@@ -13,6 +13,7 @@ export interface AuthSession {
   entity_id?: number;
   must_change_password: boolean;
   seen_doc_pages?: string[];
+  help_kb_version?: number;
   expires_at?: string;
 }
 
@@ -241,4 +242,38 @@ export interface CredentialAccountRow {
   must_change_password: boolean;
   has_custom_password: boolean;
   is_reset_pending: boolean;
+}
+
+export type HelpAssistantRole = 'ADMIN' | 'SECTOR' | 'UNIT' | 'LOGIN' | 'PUBLIC';
+export type HelpKbItemRole = 'ADMIN' | 'SECTOR' | 'UNIT' | 'ALL';
+
+export interface HelpKbCategory {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+export interface HelpKbItem {
+  id: string;
+  category: string;
+  roles: HelpKbItemRole[];
+  question: string;
+  answer: string;
+  steps?: string[];
+  followUps: string[];
+  keywords: string[];
+}
+
+export interface HelpKbPayload {
+  categories: HelpKbCategory[];
+  items: HelpKbItem[];
+  updated_at?: string;
+  admin_phone?: string;
+}
+
+export interface StoredHelpKb {
+  id: 'active';
+  version: number;
+  payload: HelpKbPayload;
+  syncedAt: string;
 }

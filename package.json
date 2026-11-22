@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "cf:preview": "npm run build && wrangler pages dev dist",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:seed": "node scripts/seed-production.mjs"
+    "db:seed": "node scripts/seed-production.mjs",
+    "db:seed:kb": "node scripts/seed-help-kb.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",

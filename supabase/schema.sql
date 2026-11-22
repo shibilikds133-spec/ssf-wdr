@@ -137,6 +137,14 @@ CREATE TABLE IF NOT EXISTS password_reset_requests (
   resolved_at TIMESTAMPTZ
 );
 
+-- Versioned Knowledge Base store (single active row id = 1)
+CREATE TABLE IF NOT EXISTS help_kb_store (
+  id INT PRIMARY KEY CHECK (id = 1),
+  version INT NOT NULL DEFAULT 1,
+  payload JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- 2. DEFAULT SETTINGS, INTERNAL SECRET & DUMMY SEED DATA (IDEMPOTENT)
 INSERT INTO app_settings (key, value) VALUES
   ('admin_code', 'WDR100'),
@@ -241,6 +249,7 @@ ALTER TABLE units ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auth_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE password_reset_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE help_kb_store ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE
   app_settings,
@@ -249,7 +258,8 @@ REVOKE ALL ON TABLE
   units,
   entries,
   auth_sessions,
-  password_reset_requests
+  password_reset_requests,
+  help_kb_store
 FROM anon, authenticated;
 
 -- ============================================================
@@ -771,6 +781,7 @@ BEGIN
       'name', 'Division Admin',
       'must_change_password', false,
       'seen_doc_pages', v_seen_jsonb,
+      'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
       'expires_at', v_expires
     );
   END IF;
@@ -808,6 +819,7 @@ BEGIN
       'entity_id', v_sector.id,
       'must_change_password', v_sector.must_change_password,
       'seen_doc_pages', to_jsonb(COALESCE(v_sector.seen_doc_pages, '{}'::TEXT[])),
+      'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
       'expires_at', v_expires
     );
   END IF;
@@ -847,6 +859,7 @@ BEGIN
       'entity_id', v_unit.id,
       'must_change_password', v_unit.must_change_password,
       'seen_doc_pages', to_jsonb(COALESCE(v_unit.seen_doc_pages, '{}'::TEXT[])),
+      'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
       'expires_at', v_expires
     );
   END IF;
@@ -988,6 +1001,7 @@ BEGIN
     'login_code', v_login_code,
     'must_change_password', v_must_change,
     'seen_doc_pages', v_seen_doc_pages,
+    'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
     'entity_id', v_sess.entity_id,
     'sector_name', v_sector_name,
     'expires_at', v_new_expires
@@ -3805,6 +3819,32 @@ BEGIN
 END;
 $$;
 
+-- 6.36 HELP KNOWLEDGE BASE VERSION-AWARE SYNC (READ-ONLY)
+CREATE OR REPLACE FUNCTION get_help_kb_sync(p_client_version INT DEFAULT 0)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_row help_kb_store%ROWTYPE;
+BEGIN
+  SELECT * INTO v_row FROM help_kb_store WHERE id = 1;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('up_to_date', true, 'version', 0, 'payload', NULL);
+  END IF;
+  IF COALESCE(p_client_version, 0) >= v_row.version THEN
+    RETURN jsonb_build_object('up_to_date', true, 'version', v_row.version);
+  END IF;
+  RETURN jsonb_build_object(
+    'up_to_date', false,
+    'version', v_row.version,
+    'updated_at', v_row.updated_at,
+    'payload', v_row.payload
+  );
+END;
+$$;
+
 -- 7. GRANT RPC EXECUTION TO ANON & AUTHENTICATED
 GRANT EXECUTE ON FUNCTION
   verify_login_code(TEXT),
@@ -3844,5 +3884,6 @@ GRANT EXECUTE ON FUNCTION
   admin_list_entries(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, INT, INT),
   sector_list_units(TEXT, TEXT, TEXT, INT, INT),
   sector_list_entries(TEXT, INT, TEXT, TEXT, TEXT, INT, INT),
-  unit_list_entries(TEXT, TEXT, TEXT, TEXT, INT, INT)
+  unit_list_entries(TEXT, TEXT, TEXT, TEXT, INT, INT),
+  get_help_kb_sync(INT)
 TO anon, authenticated;

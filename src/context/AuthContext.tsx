@@ -16,9 +16,11 @@ import {
 } from '../utils/docsConfig';
 import { supabase } from '../lib/supabase';
 import type { AuthSession, UserRole } from '../types';
+import { syncHelpKbIfNeeded } from '../utils/helpKbDb';
 
 const AUTH_STORAGE_KEY = 'wdr_auth_session_v1';
 const AUTH_NOTICE_KEY = 'wdr_auth_notice_v1';
+const KB_CHECKED_SESSION_KEY = 'wdr_kb_checked_session';
 
 interface LoginResult {
   ok: boolean;
@@ -145,6 +147,9 @@ function readStoredSession(): AuthSession | null {
       ...(Array.isArray(record.seen_doc_pages)
         ? { seen_doc_pages: normalizeDocPageKeys(record.seen_doc_pages) }
         : {}),
+      ...(typeof record.help_kb_version === 'number'
+        ? { help_kb_version: record.help_kb_version }
+        : {}),
     };
   } catch {
     return null;
@@ -165,6 +170,7 @@ interface AuthLoginResponse {
   entity_id?: unknown;
   must_change_password?: unknown;
   seen_doc_pages?: unknown;
+  help_kb_version?: unknown;
   expires_at?: unknown;
 }
 
@@ -195,7 +201,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 14-day sliding JWT boot refresh
   useEffect(() => {
     const initial = readStoredSession();
-    if (!initial) return;
+    if (!initial) {
+      try {
+        if (window.sessionStorage.getItem(KB_CHECKED_SESSION_KEY) !== '1') {
+          window.sessionStorage.setItem(KB_CHECKED_SESSION_KEY, '1');
+          void syncHelpKbIfNeeded();
+        }
+      } catch {
+        void syncHelpKbIfNeeded();
+      }
+      return;
+    }
     const token = initial.token || initial.code;
     if (!token) return;
 
@@ -251,7 +267,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...(typeof res.expires_at === 'string'
               ? { expires_at: res.expires_at }
               : {}),
+            ...(typeof res.help_kb_version === 'number'
+              ? { help_kb_version: res.help_kb_version }
+              : {}),
           };
+          const serverKbVersion =
+            typeof res.help_kb_version === 'number'
+              ? res.help_kb_version
+              : undefined;
+          void syncHelpKbIfNeeded(serverKbVersion);
           setSession((prev) => {
             if (!prev) return null;
             const sameAccount =
@@ -340,12 +364,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...(typeof result.expires_at === 'string'
             ? { expires_at: result.expires_at }
             : {}),
+          ...(typeof result.help_kb_version === 'number'
+            ? { help_kb_version: result.help_kb_version }
+            : {}),
         };
 
         // Guard: logging in marks 'login' docs seen in localStorage even if card wasn't dismissed manually
         writeLocalSeenDocPage('guest', 'login');
         saveSession(nextSession);
         setSession(nextSession);
+        const serverKbVersion =
+          typeof result.help_kb_version === 'number'
+            ? result.help_kb_version
+            : undefined;
+        void syncHelpKbIfNeeded(serverKbVersion);
         return {
           ok: true,
           role: nextSession.role,
