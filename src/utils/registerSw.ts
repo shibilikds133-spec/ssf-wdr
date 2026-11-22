@@ -1,4 +1,9 @@
-import { initPwaAutoUpdate } from './pwaAutoUpdate';
+import {
+  initPwaAutoUpdate,
+  isAppInstalledStandalone,
+} from './pwaAutoUpdate';
+
+export { isAppInstalledStandalone };
 
 export interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -19,25 +24,6 @@ function notifyListeners(): void {
   for (const listener of listeners) {
     listener();
   }
-}
-
-export function isAppInstalledStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-
-  const standaloneMedia =
-    typeof window.matchMedia === 'function' &&
-    (window.matchMedia('(display-mode: standalone)').matches ||
-      window.matchMedia('(display-mode: window-controls-overlay)').matches);
-
-  const iosStandalone =
-    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
-    true;
-
-  const androidAppReferrer =
-    typeof document !== 'undefined' &&
-    document.referrer.startsWith('android-app://');
-
-  return Boolean(standaloneMedia || iosStandalone || androidAppReferrer);
 }
 
 export function getDeferredInstallPrompt(): BeforeInstallPromptEvent | null {

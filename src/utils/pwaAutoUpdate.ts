@@ -18,6 +18,25 @@ let fallbackReloadTimer: number | null = null;
 const trackedWorkers = new WeakSet<ServiceWorker>();
 const listeners = new Set<(available: boolean) => void>();
 
+export function isAppInstalledStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const standaloneMedia =
+    typeof window.matchMedia === 'function' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: window-controls-overlay)').matches);
+
+  const iosStandalone =
+    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+    true;
+
+  const androidAppReferrer =
+    typeof document !== 'undefined' &&
+    document.referrer.startsWith('android-app://');
+
+  return Boolean(standaloneMedia || iosStandalone || androidAppReferrer);
+}
+
 function notifyListeners(): void {
   for (const listener of listeners) {
     listener(updateAvailable);
@@ -28,6 +47,25 @@ function markUpdateAvailable(worker: ServiceWorker | null): void {
   if (worker) {
     waitingWorker = worker;
   }
+
+  // Only show the update modal inside installed PWA standalone mode.
+  // Regular browser tabs activate the new SW silently in the background.
+  if (!isAppInstalledStandalone()) {
+    const target = worker ?? activeRegistration?.waiting ?? waitingWorker;
+    if (
+      target &&
+      target.state !== 'activated' &&
+      target.state !== 'redundant'
+    ) {
+      try {
+        target.postMessage({ type: 'SKIP_WAITING' });
+      } catch {
+        // Ignore postMessage errors; next load will activate the new SW
+      }
+    }
+    return;
+  }
+
   if (!updateAvailable) {
     updateAvailable = true;
     notifyListeners();

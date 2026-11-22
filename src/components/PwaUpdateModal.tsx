@@ -4,6 +4,7 @@ import { Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
 import { DOCS_THEME_STYLES, type DocsPortalTheme } from '../utils/docsConfig';
 import {
   applyPwaUpdate,
+  isAppInstalledStandalone,
   isPwaUpdateAvailable,
   subscribePwaUpdate,
 } from '../utils/pwaAutoUpdate';
@@ -89,11 +90,14 @@ export function PwaUpdateModal() {
   const styles = DOCS_THEME_STYLES[themeKey];
   const portalCta = PORTAL_CTA_CLASSES[themeKey];
 
+  const [isStandalone, setIsStandalone] = useState<boolean>(() =>
+    isAppInstalledStandalone()
+  );
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(() =>
-    isPwaUpdateAvailable()
+    isAppInstalledStandalone() ? isPwaUpdateAvailable() : false
   );
   const [displayMode, setDisplayMode] = useState<UpdateDisplayMode>(() =>
-    isPwaUpdateAvailable()
+    isAppInstalledStandalone() && isPwaUpdateAvailable()
       ? isUserInActiveForm()
         ? 'pill'
         : 'modal'
@@ -112,6 +116,23 @@ export function PwaUpdateModal() {
     applyPwaUpdate();
   }, []);
 
+  // Track standalone display mode so regular browser tabs never show the update popup
+  useEffect(() => {
+    setIsStandalone(isAppInstalledStandalone());
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+    const wcoQuery = window.matchMedia('(display-mode: window-controls-overlay)');
+    const handleChange = () => setIsStandalone(isAppInstalledStandalone());
+    standaloneQuery.addEventListener?.('change', handleChange);
+    wcoQuery.addEventListener?.('change', handleChange);
+    return () => {
+      standaloneQuery.removeEventListener?.('change', handleChange);
+      wcoQuery.removeEventListener?.('change', handleChange);
+    };
+  }, []);
+
   // Subscribe to Service Worker waiting updates
   useEffect(() => {
     if (isPwaUpdateAvailable()) {
@@ -122,14 +143,14 @@ export function PwaUpdateModal() {
     });
   }, []);
 
-  // Synchronously decide initial surface when an update arrives
+  // Synchronously decide initial surface when an update arrives in standalone PWA
   useEffect(() => {
-    if (!updateAvailable) return;
+    if (!isStandalone || !updateAvailable) return;
     setDisplayMode((prev) => {
       if (prev !== 'none') return prev;
       return isUserInActiveForm() ? 'pill' : 'modal';
     });
-  }, [updateAvailable]);
+  }, [isStandalone, updateAvailable]);
 
   // Escalate from top floating pill to mandatory center modal once form/input finishes
   useEffect(() => {
@@ -241,7 +262,7 @@ export function PwaUpdateModal() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [displayMode, handleApplyUpdate]);
 
-  if (displayMode === 'none') {
+  if (!isStandalone || displayMode === 'none') {
     return null;
   }
 
