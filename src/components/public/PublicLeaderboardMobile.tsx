@@ -401,7 +401,7 @@ export function PublicLeaderboardMobile({
             className="w-full py-3 px-5 rounded-2xl glass-crimson text-white font-ml text-sm font-bold inline-flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition-transform"
           >
             <PlusCircle className="w-4 h-4 text-[#FCE36D] shrink-0" />
-            <span>+ ക്വിക്ക് എൻട്രി (Quick Entry)</span>
+            <span>ക്വിക്ക് എൻട്രി (Quick Entry)</span>
           </button>
         ) : (
           <button

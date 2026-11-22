@@ -133,7 +133,7 @@ export function PublicLeaderboardDesktop({
     <div className="min-h-screen public-theme-bg flex flex-col">
       {/* Sticky Desktop Top Header */}
       <header className="sticky top-0 z-30 glass-rose-header">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-[1440px] mx-auto px-5 xl:px-8 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <SsfLogo className="h-8 w-auto shrink-0" />
             <div className="min-w-0">
@@ -178,7 +178,7 @@ export function PublicLeaderboardDesktop({
               {summary.orders_open ? (
                 <>
                   <PlusCircle className="w-3.5 h-3.5 text-[#FCE36D] shrink-0" />
-                  <span>+ Quick Entry</span>
+                  <span>Quick Entry</span>
                 </>
               ) : (
                 <>
@@ -207,19 +207,18 @@ export function PublicLeaderboardDesktop({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-6 space-y-6">
-        {/* Section 1: Top Full-Width Promotional Poster Window (No Contact Section) */}
-        <section aria-label="Campaign Poster Banner">
-          <PublicPosterWindow />
-        </section>
-
-        {/* Section 2: Executive Live Status & KPI Cards */}
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-5 xl:px-8 py-5 space-y-5">
+        {/* Section 1: Compact Top Hero Row (Promotional Poster + Division Live Progress) */}
         <section
-          aria-label="Live Division Statistics"
+          aria-label="Campaign Poster and Live Division Progress"
           className="grid grid-cols-12 gap-5 items-stretch"
         >
+          <div className="col-span-12 lg:col-span-7 flex">
+            <PublicPosterWindow className="w-full my-auto" />
+          </div>
+
           {/* Division Hero Progress Card */}
-          <div className="col-span-5 rounded-3xl glass-crimson text-white p-6 flex flex-col justify-between gap-5 shadow-lg">
+          <div className="col-span-12 lg:col-span-5 rounded-3xl glass-crimson text-white p-6 flex flex-col justify-between gap-4 shadow-lg">
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full glass-crimson-pill text-xs font-bold text-[#FCE36D]">
                 <Trophy className="w-3.5 h-3.5 shrink-0" />
@@ -244,7 +243,7 @@ export function PublicLeaderboardDesktop({
                 <p className="text-xs text-white/75 font-medium">
                   Total Payasam
                 </p>
-                <p className="text-4xl font-extrabold tracking-tight num text-white leading-none mt-1.5">
+                <p className="text-4xl xl:text-5xl font-extrabold tracking-tight num text-white leading-none mt-1.5">
                   {formatQuantity(Number(summary.total_liters))}
                   <span className="text-lg font-bold text-[#FCE36D] ml-1.5">
                     L
@@ -255,7 +254,7 @@ export function PublicLeaderboardDesktop({
                 <p className="text-xs text-white/75 font-medium">
                   Total Orders
                 </p>
-                <p className="text-3xl font-extrabold num text-white leading-none mt-1.5">
+                <p className="text-3xl xl:text-4xl font-extrabold num text-white leading-none mt-1.5">
                   {summary.total_orders}
                 </p>
               </div>
@@ -276,9 +275,13 @@ export function PublicLeaderboardDesktop({
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Right Status Cards Grid */}
-          <div className="col-span-7 grid grid-cols-2 gap-4">
+        {/* Section 2: Status Cards Row */}
+        <section
+          aria-label="Live Division Statistics"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        >
             {/* Rate & Status Card */}
             <div className="glass-rose-card rounded-3xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between gap-2">
@@ -368,7 +371,6 @@ export function PublicLeaderboardDesktop({
                 </p>
               </div>
             </div>
-          </div>
         </section>
 
         {/* Section 3: Full Live Leaderboard Panel */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Maximize2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface PublicPosterWindowProps {
   className?: string;
@@ -50,14 +50,6 @@ export function PublicPosterWindow({
               />
             </picture>
           </div>
-
-          <span
-            aria-hidden="true"
-            className="absolute bottom-2.5 right-2.5 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#2B0406]/70 backdrop-blur-md border border-white/20 text-[11px] font-medium text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-          >
-            <Maximize2 className="w-3 h-3" />
-            <span className="font-ml hidden sm:inline">വലുതാക്കുക</span>
-          </span>
         </button>
       </div>
 
