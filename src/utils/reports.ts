@@ -463,6 +463,7 @@ export function computeSummaryFromEntries(
 ): ReportSummaryStats {
   const stats = emptySummaryStats();
   for (const entry of entries) {
+    if (entry.is_deleted === true) continue;
     const qty = finiteOrZero(entry.quantity);
     const amount = finiteOrZero(entry.total_amount);
     stats.totalOrders += 1;
@@ -778,7 +779,7 @@ export function buildReportPayload(
     divisionLimit = Math.max(0, finiteOrZero(data.settings.division_target));
     sectorsList = data.sectors ?? [];
     authorizedUnits = data.unit_summaries ?? [];
-    authorizedEntries = data.entries ?? [];
+    authorizedEntries = (data.entries ?? []).filter((e) => e.is_deleted !== true);
   } else if (source.role === 'SECTOR') {
     const { data } = source;
     challengeTitle = data.settings.challenge_title || challengeTitle;
@@ -799,6 +800,7 @@ export function buildReportPayload(
     const allowedUnitIds = new Set(authorizedUnits.map((u) => u.id));
     authorizedEntries = (data.entries ?? []).filter(
       (e) =>
+        e.is_deleted !== true &&
         !isDivisionDirectEntry(e) &&
         e.unit_id != null &&
         allowedUnitIds.has(e.unit_id)
@@ -836,7 +838,10 @@ export function buildReportPayload(
     ];
     // Strict unit boundary: only entries belonging to logged-in unit
     authorizedEntries = (data.entries ?? []).filter(
-      (e) => !isDivisionDirectEntry(e) && e.unit_id === data.unit.id
+      (e) =>
+        e.is_deleted !== true &&
+        !isDivisionDirectEntry(e) &&
+        e.unit_id === data.unit.id
     );
     config.scope = 'THIS_UNIT';
     config.sectorId = data.unit.sector_id;

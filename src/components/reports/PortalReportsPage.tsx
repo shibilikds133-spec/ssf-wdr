@@ -227,8 +227,8 @@ export function PortalReportsPage({
     if (generatingKey) return;
     setGeneratingKey(key);
     try {
-      await exportReportPdf(targetPayload);
-      onToast?.('success', `Prepared PDF export (${targetPayload.pdfFilename})`);
+      const filename = await exportReportPdf(targetPayload);
+      onToast?.('success', `Downloaded PDF (${filename || targetPayload.pdfFilename})`);
     } catch (err) {
       onToast?.(
         'error',

@@ -136,6 +136,7 @@ export interface PublicAddOrderResponse {
   payment_status: PaymentStatus;
   payment_mode: PaymentMode | null;
   created_at: string;
+  is_deleted?: boolean;
 }
 
 export interface EntryItem {
@@ -153,6 +154,7 @@ export interface EntryItem {
   payment_status: PaymentStatus;
   payment_mode: PaymentMode | null;
   created_at: string;
+  is_deleted?: boolean;
 }
 
 export interface UnitSummaryRow {

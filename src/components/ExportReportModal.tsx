@@ -89,8 +89,8 @@ export function ExportReportModal({
     if (!canExport || generatingPdf) return;
     setGeneratingPdf(true);
     try {
-      await exportReportPdf(payload);
-      onExportSuccess?.(`Opened print/PDF export (${payload.pdfFilename})`);
+      const filename = await exportReportPdf(payload);
+      onExportSuccess?.(`Downloaded PDF (${filename || payload.pdfFilename})`);
     } catch (err) {
       onExportError?.(
         err instanceof Error ? err.message : 'Unable to generate PDF export.'
