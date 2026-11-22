@@ -1,0 +1,35 @@
+{
+  "id": "/?app=public-leaderboard",
+  "name": "SSF വണ്ടൂർ പാലട പായസം ചലഞ്ച്",
+  "short_name": "പായസം ചലഞ്ച്",
+  "description": "SSF വണ്ടൂർ ഡിവിഷൻ പാലട പായസം ചലഞ്ച് — ലൈവ് ലീഡർബോർഡ് & ക്വിക്ക് ഓർഡർ",
+  "start_url": "/?source=public_pwa",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "lang": "ml",
+  "prefer_related_applications": false,
+  "background_color": "#5C0A0E",
+  "theme_color": "#FFF8F6",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

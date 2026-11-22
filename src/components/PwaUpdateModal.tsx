@@ -35,11 +35,17 @@ const PORTAL_CTA_CLASSES: Record<
     captionText: 'text-[#5C1B07]/75',
     pillBorderAccent: 'border-[#EC5E27]/30',
   },
+  public: {
+    primaryBtn: 'glass-crimson text-white hover:opacity-95',
+    captionText: 'text-[#4A070A]/75',
+    pillBorderAccent: 'border-[#5C0A0E]/25',
+  },
 };
 
 function resolvePortalTheme(pathname: string): DocsPortalTheme {
   if (pathname.startsWith('/sector')) return 'forest';
   if (pathname.startsWith('/dashboard')) return 'orange';
+  if (pathname === '/') return 'public';
   return 'plum';
 }
 

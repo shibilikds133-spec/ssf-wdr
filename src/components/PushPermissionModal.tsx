@@ -82,6 +82,19 @@ const PORTAL_STYLES: Record<
     topGlow:
       'from-[#EC5E27]/[0.16] via-[#EC5E27]/[0.05] to-transparent',
   },
+  public: {
+    glassSurface:
+      'bg-[#FFF8F6]/[0.92] backdrop-blur-2xl border border-[#5C0A0E]/[0.20] shadow-[0_24px_64px_-12px_rgba(92,10,14,0.34),inset_0_1px_0_rgba(255,255,255,0.95)]',
+    accentPill:
+      'glass-crimson text-white border border-white/25 shadow-sm',
+    iconBadge:
+      'glass-crimson text-white shadow-lg ring-4 ring-[#5C0A0E]/15',
+    primaryBtn: 'glass-crimson text-white hover:opacity-95',
+    secondaryBtn:
+      'border border-[#5C0A0E]/20 bg-white/85 text-[#2B0406] hover:bg-white',
+    topGlow:
+      'from-[#C40E16]/[0.14] via-[#5C0A0E]/[0.04] to-transparent',
+  },
 };
 
 const ROLE_COPY: Record<UserRole, string> = {

@@ -80,6 +80,52 @@ export interface PublicStatsResponse {
   fetched_at: string;
 }
 
+export interface PublicLeaderboardSummary {
+  total_liters: number;
+  total_orders: number;
+  division_limit: number;
+  per_liter_rate: number;
+  orders_open: boolean;
+  challenge_title?: string;
+  percent_complete: number;
+}
+
+export interface PublicLeaderboardSector {
+  id: number;
+  name: string;
+  total_liters: number;
+  total_orders: number;
+  active_units_count: number;
+  total_units_count: number;
+}
+
+export interface PublicLeaderboardUnit {
+  id: number;
+  sector_id: number;
+  sector_name: string;
+  name: string;
+  total_liters: number;
+  total_orders: number;
+}
+
+export interface PublicLeaderboardResponse {
+  summary: PublicLeaderboardSummary;
+  sectors: PublicLeaderboardSector[];
+  units: PublicLeaderboardUnit[];
+  fetched_at: string;
+}
+
+export interface PublicAddOrderResponse {
+  id: number;
+  unit_name: string;
+  sector_name: string;
+  quantity: number;
+  total_amount: number;
+  payment_status: PaymentStatus;
+  payment_mode: PaymentMode | null;
+  created_at: string;
+}
+
 export interface EntryItem {
   id: number;
   unit_id?: number | null;
@@ -246,7 +292,7 @@ export interface CredentialAccountRow {
 }
 
 export type HelpAssistantRole = 'ADMIN' | 'SECTOR' | 'UNIT' | 'LOGIN' | 'PUBLIC';
-export type HelpKbItemRole = 'ADMIN' | 'SECTOR' | 'UNIT' | 'ALL';
+export type HelpKbItemRole = 'ADMIN' | 'SECTOR' | 'UNIT' | 'LOGIN' | 'PUBLIC' | 'ALL';
 
 export interface HelpKbCategory {
   id: string;

@@ -9,14 +9,34 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   endpoint TEXT UNIQUE NOT NULL,
   p256dh TEXT NOT NULL,
   auth TEXT NOT NULL,
-  account_id TEXT NOT NULL, -- 'division:0', 'sector:<id>', 'unit:<id>'
-  role TEXT NOT NULL CHECK (role IN ('division', 'sector', 'unit')),
+  account_id TEXT NULL, -- 'division:0', 'sector:<id>', 'unit:<id>' or NULL for 'public'
+  role TEXT NOT NULL CHECK (role IN ('division', 'sector', 'unit', 'public')),
   sector_id INT NULL REFERENCES sectors(id) ON DELETE CASCADE,
   unit_id INT NULL REFERENCES units(id) ON DELETE CASCADE,
   user_agent TEXT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE push_subscriptions ALTER COLUMN account_id DROP NOT NULL;
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'push_subscriptions'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%role%'
+  LOOP
+    EXECUTE format('ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS %I', r.conname);
+  END LOOP;
+END $$;
+
+ALTER TABLE push_subscriptions
+  ADD CONSTRAINT push_subscriptions_role_check CHECK (role IN ('division', 'sector', 'unit', 'public'));
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_role
   ON push_subscriptions(role);
@@ -398,6 +418,34 @@ BEGIN
 
     INSERT INTO push_dispatch_log (event_key, event_type, payload)
     VALUES (v_event_key, 'division_milestone', v_job)
+    ON CONFLICT (event_key) DO NOTHING
+    RETURNING event_key INTO v_inserted_key;
+
+    IF v_inserted_key IS NOT NULL THEN
+      v_events := v_events || jsonb_build_array(v_job);
+    END IF;
+
+    v_event_key := 'public_milestone:' || v_div_milestone::TEXT;
+    v_job := jsonb_build_object(
+      'event_key', v_event_key,
+      'event_type', 'public_milestone',
+      'source', v_source,
+      'target', jsonb_build_object(
+        'role', 'public'
+      ),
+      'notification', jsonb_build_object(
+        'title', 'SSF വണ്ടൂർ പാലട പായസം ചലഞ്ച് — ' || v_div_milestone::TEXT || ' ഓർഡറുകൾ! 🎉',
+        'body', 'ലൈവ് അപ്‌ഡേറ്റ്: ചലഞ്ചിൽ ആകെ ' || v_div_milestone::TEXT || ' ഓർഡറുകൾ പിന്നിട്ടു! ലൈവ് ലീഡർബോർഡ് കാണാം.',
+        'url', '/',
+        'tag', v_event_key,
+        'type', 'public_milestone',
+        'milestone', v_div_milestone,
+        'order_id', v_order.id
+      )
+    );
+
+    INSERT INTO push_dispatch_log (event_key, event_type, payload)
+    VALUES (v_event_key, 'public_milestone', v_job)
     ON CONFLICT (event_key) DO NOTHING
     RETURNING event_key INTO v_inserted_key;
 

@@ -13,6 +13,22 @@
   Content-Type: application/manifest+json; charset=utf-8
   Cache-Control: public, max-age=0, must-revalidate
 
+/manifest-public.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+  Cache-Control: public, max-age=0, must-revalidate
+
+/poster-banner.webp
+  Content-Type: image/webp
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/poster-banner-sm.webp
+  Content-Type: image/webp
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
+/poster-banner.jpg
+  Content-Type: image/jpeg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 

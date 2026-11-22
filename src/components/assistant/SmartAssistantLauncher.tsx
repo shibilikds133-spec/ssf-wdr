@@ -29,13 +29,14 @@ function getAssistantRouteMeta(pathname: string): AssistantRouteMeta {
   ) {
     return { theme: 'plum', role: 'LOGIN', hasMobileBottomNav: false };
   }
-  return { theme: 'plum', role: 'PUBLIC', hasMobileBottomNav: false };
+  return { theme: 'public', role: 'PUBLIC', hasMobileBottomNav: true };
 }
 
 const LAUNCHER_STYLES: Record<DocsPortalTheme, string> = {
   plum: 'glass-agent-plum text-white',
   forest: 'glass-agent-forest text-white',
   orange: 'glass-agent-orange text-white',
+  public: 'glass-agent-public text-white',
 };
 
 export function SmartAssistantLauncher() {
@@ -48,8 +49,8 @@ export function SmartAssistantLauncher() {
   );
 
   const positionClass = hasMobileBottomNav
-    ? 'fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:right-6 lg:bottom-6 z-[45]'
-    : 'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:right-6 sm:bottom-6 z-[45]';
+    ? 'fixed right-3.5 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:right-5 lg:bottom-5 z-[45]'
+    : 'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:right-5 sm:bottom-5 z-[45]';
 
   return (
     <>

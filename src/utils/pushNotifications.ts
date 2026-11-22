@@ -1,6 +1,7 @@
 import { isAppInstalledStandalone } from './registerSw';
 
 const PUSH_DISMISS_STORAGE_KEY = 'ssf_push_prompt_dismissed_at_v1';
+const PUBLIC_PUSH_DISMISS_STORAGE_KEY = 'ssf_public_push_dismissed_at_v1';
 const PUSH_DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const PUSH_USER_DISABLED_KEY = 'ssf_push_user_disabled_v1';
 const ADMIN_AUTO_UPDATE_PUSH_KEY = 'ssf_admin_auto_update_push_v1';
@@ -230,6 +231,29 @@ export function markPushPromptDismissed(): void {
   }
 }
 
+export function isPublicPushDismissCooldownActive(): boolean {
+  try {
+    const raw = window.localStorage.getItem(PUBLIC_PUSH_DISMISS_STORAGE_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts) || ts <= 0) return false;
+    return Date.now() - ts < PUSH_DISMISS_COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function markPublicPushPromptDismissed(): void {
+  try {
+    window.localStorage.setItem(
+      PUBLIC_PUSH_DISMISS_STORAGE_KEY,
+      String(Date.now())
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function getAdminAutoUpdatePushEnabled(): boolean {
   try {
     const raw = window.localStorage.getItem(ADMIN_AUTO_UPDATE_PUSH_KEY);
@@ -390,6 +414,98 @@ export async function subscribeToPush(
 
     setUserManuallyDisabled(false);
     await persistSubscriptionOnServer(sessionToken, subscription);
+    notifyUiListeners();
+    return { ok: true };
+  } catch (err) {
+    notifyUiListeners();
+    return {
+      ok: false,
+      error:
+        err instanceof Error ? err.message : 'Unable to enable notifications.',
+    };
+  }
+}
+
+export async function subscribePublicPush(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  if (!isPushSupported()) {
+    return {
+      ok: false,
+      error: 'Push notifications are not supported on this browser.',
+    };
+  }
+  if (isIosNonStandalone()) {
+    return {
+      ok: false,
+      error:
+        'Install the app via Safari Add to Home Screen first to enable notifications on iOS.',
+    };
+  }
+
+  const vapidPublicKey = await resolveVapidPublicKey();
+  if (!vapidPublicKey) {
+    return { ok: false, error: 'Push VAPID public key is not configured.' };
+  }
+
+  try {
+    const permission =
+      Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+      notifyUiListeners();
+      return {
+        ok: false,
+        error:
+          permission === 'denied'
+            ? 'Notification permission is blocked in browser settings.'
+            : 'Notification permission was dismissed.',
+      };
+    }
+
+    const registration = await getActiveSwRegistration();
+    if (!registration) {
+      return {
+        ok: false,
+        error: 'Service Worker is not active yet. Please try again shortly.',
+      };
+    }
+
+    const existing = await registration.pushManager.getSubscription();
+    const subscription =
+      existing ??
+      (await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      }));
+
+    const response = await fetch('/api/push/subscribe-public', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        userAgent: navigator.userAgent,
+      }),
+    });
+
+    if (!response.ok) {
+      let message = 'Unable to register public push subscription.';
+      try {
+        const data = (await response.json()) as { error?: string };
+        if (data && typeof data.error === 'string' && data.error) {
+          message = data.error;
+        }
+      } catch {
+        // Ignore parse failures
+      }
+      throw new Error(message);
+    }
+
     notifyUiListeners();
     return { ok: true };
   } catch (err) {

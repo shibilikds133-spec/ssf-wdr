@@ -11,14 +11,6 @@ export async function onRequest(context) {
   }
 
   const html = await response.text();
-  if (!html.includes('__SITE_ORIGIN__')) {
-    return new Response(html, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-  }
-
   const reqUrl = new URL(context.request.url);
   const isLocal =
     reqUrl.hostname === 'localhost' ||
@@ -26,7 +18,22 @@ export async function onRequest(context) {
     reqUrl.hostname.endsWith('.local');
   const origin = isLocal ? reqUrl.origin : `https://${reqUrl.host}`;
 
-  const rewrittenHtml = html.replaceAll('__SITE_ORIGIN__', origin);
+  let rewrittenHtml = html.replaceAll('__SITE_ORIGIN__', origin);
+
+  const normalizedPath = reqUrl.pathname || '/';
+  const isPublicRoute = normalizedPath === '/' || normalizedPath === '/index.html';
+  if (isPublicRoute) {
+    rewrittenHtml = rewrittenHtml
+      .replace(
+        '<link rel="manifest" href="/manifest.webmanifest" />',
+        '<link rel="manifest" href="/manifest-public.webmanifest" />'
+      )
+      .replace(
+        '<meta name="theme-color" content="#381932" />',
+        '<meta name="theme-color" content="#FFF8F6" />'
+      );
+  }
+
   const headers = new Headers(response.headers);
   headers.delete('content-length');
   headers.delete('etag');

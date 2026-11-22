@@ -61,6 +61,20 @@ function getBannerTheme(pathname: string): PortalBannerTheme {
       iconAccent: 'text-[#EC5E27]',
     };
   }
+  if (pathname === '/') {
+    return {
+      themeColor: '#5C0A0E',
+      cardBorder: 'border-[#5C0A0E]/20',
+      cardTint: 'bg-[#FFF8F6]/92',
+      titleText: 'text-[#2B0406]',
+      subtitleText: 'text-[#7A2E33]',
+      primaryBtn: 'glass-crimson text-white hover:opacity-95',
+      secondaryBtn:
+        'border border-[#5C0A0E]/20 bg-white/85 text-[#4A070A] hover:bg-white',
+      stepBox: 'bg-[#FFF1EE]/95 border border-[#5C0A0E]/15 text-[#2B0406]',
+      iconAccent: 'text-[#5C0A0E]',
+    };
+  }
   return {
     themeColor: '#381932',
     cardBorder: 'border-milk-border',
@@ -278,12 +292,28 @@ export function PwaInstallBanner() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2
-                  className={`text-sm font-bold leading-snug ${theme.titleText}`}
+                  className={`text-sm font-bold leading-snug ${
+                    location.pathname === '/' ? 'font-ml' : ''
+                  } ${theme.titleText}`}
                 >
-                  <BrandText text="Install SSF Payasam App" />
+                  {location.pathname === '/' ? (
+                    'പാലട പായസം ചലഞ്ച് ലൈവ് ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്യുക'
+                  ) : (
+                    <BrandText text="Install SSF Payasam App" />
+                  )}
                 </h2>
-                <p className={`text-xs mt-0.5 leading-snug ${theme.subtitleText}`}>
-                  {mode === 'chromium'
+                <p
+                  className={`text-xs mt-0.5 leading-snug ${
+                    location.pathname === '/' ? 'font-ml' : ''
+                  } ${theme.subtitleText}`}
+                >
+                  {location.pathname === '/'
+                    ? mode === 'chromium'
+                      ? 'വേഗത്തിലുള്ള ഓർഡർ എൻട്രിയും ലൈവ് അപ്‌ഡേറ്റുകളും ഫുൾ-സ്ക്രീൻ അനുഭവവും'
+                      : mode === 'ios-safari'
+                      ? 'ഐഫോൺ / ഐപാഡ് ഹോം സ്ക്രീനിലേക്ക് ആപ്പ് ചേർക്കുക'
+                      : 'ഹോം സ്ക്രീനിൽ ചേർക്കാൻ Safari ബ്രൗസറിൽ തുറക്കുക'
+                    : mode === 'chromium'
                     ? 'Faster access & full-screen experience'
                     : mode === 'ios-safari'
                     ? 'Add to your iPhone or iPad Home Screen'

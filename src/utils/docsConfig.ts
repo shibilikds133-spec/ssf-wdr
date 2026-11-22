@@ -18,7 +18,7 @@ export type DocPageKey =
   | 'unit_reports'
   | 'public_leaderboard';
 
-export type DocsPortalTheme = 'plum' | 'forest' | 'orange';
+export type DocsPortalTheme = 'plum' | 'forest' | 'orange' | 'public';
 
 export interface DocsThemeStyle {
   cardSurface: string;
@@ -52,7 +52,7 @@ export const DOC_PAGE_THEMES: Record<DocPageKey, DocsPortalTheme> = {
   unit_dashboard: 'orange',
   unit_orders: 'orange',
   unit_reports: 'orange',
-  public_leaderboard: 'plum',
+  public_leaderboard: 'public',
 };
 
 export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
@@ -112,6 +112,26 @@ export const DOCS_THEME_STYLES: Record<DocsPortalTheme, DocsThemeStyle> = {
     backdrop: 'bg-[#4A1404]/35 backdrop-blur-sm',
     triggerButton:
       'bg-[#FDFDF1]/[0.94] backdrop-blur-xl border border-[#EC5E27]/[0.24] text-[#5C1B07] hover:bg-white shadow-xs',
+  },
+  public: {
+    cardSurface: 'bg-[#FFF8F6]/[0.94] backdrop-blur-xl',
+    cardBorderShadow: 'border border-[#5C0A0E]/[0.18] shadow-xl',
+    headingText: 'text-[#2B0406]',
+    bodyText: 'text-[#4A070A]',
+    iconBadge: 'bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white',
+    primaryButton:
+      'bg-gradient-to-r from-[#8F0D14] to-[#5C0A0E] text-white hover:opacity-95 shadow-sm',
+    rowSurface: 'bg-white/80 border border-[#5C0A0E]/[0.12]',
+    rowIconBadge: 'bg-[#5C0A0E]/[0.08] text-[#5C0A0E]',
+    portalBadge:
+      'bg-[#5C0A0E]/[0.08] text-[#2B0406] border border-[#5C0A0E]/[0.16]',
+    tipStrip:
+      'bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/[0.15] text-[#4A070A]',
+    closeButton:
+      'text-[#4A070A]/80 hover:text-[#2B0406] hover:bg-[#5C0A0E]/[0.08]',
+    backdrop: 'bg-[#2B0406]/40 backdrop-blur-sm',
+    triggerButton:
+      'bg-[#FFF8F6]/[0.92] backdrop-blur-xl border border-[#5C0A0E]/[0.18] text-[#5C0A0E] hover:bg-white shadow-xs',
   },
 };
 

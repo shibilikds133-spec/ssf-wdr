@@ -113,9 +113,9 @@ const QUICK_QUESTION_IDS: Record<HelpAssistantRole, readonly string[]> = {
     'auth_session_14days',
   ],
   PUBLIC: [
-    'code_public_order',
-    'code_find_unit_code',
-    'order_global_lock',
+    'public_quick_entry_steps',
+    'public_remembered_unit',
+    'public_code_privacy',
     'tech_install_pwa',
   ],
 };
@@ -387,10 +387,7 @@ export function isItemVisibleForRole(
   role: HelpAssistantRole
 ): boolean {
   if (item.roles.includes('ALL')) return true;
-  if (role === 'ADMIN' || role === 'SECTOR' || role === 'UNIT') {
-    return item.roles.includes(role);
-  }
-  return false;
+  return item.roles.includes(role);
 }
 
 export function getVisibleCategories(
@@ -682,10 +679,7 @@ export function searchHelpKb(
     let finalScore =
       rawScore * (1 + 0.35 * Math.max(0, matchedTokens - 1));
 
-    if (
-      (role === 'ADMIN' || role === 'SECTOR' || role === 'UNIT') &&
-      entry.item.roles.includes(role)
-    ) {
+    if (entry.item.roles.includes(role)) {
       finalScore += 14;
     } else if (entry.item.roles.includes('ALL')) {
       finalScore += 6;

@@ -107,6 +107,9 @@ const PREDICTION_CASES = [
   { query: 'baki ullavar list', role: 'UNIT', expectedId: 'rep_unpaid_list' },
   { query: 'thetti delete', role: 'UNIT', expectedId: 'order_edit_delete' },
   { query: 'iphone instal', role: 'PUBLIC', expectedId: 'tech_install_pwa' },
+  { query: 'quick entry sector unit select', role: 'PUBLIC', expectedId: 'public_quick_entry_steps' },
+  { query: 'unit mattan 14 days', role: 'PUBLIC', expectedId: 'public_remembered_unit' },
+  { query: 'code kanunnilla invalid code', role: 'PUBLIC', expectedId: 'public_code_privacy' },
   { query: 'പാസ്വേർഡ് മറന്നു', role: 'LOGIN', expectedId: 'auth_forgot_password' },
   { query: 'ഓർഡർ ചേർക്കാൻ', role: 'UNIT', expectedId: 'order_unit_add' },
   { query: 'പണം കിട്ടി', role: 'UNIT', expectedId: 'pay_mark_as_paid' },
@@ -156,19 +159,19 @@ try {
   });
   assert.ifError(syncColdErr);
   assert.equal(syncCold?.up_to_date, false, 'Expected up_to_date=false for client version 0');
-  assert.equal(syncCold?.version, 1, 'Expected KB version 1');
+  assert.equal(syncCold?.version, 2, 'Expected KB version 2');
   assert.equal(syncCold?.payload?.categories?.length, 7, 'Expected 7 categories');
-  assert.equal(syncCold?.payload?.items?.length, 26, 'Expected 26 KB items');
-  console.log('PASS: 1. get_help_kb_sync(0) returned v1 payload (7 categories, 26 items)');
+  assert.equal(syncCold?.payload?.items?.length, 29, 'Expected 29 KB items');
+  console.log('PASS: 1. get_help_kb_sync(0) returned v2 payload (7 categories, 29 items)');
 
   const { data: syncWarm, error: syncWarmErr } = await rpc('get_help_kb_sync', {
-    p_client_version: 1,
+    p_client_version: 2,
   });
   assert.ifError(syncWarmErr);
-  assert.equal(syncWarm?.up_to_date, true, 'Expected up_to_date=true when client is on v1');
-  assert.equal(syncWarm?.version, 1, 'Expected version=1 on short-circuit response');
+  assert.equal(syncWarm?.up_to_date, true, 'Expected up_to_date=true when client is on v2');
+  assert.equal(syncWarm?.version, 2, 'Expected version=2 on short-circuit response');
   assert.equal('payload' in syncWarm, false, 'Expected payload to be omitted on short-circuit');
-  console.log('PASS: 2. get_help_kb_sync(1) short-circuited with up_to_date=true and NO payload');
+  console.log('PASS: 2. get_help_kb_sync(2) short-circuited with up_to_date=true and NO payload');
 
   // 2. Auth Login & Refresh Piggyback Check on dedicated test unit WDR202
   const unitRes = await ownerClient.query(
@@ -191,7 +194,7 @@ try {
   });
   assert.ifError(loginErr);
   assert.equal(loginData?.valid, true, 'Expected WDR202 login to succeed');
-  assert.equal(loginData?.help_kb_version, 1, 'Expected auth_login to piggyback help_kb_version=1');
+  assert.equal(loginData?.help_kb_version, 2, 'Expected auth_login to piggyback help_kb_version=2');
   tokensToLogout.push(loginData.token);
 
   const { data: refreshData, error: refreshErr } = await rpc('auth_refresh_session', {
@@ -199,11 +202,11 @@ try {
   });
   assert.ifError(refreshErr);
   assert.equal(refreshData?.valid, true, 'Expected auth_refresh_session to succeed');
-  assert.equal(refreshData?.help_kb_version, 1, 'Expected auth_refresh_session to piggyback help_kb_version=1');
+  assert.equal(refreshData?.help_kb_version, 2, 'Expected auth_refresh_session to piggyback help_kb_version=2');
   if (refreshData?.token) tokensToLogout.push(refreshData.token);
 
   await rpc('auth_logout', { p_token: loginData.token });
-  console.log('PASS: 3. auth_login & auth_refresh_session on WDR202 piggybacked help_kb_version=1');
+  console.log('PASS: 3. auth_login & auth_refresh_session on WDR202 piggybacked help_kb_version=2');
 
   // 3. Prediction Engine Accuracy Suite (28 real-world queries)
   const kbPayload = syncCold.payload;
@@ -262,6 +265,15 @@ try {
   const adminItem = kbPayload.items.find((i) => i.id === 'admin_direct_order');
   assert.equal(isItemVisibleForRole(adminItem, 'PUBLIC'), false);
   assert.equal(isItemVisibleForRole(adminItem, 'ADMIN'), true);
+  const publicItems = kbPayload.items.filter((i) => isItemVisibleForRole(i, 'PUBLIC'));
+  assert.equal(publicItems.length, 13, `Expected 13 PUBLIC items, got ${publicItems.length}`);
+  assert.equal(
+    publicItems.some((i) =>
+      ['auth_forgot_password', 'admin_settings_control', 'admin_reset_requests', 'sector_manage_units', 'order_unit_add'].includes(i.id)
+    ),
+    false,
+    'PUBLIC role must never receive portal/admin/login-only items'
+  );
   console.log('PASS: 5. Strict role-aware isolation verified across ADMIN/SECTOR/UNIT/PUBLIC');
 
   // 5. Instant Autocomplete Prefix Checks (2-3 chars)
@@ -315,7 +327,7 @@ try {
     );
 
     const { data: syncWithPhone, error: syncPhoneErr } = await rpc('get_help_kb_sync', {
-      p_client_version: 1,
+      p_client_version: 2,
     });
     assert.ifError(syncPhoneErr);
     assert.equal(syncWithPhone?.up_to_date, true);
@@ -328,7 +340,7 @@ try {
     });
     assert.ifError(unitPhoneErr);
     assert.equal(unitPhoneCheck?.valid, true);
-    assert.equal(unitPhoneCheck?.help_kb_version, 1);
+    assert.equal(unitPhoneCheck?.help_kb_version, 2);
     assert.equal(unitPhoneCheck?.admin_whatsapp_phone, '9876543210');
     tokensToLogout.push(unitPhoneCheck.token);
 

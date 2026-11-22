@@ -247,8 +247,12 @@ export interface UseRegisterPageDocsOptions {
 
 export function useRegisterPageDocs(
   pageKey: DocPageKey | null,
-  options: UseRegisterPageDocsOptions = {}
+  optionsOrTheme: UseRegisterPageDocsOptions | DocsPortalTheme = {}
 ): void {
+  const options: UseRegisterPageDocsOptions =
+    typeof optionsOrTheme === 'string'
+      ? { theme: optionsOrTheme }
+      : optionsOrTheme;
   const { registerPage, unregisterPage } = useDocs();
   const theme =
     options.theme ?? (pageKey ? DOC_PAGE_THEMES[pageKey] : 'plum');

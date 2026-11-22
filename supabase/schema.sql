@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS entries (
 -- Idempotent Phase 3B-2 upgrades on entries
 ALTER TABLE entries ALTER COLUMN unit_id DROP NOT NULL;
 ALTER TABLE entries
-  ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'PAID';
+  ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'PAID',
+  ADD COLUMN IF NOT EXISTS entry_source TEXT NOT NULL DEFAULT 'portal';
 ALTER TABLE entries ALTER COLUMN payment_mode DROP NOT NULL;
 
 DO $$
@@ -1603,6 +1604,85 @@ BEGIN
 END;
 $$;
 
+-- 6.11b PUBLIC: LIVE LEADERBOARD (PHASE 4, ZERO UNIT CODES, ZERO PII)
+CREATE OR REPLACE FUNCTION public_get_leaderboard()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_result JSONB;
+BEGIN
+  WITH settings_map AS (
+    SELECT
+      COALESCE(MAX(CASE WHEN key = 'unit_rate' THEN value END), '250')::NUMERIC AS per_liter_rate,
+      GREATEST(COALESCE(MAX(CASE WHEN key = 'division_target' THEN value END), '10000')::NUMERIC, 1) AS division_limit,
+      COALESCE(MAX(CASE WHEN key = 'challenge_title' THEN value END), 'SSF Wandoor Division Payasam Challenge') AS challenge_title,
+      COALESCE(MAX(CASE WHEN key = 'is_challenge_open' THEN value END), 'true') = 'true' AS orders_open
+    FROM app_settings
+  ),
+  unit_agg AS (
+    SELECT
+      u.id,
+      u.sector_id,
+      s.name AS sector_name,
+      u.name,
+      COALESCE(SUM(e.quantity), 0)::NUMERIC(10, 2) AS total_liters,
+      COUNT(e.id)::INT AS total_orders
+    FROM units u
+    JOIN sectors s ON s.id = u.sector_id
+    LEFT JOIN entries e ON e.unit_id = u.id AND e.is_deleted = false
+    GROUP BY u.id, u.sector_id, s.name, u.name
+  ),
+  sector_agg AS (
+    SELECT
+      s.id,
+      s.name,
+      COALESCE(SUM(ua.total_liters), 0)::NUMERIC(10, 2) AS total_liters,
+      COALESCE(SUM(ua.total_orders), 0)::INT AS total_orders,
+      COUNT(CASE WHEN ua.total_orders > 0 THEN 1 END)::INT AS active_units_count,
+      COUNT(ua.id)::INT AS total_units_count
+    FROM sectors s
+    LEFT JOIN unit_agg ua ON ua.sector_id = s.id
+    GROUP BY s.id, s.name
+  ),
+  all_entries_agg AS (
+    SELECT
+      COUNT(*)::INT AS total_orders,
+      COALESCE(SUM(quantity), 0)::NUMERIC(10, 2) AS total_liters
+    FROM entries
+    WHERE is_deleted = false
+  )
+  SELECT jsonb_build_object(
+    'summary', (
+      SELECT jsonb_build_object(
+        'total_liters', a.total_liters,
+        'total_orders', a.total_orders,
+        'division_limit', sm.division_limit,
+        'per_liter_rate', sm.per_liter_rate,
+        'orders_open', sm.orders_open,
+        'challenge_title', sm.challenge_title,
+        'percent_complete', ROUND((a.total_liters / sm.division_limit) * 100.0, 2)
+      )
+      FROM all_entries_agg a
+      CROSS JOIN settings_map sm
+    ),
+    'sectors', COALESCE(
+      (SELECT jsonb_agg(row_to_json(sa)::jsonb ORDER BY sa.total_liters DESC, sa.name ASC) FROM sector_agg sa),
+      '[]'::jsonb
+    ),
+    'units', COALESCE(
+      (SELECT jsonb_agg(row_to_json(ua)::jsonb ORDER BY ua.total_liters DESC, ua.name ASC) FROM unit_agg ua),
+      '[]'::jsonb
+    ),
+    'fetched_at', now()
+  ) INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
 -- 6.12 PUBLIC: ADD ORDER (REQUIRES UNIT ORDER CODE + CUT-OFF + PAYMENT INTEGRITY)
 DROP FUNCTION IF EXISTS public_add_order(TEXT, TEXT, TEXT, NUMERIC, TEXT);
 CREATE OR REPLACE FUNCTION public_add_order(
@@ -1690,9 +1770,9 @@ BEGIN
   v_total := ROUND(p_quantity * v_unit_rate, 2);
 
   INSERT INTO entries (
-    unit_id, contributor_name, mobile_number, quantity, unit_rate_applied, total_amount, payment_status, payment_mode
+    unit_id, contributor_name, mobile_number, quantity, unit_rate_applied, total_amount, payment_status, payment_mode, entry_source
   ) VALUES (
-    v_unit.id, v_clean_name, v_clean_mobile, p_quantity, v_unit_rate, v_total, v_status, v_mode
+    v_unit.id, v_clean_name, v_clean_mobile, p_quantity, v_unit_rate, v_total, v_status, v_mode, 'public'
   )
   RETURNING * INTO v_inserted;
 
@@ -1706,6 +1786,113 @@ BEGIN
     'mobile_number', v_inserted.mobile_number,
     'quantity', v_inserted.quantity,
     'unit_rate_applied', v_inserted.unit_rate_applied,
+    'total_amount', v_inserted.total_amount,
+    'payment_status', v_inserted.payment_status,
+    'payment_mode', v_inserted.payment_mode,
+    'created_at', v_inserted.created_at
+  );
+END;
+$$;
+
+-- 6.12b PUBLIC: ADD ORDER BY UNIT_ID + UNIT_CODE (PHASE 4 STRICT UNIT VERIFICATION)
+CREATE OR REPLACE FUNCTION public_add_order(
+  p_unit_id INT,
+  p_unit_code TEXT,
+  p_contributor_name TEXT,
+  p_mobile TEXT,
+  p_quantity NUMERIC,
+  p_payment_status TEXT,
+  p_payment_mode TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_clean_code TEXT := UPPER(TRIM(COALESCE(p_unit_code, '')));
+  v_clean_name TEXT := TRIM(COALESCE(p_contributor_name, ''));
+  v_clean_mobile TEXT := TRIM(COALESCE(p_mobile, ''));
+  v_clean_digits TEXT;
+  v_status TEXT := UPPER(TRIM(COALESCE(p_payment_status, '')));
+  v_mode TEXT := NULLIF(UPPER(TRIM(COALESCE(p_payment_mode, ''))), '');
+  v_is_open BOOLEAN;
+  v_unit RECORD;
+  v_unit_rate NUMERIC(10, 2);
+  v_total NUMERIC(12, 2);
+  v_inserted RECORD;
+BEGIN
+  SELECT COALESCE(LOWER(TRIM(value)) = 'true', true) INTO v_is_open
+  FROM app_settings
+  WHERE key = 'is_challenge_open';
+
+  IF NOT COALESCE(v_is_open, false) THEN
+    RAISE EXCEPTION 'ORDERS_CLOSED: Public orders are currently closed';
+  END IF;
+
+  IF p_unit_id IS NULL OR p_unit_id <= 0 OR v_clean_code = '' THEN
+    RAISE EXCEPTION 'INVALID_UNIT_CODE: Invalid Unit Order Code';
+  END IF;
+
+  SELECT u.id, u.name, u.login_code, s.name AS sector_name
+  INTO v_unit
+  FROM units u
+  JOIN sectors s ON s.id = u.sector_id
+  WHERE u.id = p_unit_id
+    AND UPPER(TRIM(u.login_code)) = v_clean_code;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'INVALID_UNIT_CODE: Invalid Unit Order Code';
+  END IF;
+
+  IF v_clean_name = '' THEN
+    RAISE EXCEPTION 'Ordered by name is required';
+  END IF;
+
+  v_clean_digits := REGEXP_REPLACE(v_clean_mobile, '\D', '', 'g');
+  IF LENGTH(v_clean_digits) < 10 THEN
+    RAISE EXCEPTION 'Valid 10-digit mobile number is required';
+  END IF;
+
+  p_quantity := ROUND(p_quantity, 2);
+  IF p_quantity IS NULL OR p_quantity <= 0 THEN
+    RAISE EXCEPTION 'Quantity must be greater than zero';
+  END IF;
+
+  IF p_quantity > 100000 THEN
+    RAISE EXCEPTION 'Quantity cannot exceed 100000 L per order';
+  END IF;
+
+  IF v_status NOT IN ('PAID', 'UNPAID') THEN
+    RAISE EXCEPTION 'Please select Paid or Unpaid status';
+  END IF;
+
+  IF v_status = 'PAID' AND (v_mode IS NULL OR v_mode NOT IN ('CASH', 'UPI')) THEN
+    RAISE EXCEPTION 'Please select Cash Handover or UPI for Paid orders';
+  END IF;
+
+  IF v_status = 'UNPAID' AND v_mode IS NOT NULL THEN
+    RAISE EXCEPTION 'Unpaid orders cannot have a payment method';
+  END IF;
+
+  SELECT COALESCE(value::NUMERIC, 250) INTO v_unit_rate
+  FROM app_settings
+  WHERE key = 'unit_rate';
+
+  v_total := ROUND(p_quantity * v_unit_rate, 2);
+
+  INSERT INTO entries (
+    unit_id, contributor_name, mobile_number, quantity, unit_rate_applied, total_amount, payment_status, payment_mode, entry_source
+  ) VALUES (
+    v_unit.id, v_clean_name, v_clean_digits, p_quantity, v_unit_rate, v_total, v_status, v_mode, 'public'
+  )
+  RETURNING * INTO v_inserted;
+
+  RETURN jsonb_build_object(
+    'id', v_inserted.id,
+    'unit_name', v_unit.name,
+    'sector_name', v_unit.sector_name,
+    'quantity', v_inserted.quantity,
     'total_amount', v_inserted.total_amount,
     'payment_status', v_inserted.payment_status,
     'payment_mode', v_inserted.payment_mode,
@@ -3890,7 +4077,9 @@ GRANT EXECUTE ON FUNCTION
   admin_dismiss_reset_request(TEXT, INT),
   admin_update_account_contact(TEXT, TEXT, INT, TEXT),
   get_public_stats(),
+  public_get_leaderboard(),
   public_add_order(TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
+  public_add_order(INT, TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
   unit_add_entry(TEXT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
   admin_add_entry(TEXT, INT, TEXT, TEXT, NUMERIC, TEXT, TEXT),
   unit_mark_entry_paid(TEXT, INT, TEXT),
@@ -3927,14 +4116,34 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   endpoint TEXT UNIQUE NOT NULL,
   p256dh TEXT NOT NULL,
   auth TEXT NOT NULL,
-  account_id TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('division', 'sector', 'unit')),
+  account_id TEXT NULL,
+  role TEXT NOT NULL CHECK (role IN ('division', 'sector', 'unit', 'public')),
   sector_id INT NULL REFERENCES sectors(id) ON DELETE CASCADE,
   unit_id INT NULL REFERENCES units(id) ON DELETE CASCADE,
   user_agent TEXT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE push_subscriptions ALTER COLUMN account_id DROP NOT NULL;
+
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'push_subscriptions'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%role%'
+  LOOP
+    EXECUTE format('ALTER TABLE push_subscriptions DROP CONSTRAINT IF EXISTS %I', r.conname);
+  END LOOP;
+END $$;
+
+ALTER TABLE push_subscriptions
+  ADD CONSTRAINT push_subscriptions_role_check CHECK (role IN ('division', 'sector', 'unit', 'public'));
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_role
   ON push_subscriptions(role);
@@ -4239,6 +4448,35 @@ BEGIN
 
     INSERT INTO push_dispatch_log (event_key, event_type, payload)
     VALUES (v_event_key, 'division_milestone', v_job)
+    ON CONFLICT (event_key) DO NOTHING
+    RETURNING event_key INTO v_inserted_key;
+
+    IF v_inserted_key IS NOT NULL THEN
+      v_events := v_events || jsonb_build_array(v_job);
+    END IF;
+
+    -- Also enqueue public 50-order milestone broadcast for public leaderboard subscribers
+    v_event_key := 'public_milestone:' || v_div_milestone::TEXT;
+    v_job := jsonb_build_object(
+      'event_key', v_event_key,
+      'event_type', 'public_milestone',
+      'source', v_source,
+      'target', jsonb_build_object(
+        'role', 'public'
+      ),
+      'notification', jsonb_build_object(
+        'title', 'SSF വണ്ടൂർ പാലട പായസം ചലഞ്ച് — ' || v_div_milestone::TEXT || ' ഓർഡറുകൾ! 🎉',
+        'body', 'ലൈവ് അപ്‌ഡേറ്റ്: ചലഞ്ചിൽ ആകെ ' || v_div_milestone::TEXT || ' ഓർഡറുകൾ പിന്നിട്ടു! ലൈവ് ലീഡർബോർഡ് കാണാം.',
+        'url', '/',
+        'tag', v_event_key,
+        'type', 'public_milestone',
+        'milestone', v_div_milestone,
+        'order_id', v_order.id
+      )
+    );
+
+    INSERT INTO push_dispatch_log (event_key, event_type, payload)
+    VALUES (v_event_key, 'public_milestone', v_job)
     ON CONFLICT (event_key) DO NOTHING
     RETURNING event_key INTO v_inserted_key;
 

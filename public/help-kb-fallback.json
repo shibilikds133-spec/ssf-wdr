@@ -1,22 +1,58 @@
 {
-  "version": 1,
+  "version": 2,
   "categories": [
-    { "id": "auth", "label": "ലോഗിൻ & പാസ്വേർഡ്", "icon": "KeyRound" },
-    { "id": "orders", "label": "ഓർഡർ എൻട്രി", "icon": "ShoppingBag" },
-    { "id": "payment", "label": "Paid / Unpaid & പണം", "icon": "Wallet" },
-    { "id": "codes", "label": "യൂണിറ്റ് കോഡ് & പബ്ലിക്", "icon": "QrCode" },
-    { "id": "reports", "label": "WhatsApp രസീത് & PDF", "icon": "FileText" },
-    { "id": "admin_sector", "label": "ഡിവിഷൻ & സെക്ടർ", "icon": "Shield" },
-    { "id": "app_tech", "label": "ആപ്പ് ഇൻസ്റ്റാൾ & സഹായം", "icon": "Smartphone" }
+    {
+      "id": "auth",
+      "label": "ലോഗിൻ & പാസ്വേർഡ്",
+      "icon": "KeyRound"
+    },
+    {
+      "id": "orders",
+      "label": "ഓർഡർ എൻട്രി",
+      "icon": "ShoppingBag"
+    },
+    {
+      "id": "payment",
+      "label": "Paid / Unpaid & പണം",
+      "icon": "Wallet"
+    },
+    {
+      "id": "codes",
+      "label": "യൂണിറ്റ് കോഡ് & പബ്ലിക്",
+      "icon": "QrCode"
+    },
+    {
+      "id": "reports",
+      "label": "WhatsApp രസീത് & PDF",
+      "icon": "FileText"
+    },
+    {
+      "id": "admin_sector",
+      "label": "ഡിവിഷൻ & സെക്ടർ",
+      "icon": "Shield"
+    },
+    {
+      "id": "app_tech",
+      "label": "ആപ്പ് ഇൻസ്റ്റാൾ & സഹായം",
+      "icon": "Smartphone"
+    }
   ],
   "items": [
     {
       "id": "auth_forgot_password",
       "category": "auth",
-      "roles": ["ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT",
+        "LOGIN"
+      ],
       "question": "പാസ്വേർഡ് മറന്നുപോയി, എങ്ങനെ മാറ്റാം?",
       "answer": "ലോഗിൻ പേജിൽ താഴെയുള്ള 'Forgot Password' ക്ലിക്ക് ചെയ്ത് നിങ്ങളുടെ User ID നൽകി റിക്വസ്റ്റ് അയക്കുക. ഡിവിഷൻ അഡ്മിൻ പാസ്വേർഡ് റീസെറ്റ് ചെയ്ത് പുതിയ ലോഗിൻ ലിങ്ക് WhatsApp-ൽ അയച്ചുതരും.",
-      "followUps": ["auth_login_failed", "auth_first_login"],
+      "followUps": [
+        "auth_login_failed",
+        "auth_first_login"
+      ],
       "keywords": [
         "password",
         "pasword",
@@ -43,10 +79,18 @@
     {
       "id": "auth_login_failed",
       "category": "auth",
-      "roles": ["ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT",
+        "LOGIN"
+      ],
       "question": "ലോഗിൻ ചെയ്യാൻ പറ്റുന്നില്ല / Invalid എന്ന് കാണിക്കുന്നു",
       "answer": "നിങ്ങളുടെ User ID-യും Password-ഉം കൃത്യമായി സ്പേസ് ഇല്ലാതെ ടൈപ്പ് ചെയ്തു എന്ന് ഉറപ്പുവരുത്തുക. ആദ്യ ലോഗിനിൽ താൽക്കാലിക പാസ്വേർഡ് നിങ്ങളുടെ കോഡ് (ഉദാ: WDR1, WDR101) തന്നെയായിരിക്കും. നേരത്തെ പാസ്വേർഡ് മാറ്റിയിട്ടുണ്ടെങ്കിൽ പുതിയ പാസ്വേർഡ് നൽകുക; ഓർമ്മയില്ലെങ്കിൽ 'Forgot Password' റിക്വസ്റ്റ് അയക്കുക.",
-      "followUps": ["auth_forgot_password", "auth_first_login"],
+      "followUps": [
+        "auth_forgot_password",
+        "auth_first_login"
+      ],
       "keywords": [
         "login",
         "logn",
@@ -75,10 +119,18 @@
     {
       "id": "auth_first_login",
       "category": "auth",
-      "roles": ["ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT",
+        "LOGIN"
+      ],
       "question": "ആദ്യമായി ലോഗിൻ ചെയ്യുമ്പോൾ പുതിയ പാസ്വേർഡ് ചോദിക്കുന്നു",
       "answer": "അക്കൗണ്ടിന്റെ സുരക്ഷയ്ക്കായി ആദ്യ ലോഗിനിൽ നിർബന്ധമായും സ്വന്തം പാസ്വേർഡ് സെറ്റ് ചെയ്യണം. ഓർമ്മയിൽ നിൽക്കുന്ന പുതിയ പാസ്വേർഡ് രണ്ട് തവണ നൽകി സേവ് ചെയ്യുക. ആവശ്യമെങ്കിൽ User ID-യും അവിടെ വെച്ച് മാറ്റാൻ സാധിക്കും.",
-      "followUps": ["auth_session_14days", "order_unit_add"],
+      "followUps": [
+        "auth_session_14days",
+        "order_unit_add"
+      ],
       "keywords": [
         "first login",
         "aadya login",
@@ -100,10 +152,18 @@
     {
       "id": "auth_session_14days",
       "category": "auth",
-      "roles": ["ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT",
+        "LOGIN"
+      ],
       "question": "എത്ര ദിവസം ലോഗിൻ നിലനിൽക്കും? വീണ്ടും ലോഗിൻ ചെയ്യണോ?",
       "answer": "ഒരിക്കൽ ലോഗിൻ ചെയ്താൽ 14 ദിവസത്തേക്ക് വീണ്ടും പാസ്വേർഡ് അടിക്കേണ്ടതില്ല. ആ 14 ദിവസത്തിനുള്ളിൽ എപ്പോൾ ആപ്പ് തുറന്നാലും കാലാവധി വീണ്ടും അടുത്ത 14 ദിവസത്തേക്ക് ഓട്ടോമാറ്റിക്കായി നീളും. തുടർച്ചയായി 14 ദിവസം ഉപയോഗിക്കാതിരുന്നാൽ മാത്രം വീണ്ടും ലോഗിൻ ചെയ്യേണ്ടിവരും.",
-      "followUps": ["tech_install_pwa", "auth_login_failed"],
+      "followUps": [
+        "tech_install_pwa",
+        "auth_login_failed"
+      ],
       "keywords": [
         "14",
         "14 days",
@@ -126,10 +186,18 @@
     {
       "id": "order_unit_add",
       "category": "orders",
-      "roles": ["UNIT", "ALL"],
+      "roles": [
+        "UNIT",
+        "SECTOR",
+        "ADMIN"
+      ],
       "question": "യൂണിറ്റ് പോർട്ടലിൽ പുതിയ ഓർഡർ എങ്ങനെ ചേർക്കാം?",
       "answer": "യൂണിറ്റ് ഡാഷ്ബോർഡിലെ '+ Quick Order' ബട്ടണിൽ ക്ലിക്ക് ചെയ്യുക. കസ്റ്റമറുടെ പേര്, 10 അക്ക ഫോൺ നമ്പർ, അളവ് (1L, 2L, 3L, 5L, 10L അല്ലെങ്കിൽ കസ്റ്റം), കൂടാതെ Paid / Unpaid എന്നിവ തിരഞ്ഞെടുത്ത് സേവ് ചെയ്യാം. യൂണിറ്റ് പോർട്ടലിൽ ഓർഡർ ചേർക്കാൻ യൂണിറ്റ് കോഡ് അടിക്കേണ്ടതില്ല.",
-      "followUps": ["pay_mandatory", "order_quantity_custom", "rep_whatsapp_receipt"],
+      "followUps": [
+        "pay_mandatory",
+        "order_quantity_custom",
+        "rep_whatsapp_receipt"
+      ],
       "keywords": [
         "order",
         "ordr",
@@ -155,10 +223,15 @@
     {
       "id": "order_quantity_custom",
       "category": "orders",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "1L, 2L, 5L അല്ലാതെ മറ്റു അളവുകൾ (ഉദാ: 1.5L, 7L) എങ്ങനെ നൽകാം?",
       "answer": "ഓർഡർ പോപ്പ്-അപ്പിലെ 1L, 2L, 3L, 5L, 10L ചിപ്പുകൾക്ക് താഴെയുള്ള '+ / -' ബട്ടണുകളോ ഇൻപുട്ട് ബോക്സോ ഉപയോഗിച്ച് ഏത് പോസിറ്റീവ് അളവും (ഉദാ: 1.5, 4, 7, 15) നേരിട്ട് ടൈപ്പ് ചെയ്ത് നൽകാം. ആകെ തുക തത്സമയം കണക്കാക്കപ്പെടും.",
-      "followUps": ["order_zero_minus", "order_unit_add"],
+      "followUps": [
+        "order_zero_minus",
+        "order_unit_add"
+      ],
       "keywords": [
         "quantity",
         "qty",
@@ -187,10 +260,15 @@
     {
       "id": "order_zero_minus",
       "category": "orders",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "അളവിലോ വിലയിലോ മൈനസ് (-) അല്ലെങ്കിൽ 0 നൽകാൻ പറ്റുന്നില്ല",
       "answer": "കണക്കുകളിൽ തെറ്റ് വരാതിരിക്കാൻ ആപ്പിൽ 'Zero-Minus Guard' സുരക്ഷയുണ്ട്. അതിനാൽ ലിറ്റർ, വില, ലിമിറ്റ് തുടങ്ങിയ സംഖ്യാ ഫീൽഡുകളിൽ മൈനസ് (-) ചിഹ്നമോ പൂജ്യമോ (0) നൽകാൻ കഴിയില്ല — പോസിറ്റീവ് സംഖ്യകൾ മാത്രം നൽകുക.",
-      "followUps": ["order_edit_delete", "order_quantity_custom"],
+      "followUps": [
+        "order_edit_delete",
+        "order_quantity_custom"
+      ],
       "keywords": [
         "minus",
         "negative",
@@ -213,10 +291,15 @@
     {
       "id": "order_global_lock",
       "category": "orders",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "ഓർഡർ എടുക്കാൻ പറ്റുന്നില്ല / Orders Closed എന്ന് കാണിക്കുന്നു",
       "answer": "ഡിവിഷൻ അഡ്മിൻ ഓർഡർ സ്വീകരിക്കുന്നത് താൽക്കാലികമായി ക്ലോസ് (Global Lock) ചെയ്തിരിക്കുകയാണ്. ലോക്ക് ഓൺ ആയാൽ യൂണിറ്റ് പോർട്ടലിലും പബ്ലിക് പേജിലും പുതിയ ഓർഡറുകൾ ചേർക്കാൻ കഴിയില്ല. എന്നാൽ പഴയ ഓർഡറുകൾ കാണാനും, Unpaid ഓർഡറുകൾ Paid ആക്കാനും, PDF/CSV റിപ്പോർട്ടുകൾ എടുക്കാനും തടസ്സമില്ല. അത്യാവശ്യ ഓർഡറുകൾക്ക് ഡിവിഷൻ അഡ്മിനെ ബന്ധപ്പെടുക.",
-      "followUps": ["admin_direct_order", "pay_mark_as_paid"],
+      "followUps": [
+        "admin_direct_order",
+        "pay_mark_as_paid"
+      ],
       "keywords": [
         "lock",
         "locked",
@@ -241,10 +324,17 @@
     {
       "id": "order_edit_delete",
       "category": "orders",
-      "roles": ["ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT"
+      ],
       "question": "തെറ്റായി ചേർത്ത ഓർഡർ എങ്ങനെ തിരുത്താം (Edit) അല്ലെങ്കിൽ ഡിലീറ്റ് ചെയ്യാം?",
       "answer": "സുരക്ഷയ്ക്കായി ഓർഡറുകൾ എഡിറ്റ് ചെയ്യാനും ഡിലീറ്റ് ചെയ്യാനുമുള്ള അധികാരം സെക്ടർ പോർട്ടലിലും ഡിവിഷൻ പോർട്ടലിലുമാണ് നൽകിയിട്ടുള്ളത്. യൂണിറ്റ് തലത്തിൽ ഒരു ഓർഡർ തെറ്റായി പോയാൽ നിങ്ങളുടെ സെക്ടർ കോർഡിനേറ്ററെയോ ഡിവിഷൻ അഡ്മിനെയോ അറിയിച്ചാൽ ഉടൻ തിരുത്തി/ഡിലീറ്റ് ചെയ്തു തരും.",
-      "followUps": ["pay_mark_as_paid", "order_unit_add"],
+      "followUps": [
+        "pay_mark_as_paid",
+        "order_unit_add"
+      ],
       "keywords": [
         "edit",
         "delete",
@@ -269,10 +359,15 @@
     {
       "id": "pay_mandatory",
       "category": "payment",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "Paid / Unpaid നിർബന്ധമായും തിരഞ്ഞെടുക്കേണ്ടത് എന്തുകൊണ്ടാണ്?",
       "answer": "അറിയാതെ പണം ലഭിച്ച ഓർഡറുകൾ Unpaid ആയോ, പണം കിട്ടാത്തത് Paid ആയോ മാറിപ്പോകാതിരിക്കാനാണ് ഒന്നും ഡിഫോൾട്ട് ആക്കാത്തത്. ഓർഡർ ചേർക്കുമ്പോൾ 'Paid' അല്ലെങ്കിൽ 'Unpaid' നിർബന്ധമായും ക്ലിക്ക് ചെയ്യണം. 'Paid' ക്ലിക്ക് ചെയ്താൽ മാത്രം 'Cash Handover' അല്ലെങ്കിൽ 'UPI' തിരഞ്ഞെടുക്കാൻ വരും.",
-      "followUps": ["pay_cash_upi", "pay_mark_as_paid"],
+      "followUps": [
+        "pay_cash_upi",
+        "pay_mark_as_paid"
+      ],
       "keywords": [
         "paid",
         "unpaid",
@@ -294,10 +389,15 @@
     {
       "id": "pay_cash_upi",
       "category": "payment",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "Cash Handover-ഉം UPI-യും തമ്മിലുള്ള വ്യത്യാസം എന്താണ്?",
       "answer": "കസ്റ്റമർ പണം നേരിട്ട് കൈയ്യിൽ നൽകിയാൽ 'Cash Handover' എന്നും, Google Pay / PhonePe / Paytm വഴി അയച്ചാൽ 'UPI' എന്നും തിരഞ്ഞെടുക്കുക. കണക്കുകൾ ഒത്തുനോക്കുമ്പോൾ കൈയ്യിലുള്ള ക്യാഷും ബാങ്കിലുള്ള UPI തുകയും വേർതിരിച്ച് കാണാൻ ഇത് സഹായിക്കും.",
-      "followUps": ["pay_mark_as_paid", "rep_unpaid_list"],
+      "followUps": [
+        "pay_mark_as_paid",
+        "rep_unpaid_list"
+      ],
       "keywords": [
         "cash",
         "handover",
@@ -324,10 +424,17 @@
     {
       "id": "pay_mark_as_paid",
       "category": "payment",
-      "roles": ["ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT"
+      ],
       "question": "Unpaid ആയ ഓർഡറിന്റെ പണം പിന്നീട് കിട്ടിയാൽ എങ്ങനെ Paid ആക്കാം?",
       "answer": "Orders പേജിൽ പോയി 'Unpaid' ഫിൽറ്റർ തിരഞ്ഞെടുക്കുക. പണം നൽകിയ കസ്റ്റമറുടെ ഓർഡറിന് നേരെയുള്ള 'Mark as Paid' ബട്ടൺ ക്ലിക്ക് ചെയ്ത് 'Cash Handover' അല്ലെങ്കിൽ 'UPI' തിരഞ്ഞെടുത്ത് കൺഫേം ചെയ്താൽ മതി — കണക്കുകൾ തൽക്ഷണം അപ്ഡേറ്റ് ആകും.",
-      "followUps": ["rep_unpaid_list", "rep_whatsapp_receipt"],
+      "followUps": [
+        "rep_unpaid_list",
+        "rep_whatsapp_receipt"
+      ],
       "keywords": [
         "mark as paid",
         "mark paid",
@@ -352,10 +459,17 @@
     {
       "id": "code_find_unit_code",
       "category": "codes",
-      "roles": ["UNIT", "SECTOR", "ADMIN", "ALL"],
+      "roles": [
+        "UNIT",
+        "SECTOR",
+        "ADMIN"
+      ],
       "question": "എന്റെ യൂണിറ്റിന്റെ Public Order Code (WDR...) എവിടെ കാണാം?",
       "answer": "യൂണിറ്റ് പോർട്ടലിൽ ലോഗിൻ ചെയ്യുമ്പോൾ ഡാഷ്ബോർഡിന്റെ ഏറ്റവും മുകളിൽ തന്നെ നിങ്ങളുടെ 'Public Order Code' (ഉദാ: WDR1, WDR25) ഹൈലൈറ്റ് ചെയ്ത് കാണിക്കും. അതിനോടുള്ള 'Copy Code' ബട്ടൺ ക്ലിക്ക് ചെയ്ത് പ്രവർത്തകർക്ക് WhatsApp-ൽ ഷെയർ ചെയ്യാം.",
-      "followUps": ["code_public_order", "code_unit_isolation"],
+      "followUps": [
+        "code_public_order",
+        "code_unit_isolation"
+      ],
       "keywords": [
         "code",
         "kod",
@@ -377,10 +491,15 @@
     {
       "id": "code_public_order",
       "category": "codes",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "ലോഗിൻ ചെയ്യാതെ പബ്ലിക് പേജിലൂടെ എങ്ങനെ ഓർഡർ എടുക്കാം?",
       "answer": "യൂണിറ്റ് പോർട്ടൽ ലോഗിൻ ഇല്ലാത്ത പ്രവർത്തകർക്ക് പബ്ലിക് ലീഡർബോർഡ് പേജിലൂടെ ഓർഡർ ചേർക്കാം. അതിൽ നിങ്ങളുടെ യൂണിറ്റിന്റെ Order Code (ഉദാ: WDR12) നൽകിയാൽ യൂണിറ്റിന്റെ പേര് കാണിക്കും; തുടർന്ന് കസ്റ്റമർ വിവരങ്ങളും ലിറ്ററും Paid/Unpaid സ്റ്റാറ്റസും നൽകി സേവ് ചെയ്താൽ നേരെ ആ യൂണിറ്റിന്റെ അക്കൗണ്ടിൽ ചേരും.",
-      "followUps": ["code_find_unit_code", "order_global_lock"],
+      "followUps": [
+        "code_find_unit_code",
+        "order_global_lock"
+      ],
       "keywords": [
         "public",
         "public page",
@@ -402,10 +521,15 @@
     {
       "id": "code_unit_isolation",
       "category": "codes",
-      "roles": ["UNIT", "ALL"],
+      "roles": [
+        "UNIT"
+      ],
       "question": "യൂണിറ്റ് പോർട്ടലിൽ മറ്റു യൂണിറ്റുകളുടെ കണക്കുകൾ കാണാൻ പറ്റുമോ?",
       "answer": "ഇല്ല, ഡാറ്റാ സ്വകാര്യത ഉറപ്പാക്കാൻ യൂണിറ്റ് പോർട്ടലിൽ നിങ്ങളുടെ യൂണിറ്റിന്റെ സ്വന്തം ഓർഡറുകളും കണക്കുകളും മാത്രമേ കാണിക്കൂ. എല്ലാ യൂണിറ്റുകളുടെയും സെക്ടറുകളുടെയും ലൈവ് റാങ്കിംഗ് കാണാൻ പബ്ലിക് ലീഡർബോർഡ് പേജ് ഉപയോഗിക്കാം.",
-      "followUps": ["code_division_percent", "code_public_order"],
+      "followUps": [
+        "code_division_percent",
+        "code_public_order"
+      ],
       "keywords": [
         "other unit",
         "vere unit",
@@ -427,10 +551,15 @@
     {
       "id": "code_division_percent",
       "category": "codes",
-      "roles": ["UNIT", "ALL"],
+      "roles": [
+        "UNIT"
+      ],
       "question": "യൂണിറ്റ് ഡാഷ്ബോർഡിലെ ശതമാനം (%) എന്തിന്റെ അടിസ്ഥാനത്തിലാണ്?",
       "answer": "യൂണിറ്റ് ഡാഷ്ബോർഡിലെ ഗേജിൽ കാണിക്കുന്ന ശതമാനം ഡിവിഷന്റെ ആകെ ടാർഗെറ്റ് ലിമിറ്റിലേക്ക് നിങ്ങളുടെ യൂണിറ്റ് നൽകിയ വിഹിതമാണ് (യൂണിറ്റ് ലിറ്റർ ÷ ഡിവിഷൻ ലിമിറ്റ് × 100).",
-      "followUps": ["order_unit_add", "rep_pdf_csv"],
+      "followUps": [
+        "order_unit_add",
+        "rep_pdf_csv"
+      ],
       "keywords": [
         "percent",
         "percentage",
@@ -452,10 +581,15 @@
     {
       "id": "rep_whatsapp_receipt",
       "category": "reports",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "കസ്റ്റമർക്ക് WhatsApp രസീത് എങ്ങനെ അയക്കാം / വീണ്ടും അയക്കാം?",
       "answer": "പുതിയ ഓർഡർ സേവ് ചെയ്ത ഉടൻ വരുന്ന സ്ക്രീനിൽ 'Send WhatsApp Receipt' ബട്ടൺ ഉണ്ടാകും — ഒറ്റ ടാപ്പിൽ Paid/Unpaid സ്റ്റാറ്റസ് സഹിതം രസീത് അയക്കാം. പഴയ ഓർഡറുകൾക്ക് Orders പേജിൽ ഓരോ ഓർഡറിനും നേരെയുള്ള WhatsApp ഐക്കൺ ക്ലിക്ക് ചെയ്ത് എപ്പോൾ വേണമെങ്കിലും വീണ്ടും അയക്കാം.",
-      "followUps": ["rep_pdf_csv", "pay_mark_as_paid"],
+      "followUps": [
+        "rep_pdf_csv",
+        "pay_mark_as_paid"
+      ],
       "keywords": [
         "whatsapp",
         "wa",
@@ -481,10 +615,17 @@
     {
       "id": "rep_pdf_csv",
       "category": "reports",
-      "roles": ["ADMIN", "SECTOR", "UNIT", "ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT"
+      ],
       "question": "പായസം വിതരണ ലിസ്റ്റ് (PDF / CSV / Excel) എങ്ങനെ ഡൗൺലോഡ് ചെയ്യാം?",
       "answer": "ഡാഷ്ബോർഡിലെ Export ബട്ടൺ ക്ലിക്ക് ചെയ്തോ മെനുവിലെ 'Reports' പേജിൽ പോയോ PDF, CSV റിപ്പോർട്ടുകൾ എടുക്കാം. വിതരണ സമയത്ത് ടിക് ചെയ്യാൻ സൗകര്യമുള്ള 'Delivery Sheet PDF', Paid/Unpaid ഫിൽറ്ററുകൾ, തീയതി ഫിൽറ്റർ എന്നിവയെല്ലാം അവിടെ ലഭ്യമാണ്.",
-      "followUps": ["rep_unpaid_list", "rep_whatsapp_receipt"],
+      "followUps": [
+        "rep_unpaid_list",
+        "rep_whatsapp_receipt"
+      ],
       "keywords": [
         "pdf",
         "csv",
@@ -511,10 +652,17 @@
     {
       "id": "rep_unpaid_list",
       "category": "reports",
-      "roles": ["ADMIN", "SECTOR", "UNIT", "ALL"],
+      "roles": [
+        "ADMIN",
+        "SECTOR",
+        "UNIT"
+      ],
       "question": "പണം തരാൻ ബാക്കിയുള്ളവരുടെ (Unpaid) ലിസ്റ്റ് മാത്രം എങ്ങനെ എടുക്കാം?",
       "answer": "'Reports' പേജിൽ (അല്ലെങ്കിൽ ഡാഷ്ബോർഡ് Export പോപ്പ്-അപ്പിൽ) 'Unpaid Dues' ടെംപ്ലേറ്റ് തിരഞ്ഞെടുത്ത് Download PDF അല്ലെങ്കിൽ CSV ക്ലിക്ക് ചെയ്യുക. പണം അടയ്ക്കാൻ ബാക്കിയുള്ള കസ്റ്റമർമാരുടെ പേരും ഫോൺ നമ്പറും തുകയും മാത്രം അടങ്ങിയ ലിസ്റ്റ് ഉടൻ ലഭിക്കും.",
-      "followUps": ["pay_mark_as_paid", "rep_pdf_csv"],
+      "followUps": [
+        "pay_mark_as_paid",
+        "rep_pdf_csv"
+      ],
       "keywords": [
         "unpaid list",
         "pending list",
@@ -533,10 +681,15 @@
     {
       "id": "admin_direct_order",
       "category": "admin_sector",
-      "roles": ["ADMIN"],
+      "roles": [
+        "ADMIN"
+      ],
       "question": "Division Direct ഓർഡറും യൂണിറ്റിന് വേണ്ടിയുള്ള ഓർഡറും എങ്ങനെ ചേർക്കാം?",
       "answer": "ഡിവിഷൻ ഡാഷ്ബോർഡിലെ '+ Add Order' ക്ലിക്ക് ചെയ്യുക. 'Division Direct (No Unit)' തിരഞ്ഞെടുത്താൽ അത് ഡിവിഷന്റെ ആകെ കണക്കിൽ മാത്രം വരും (ഒരു യൂണിറ്റിന്റെയും സെക്ടറിന്റെയും കണക്കിൽ കലരില്ല). 'Assign to Unit' തിരഞ്ഞെടുത്ത് ഓർഡർ ലോക്ക് ചെയ്ത ശേഷവും ഏതെങ്കിലും യൂണിറ്റിന്റെ പേരിൽ ഓർഡർ ചേർക്കാം.",
-      "followUps": ["admin_settings_control", "admin_reset_requests"],
+      "followUps": [
+        "admin_settings_control",
+        "admin_reset_requests"
+      ],
       "keywords": [
         "division direct",
         "direct",
@@ -554,10 +707,15 @@
     {
       "id": "admin_reset_requests",
       "category": "admin_sector",
-      "roles": ["ADMIN"],
+      "roles": [
+        "ADMIN"
+      ],
       "question": "യൂണിറ്റ് / സെക്ടർ പാസ്വേർഡ് റീസെറ്റ് റിക്വസ്റ്റുകൾ എങ്ങനെ അപ്രൂവ് ചെയ്യാം?",
       "answer": "ഡിവിഷൻ പോർട്ടലിലെ 'Settings' ടാബിലുള്ള Password Hub-ൽ പെൻഡിംഗ് റിക്വസ്റ്റുകൾ മുകളിൽ തന്നെ കാണിക്കും. 'Reset Password' ക്ലിക്ക് ചെയ്താൽ പുതിയ താൽക്കാലിക പാസ്വേർഡ് സെറ്റ് ആകുകയും പഴയ സെഷനുകൾ ഉടൻ ലോഗ്ഔട്ട് ആകുകയും ചെയ്യും. തുടർന്ന് വരുന്ന WhatsApp ബട്ടൺ വഴി ലോഗിൻ ലിങ്ക് ഷെയർ ചെയ്യാം.",
-      "followUps": ["admin_settings_control", "admin_direct_order"],
+      "followUps": [
+        "admin_settings_control",
+        "admin_direct_order"
+      ],
       "keywords": [
         "reset request",
         "approve",
@@ -577,10 +735,15 @@
     {
       "id": "admin_settings_control",
       "category": "admin_sector",
-      "roles": ["ADMIN"],
+      "roles": [
+        "ADMIN"
+      ],
       "question": "ലിറ്റർ വില (₹), ഡിവിഷൻ ലിമിറ്റ്, ഓർഡർ ലോക്ക് എന്നിവ എങ്ങനെ മാറ്റാം?",
       "answer": "ഡിവിഷൻ പോർട്ടലിലെ 'Settings' പേജിൽ പോയി Per-Liter Rate (₹), Division Limit (Liters), കൂടാതെ 'Orders Open / Closed' സ്വിച്ച് എന്നിവ തത്സമയം അപ്ഡേറ്റ് ചെയ്യാം.",
-      "followUps": ["admin_direct_order", "rep_pdf_csv"],
+      "followUps": [
+        "admin_direct_order",
+        "rep_pdf_csv"
+      ],
       "keywords": [
         "settings",
         "rate",
@@ -602,10 +765,16 @@
     {
       "id": "sector_manage_units",
       "category": "admin_sector",
-      "roles": ["SECTOR", "ADMIN"],
+      "roles": [
+        "SECTOR",
+        "ADMIN"
+      ],
       "question": "സെക്ടർ പോർട്ടലിൽ യൂണിറ്റുകളെയും അവരുടെ റിപ്പോർട്ടുകളെയും എങ്ങനെ നിയന്ത്രിക്കാം?",
       "answer": "'Manage' ടാബിൽ നിങ്ങളുടെ സെക്ടറിലെ യൂണിറ്റുകളുടെ പേരും ഫോൺ നമ്പറും അപ്ഡേറ്റ് ചെയ്യാനും ഓർഡർ കോഡ് കോപ്പി ചെയ്യാനും സാധിക്കും. 'Reports' പേജിൽ പോയാൽ സെക്ടർ മുഴുവനായോ ഓരോ യൂണിറ്റിന്റേത് വെവ്വേറെയോ ഒറ്റ ക്ലിക്കിൽ PDF/CSV ഡൗൺലോഡ് ചെയ്യാം.",
-      "followUps": ["rep_pdf_csv", "order_edit_delete"],
+      "followUps": [
+        "rep_pdf_csv",
+        "order_edit_delete"
+      ],
       "keywords": [
         "sector",
         "manage",
@@ -624,10 +793,15 @@
     {
       "id": "tech_install_pwa",
       "category": "app_tech",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "മൊബൈലിൽ സാധാരണ ആപ്പ് പോലെ (PWA) എങ്ങനെ ഇൻസ്റ്റാൾ ചെയ്യാം?",
       "answer": "Android ഫോണിൽ Chrome-ൽ തുറക്കുമ്പോൾ മുകളിൽ വരുന്ന 'Install' ബട്ടൺ ക്ലിക്ക് ചെയ്യുക (അല്ലെങ്കിൽ Chrome മെനു > 'Add to Home screen'). iPhone-ൽ Safari ബ്രൗസറിൽ തുറന്ന് താഴെയുള്ള Share ഐക്കൺ ടാപ്പ് ചെയ്ത് 'Add to Home Screen' തിരഞ്ഞെടുക്കുക.",
-      "followUps": ["auth_session_14days", "tech_docs_reopen"],
+      "followUps": [
+        "auth_session_14days",
+        "tech_docs_reopen"
+      ],
       "keywords": [
         "install",
         "instal",
@@ -651,10 +825,15 @@
     {
       "id": "tech_docs_reopen",
       "category": "app_tech",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "ഓരോ പേജിന്റെയും മലയാളം ഗൈഡ് (Docs) വീണ്ടും എങ്ങനെ വായിക്കാം?",
       "answer": "എല്ലാ പേജിന്റെയും മുകളിൽ വലതുവശത്തുള്ള ചെറിയ 'ഡോക്സ്' (Book) ഐക്കണിൽ ക്ലിക്ക് ചെയ്താൽ ആ പേജിലെ എല്ലാ ഫീച്ചറുകളുടെയും മലയാളം വിശദീകരണം എപ്പോൾ വേണമെങ്കിലും വീണ്ടും കാണാം.",
-      "followUps": ["tech_install_pwa", "tech_refresh_issue"],
+      "followUps": [
+        "tech_install_pwa",
+        "tech_refresh_issue"
+      ],
       "keywords": [
         "docs",
         "doc",
@@ -675,10 +854,15 @@
     {
       "id": "tech_refresh_issue",
       "category": "app_tech",
-      "roles": ["ALL"],
+      "roles": [
+        "ALL"
+      ],
       "question": "കണക്കുകൾ അപ്ഡേറ്റ് ആകുന്നില്ല / പേജ് ലോഡ് ആകാൻ താമസിക്കുന്നു",
       "answer": "പോർട്ടലിന്റെ മുകളിലുള്ള Refresh ഐക്കണിൽ ക്ലിക്ക് ചെയ്യുകയോ പേജ് ഒന്ന് റീലോഡ് ചെയ്യുകയോ ചെയ്യുക. ഇന്റർനെറ്റ് കണക്ഷൻ ഉറപ്പുവരുത്തുക — പുതിയ ഓർഡറുകളും മാറ്റങ്ങളും തൽക്ഷണം അപ്ഡേറ്റ് ആകും.",
-      "followUps": ["tech_install_pwa", "auth_login_failed"],
+      "followUps": [
+        "tech_install_pwa",
+        "auth_login_failed"
+      ],
       "keywords": [
         "slow",
         "loading",
@@ -700,6 +884,79 @@
         "അപ്ഡേറ്റ്",
         "നെറ്റ്വർക്ക്",
         "പ്രശ്നം"
+      ]
+    },
+    {
+      "id": "public_quick_entry_steps",
+      "category": "orders",
+      "roles": [
+        "PUBLIC"
+      ],
+      "question": "പബ്ലിക് ക്വിക്ക് എൻട്രിയിലൂടെ എങ്ങനെ ഓർഡർ ചേർക്കാം?",
+      "answer": "താഴെയുള്ള Quick Entry ബട്ടൺ അമർത്തുക. ഘട്ടം 1: ആദ്യം നിങ്ങളുടെ സെക്ടർ തിരഞ്ഞെടുക്കുക. ഘട്ടം 2: തുടർന്ന് വരുന്ന ലിസ്റ്റിൽ നിന്ന് യൂണിറ്റ് തിരഞ്ഞെടുക്കുക. ഘട്ടം 3: നിങ്ങളുടെ യൂണിറ്റ് കോഡ്, അളവ് (ലിറ്റർ), കസ്റ്റമറുടെ പേര്, 10 അക്ക ഫോൺ നമ്പർ, Paid/Unpaid എന്നിവ നൽകി സേവ് ചെയ്യുക.",
+      "followUps": [
+        "public_remembered_unit",
+        "public_code_privacy",
+        "pay_mandatory"
+      ],
+      "keywords": [
+        "quick entry",
+        "quick order",
+        "sector",
+        "unit",
+        "select",
+        "filter",
+        "engane order",
+        "ക്വിക്ക് എൻട്രി",
+        "സെക്ടർ",
+        "യൂണിറ്റ്",
+        "ഓർഡർ"
+      ]
+    },
+    {
+      "id": "public_remembered_unit",
+      "category": "orders",
+      "roles": [
+        "PUBLIC"
+      ],
+      "question": "അടുത്ത തവണ സെക്ടറും യൂണിറ്റും വീണ്ടും തിരഞ്ഞെടുക്കണോ? യൂണിറ്റ് മാറ്റുന്നതെങ്ങനെ?",
+      "answer": "ആദ്യമായി ഓർഡർ ചേർത്തുകഴിഞ്ഞാൽ നിങ്ങളുടെ സെക്ടറും യൂണിറ്റും ഈ ഫോണിൽ 14 ദിവസത്തേക്ക് ഓർമ്മിച്ചുവെക്കും — അടുത്ത ഓർഡറുകളിൽ യൂണിറ്റ് കോഡും കസ്റ്റമർ വിവരങ്ങളും മാത്രം നൽകിയാൽ മതി. മറ്റൊരു യൂണിറ്റ് തിരഞ്ഞെടുക്കണമെങ്കിൽ മുകളിലുള്ള പില്ലിന് വലതുവശത്തെ മാറ്റുക ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക.",
+      "followUps": [
+        "public_quick_entry_steps",
+        "public_code_privacy"
+      ],
+      "keywords": [
+        "change unit",
+        "unit mattan",
+        "sector kanunnilla",
+        "remember",
+        "14 days",
+        "മാറ്റുക",
+        "സെക്ടർ കാണുന്നില്ല",
+        "യൂണിറ്റ് മാറ്റാൻ"
+      ]
+    },
+    {
+      "id": "public_code_privacy",
+      "category": "codes",
+      "roles": [
+        "PUBLIC"
+      ],
+      "question": "ലീഡർബോർഡിൽ യൂണിറ്റ് കോഡ് കാണാത്തതെന്തുകൊണ്ട്? കോഡ് എവിടെ ലഭിക്കും?",
+      "answer": "സുരക്ഷയ്ക്കായി പബ്ലിക് ലീഡർബോർഡിൽ ഒരു യൂണിറ്റിന്റെയും Order Code പ്രദർശിപ്പിക്കില്ല. പ്രവർത്തകർക്ക് സ്വന്തം യൂണിറ്റ് സെക്രട്ടറിയിൽ നിന്നോ യൂണിറ്റ് പോർട്ടലിൽ നിന്നോ Unit Order Code ശേഖരിച്ച് Quick Entry-യിൽ നൽകാവുന്നതാണ്.",
+      "followUps": [
+        "public_quick_entry_steps",
+        "code_public_order"
+      ],
+      "keywords": [
+        "unit code",
+        "code evide",
+        "kod",
+        "code kanunnilla",
+        "invalid code",
+        "കോഡ് എവിടെ",
+        "കോഡ് കാണുന്നില്ല",
+        "തെറ്റായ കോഡ്"
       ]
     }
   ]

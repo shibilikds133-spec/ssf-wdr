@@ -195,6 +195,40 @@ const DRAWER_THEMES: Record<DocsPortalTheme, DrawerThemeStyle> = {
     iconButton:
       'bg-white/75 hover:bg-white border border-[#EC5E27]/[0.16] text-[#5C1B07]/85 hover:text-[#4A1404]',
   },
+  public: {
+    cardSurface:
+      'bg-[#FFF8F6]/[0.94] backdrop-blur-2xl border border-[#5C0A0E]/[0.18] shadow-[0_24px_60px_-14px_rgba(43,4,6,0.34)]',
+    headerSurface:
+      'bg-gradient-to-b from-[#5C0A0E]/[0.07] to-transparent border-b border-[#5C0A0E]/[0.12]',
+    orbClass: 'glass-agent-public text-white',
+    headingText: 'text-[#2B0406]',
+    bodyText: 'text-[#4A070A]',
+    mutedText: 'text-[#7A2E33]',
+    dotColor: 'bg-[#C40E16]',
+    badge:
+      'bg-[#5C0A0E]/[0.08] text-[#2B0406] border border-[#5C0A0E]/[0.15]',
+    userBubble: 'glass-crimson text-white',
+    accentButton: 'glass-agent-public text-white',
+    answerBubble:
+      'bg-white/88 border border-[#5C0A0E]/[0.12] shadow-[0_6px_18px_-8px_rgba(92,10,14,0.16)]',
+    questionCard:
+      'bg-white/88 hover:bg-white border border-[#5C0A0E]/[0.13] shadow-sm',
+    chipButton:
+      'bg-white/88 hover:bg-white border border-[#5C0A0E]/[0.16] text-[#2B0406]',
+    categoryActive: 'glass-crimson text-white',
+    categoryIdle:
+      'bg-white/85 hover:bg-white border border-[#5C0A0E]/[0.14] text-[#4A070A]',
+    dropdownSurface:
+      'bg-[#FFF8F6]/[0.98] backdrop-blur-2xl border border-[#5C0A0E]/[0.16] shadow-xl',
+    pillInputWrapper:
+      'bg-white/95 border border-[#5C0A0E]/[0.18] focus-within:ring-2 focus-within:ring-[#5C0A0E]/20 focus-within:border-[#5C0A0E]/45 shadow-sm',
+    inputText: 'text-[#2B0406] placeholder:text-[#7A2E33]/55',
+    footerBorder: 'border-t border-[#5C0A0E]/[0.10]',
+    whatsappButton:
+      'bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm',
+    iconButton:
+      'bg-white/75 hover:bg-white border border-[#5C0A0E]/[0.12] text-[#4A070A]/85 hover:text-[#2B0406]',
+  },
 };
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
