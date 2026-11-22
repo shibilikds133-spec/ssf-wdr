@@ -119,11 +119,6 @@ export function AdminDashboardMobile({
     }));
   }, [chartMode, sectorStats, topUnits]);
 
-  const maxChartQty = useMemo(
-    () => Math.max(...chartItems.map((i) => i.quantity), 1),
-    [chartItems]
-  );
-
   // Filtered recent entries
   const filteredRecentEntries = useMemo(() => {
     const q = recentSearch.trim().toLowerCase();
@@ -376,15 +371,14 @@ export function AdminDashboardMobile({
         ) : (
           <div className="space-y-2 py-1">
             {chartItems.map((item, idx) => {
-              const pct =
-                maxChartQty > 0 && item.quantity > 0
-                  ? Math.min(100, Math.max(3, Math.round((item.quantity / maxChartQty) * 100)))
-                  : 0;
-              const showLabelInside = pct >= 22;
-              const share = calcLimitSharePercent(
+              const shareNum = calcLimitSharePercent(
                 item.quantity,
                 divisionLimit
-              ).toFixed(1);
+              );
+              const pct =
+                item.quantity > 0 ? Math.min(100, Math.max(0, shareNum)) : 0;
+              const showLabelInside = pct >= 22;
+              const share = shareNum.toFixed(1);
 
               const barColor =
                 idx === 0
@@ -430,24 +424,25 @@ export function AdminDashboardMobile({
                   </div>
 
                   {/* Bottom Row: Full-width Horizontal Bar */}
-                  <div className="w-full bg-milk-100/90 rounded-xl h-7 relative flex items-center p-1 overflow-hidden border border-milk-border/60">
+                  <div className="w-full bg-milk-100/90 rounded-full h-4 sm:h-5 relative flex items-center p-0.5 overflow-hidden border border-milk-border/60">
                     <div
-                      className={`h-full rounded-lg transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
-                        showLabelInside ? 'px-2.5' : ''
+                      className={`h-full rounded-full transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
+                        showLabelInside ? 'px-2' : ''
                       }`}
                       style={{
-                        width: pct > 0 ? `${pct}%` : '6px',
+                        width: pct > 0 ? `${pct}%` : '0px',
+                        minWidth: item.quantity > 0 ? '6px' : '0px',
                       }}
                     >
                       {showLabelInside && (
-                        <span className="text-[11px] font-bold num drop-shadow-xs whitespace-nowrap">
+                        <span className="text-[10px] font-bold num drop-shadow-xs whitespace-nowrap leading-none">
                           {formatQuantity(item.quantity)} L
                         </span>
                       )}
                     </div>
                     {!showLabelInside && (
                       <span
-                        className={`ml-2 text-[11px] font-bold num whitespace-nowrap ${
+                        className={`ml-2 text-[10px] font-bold num whitespace-nowrap leading-none ${
                           item.quantity > 0 ? 'text-plum-900' : 'text-ink-600'
                         }`}
                       >

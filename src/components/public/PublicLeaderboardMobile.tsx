@@ -63,7 +63,7 @@ const MobileSectorCard = memo(function MobileSectorCard({
   maxSectorLiters: number;
 }) {
   const liters = Number(sec.total_liters) || 0;
-  const pct = Math.min(100, Math.round((liters / maxSectorLiters) * 100));
+  const pct = Math.min(100, (liters / maxSectorLiters) * 100);
   return (
     <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/15 p-3 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_-6px_rgba(92,10,14,0.08)]">
       <div className="flex items-center justify-between gap-2.5">
@@ -95,7 +95,7 @@ const MobileSectorCard = memo(function MobileSectorCard({
       <div className="h-1.5 w-full rounded-full bg-[#5C0A0E]/[0.08] overflow-hidden">
         <div
           className="h-full rounded-full bg-gradient-to-r from-[#C40E16] to-[#5C0A0E]"
-          style={{ width: `${liters > 0 ? Math.max(4, pct) : 0}%` }}
+          style={{ width: `${liters > 0 ? Math.max(1.5, pct) : 0}%` }}
         />
       </div>
     </div>
@@ -112,7 +112,7 @@ const MobileUnitCard = memo(function MobileUnitCard({
   maxUnitLiters: number;
 }) {
   const liters = Number(unit.total_liters) || 0;
-  const pct = Math.min(100, Math.round((liters / maxUnitLiters) * 100));
+  const pct = Math.min(100, (liters / maxUnitLiters) * 100);
   return (
     <div className="rounded-2xl bg-white/70 backdrop-blur-xl border border-[#5C0A0E]/15 p-3 flex items-center justify-between gap-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_4px_14px_-6px_rgba(92,10,14,0.08)]">
       <div className="flex items-center gap-2.5 min-w-0">
@@ -170,20 +170,9 @@ export function PublicLeaderboardMobile({
   const { summary, sectors } = data;
   const pageUnits = data.items ?? data.units;
 
-  const maxSectorLiters = useMemo(
-    () =>
-      Math.max(1, ...sectors.map((s) => Number(s.total_liters) || 0)),
-    [sectors]
-  );
-  const maxUnitLiters = useMemo(
-    () =>
-      Math.max(
-        1,
-        Number(data.max_unit_liters) ||
-          Math.max(1, ...pageUnits.map((u) => Number(u.total_liters) || 0))
-      ),
-    [data.max_unit_liters, pageUnits]
-  );
+  const divisionTarget = Math.max(1, Number(summary.division_limit) || 1000);
+  const maxSectorLiters = divisionTarget;
+  const maxUnitLiters = divisionTarget;
 
   const sectorFilterOptions = useMemo(
     () => [

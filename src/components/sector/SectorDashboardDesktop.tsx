@@ -552,14 +552,20 @@ export function SectorDashboardDesktop({
                   {chartItems.map((item, idx) => {
                     const value =
                       chartMode === 'orders' ? item.orders : item.quantity;
-                    const pct =
-                      maxChartValue > 0 && value > 0
-                        ? Math.max(18, Math.round((value / maxChartValue) * 100))
-                        : 0;
-                    const share = calcSectorUnitSharePercent(
+                    const divShareNum = calcLimitSharePercent(
                       item.quantity,
-                      totalQuantity
-                    ).toFixed(1);
+                      divisionLimit
+                    );
+                    const pct =
+                      chartMode === 'orders'
+                        ? maxChartValue > 0 && value > 0
+                          ? Math.min(100, Math.max(0, (value / maxChartValue) * 100))
+                          : 0
+                        : item.quantity > 0
+                        ? Math.min(100, Math.max(0, divShareNum))
+                        : 0;
+                    const showLabelInside = pct >= 18;
+                    const share = divShareNum.toFixed(1);
 
                     const barColor =
                       idx === 0
@@ -589,20 +595,35 @@ export function SectorDashboardDesktop({
                         </div>
 
                         {/* 2. Horizontal progress track & elongated rounded bar */}
-                        <div className="flex-1 bg-leaf-100/90 rounded-xl h-8 relative flex items-center p-1 overflow-hidden border border-leaf-border/60">
+                        <div className="flex-1 bg-leaf-100/90 rounded-full h-5 relative flex items-center p-0.5 overflow-hidden border border-leaf-border/60">
                           <div
-                            className={`h-full rounded-lg transition-all duration-300 flex items-center justify-end px-3 shadow-2xs ${barColor}`}
+                            className={`h-full rounded-full transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
+                              showLabelInside ? 'px-2.5' : ''
+                            }`}
                             style={{
-                              width: pct > 0 ? `${pct}%` : '24%',
-                              minWidth: '60px',
+                              width: pct > 0 ? `${pct}%` : '0px',
+                              minWidth: value > 0 ? '6px' : '0px',
                             }}
                           >
-                            <span className="text-xs font-bold num drop-shadow-xs whitespace-nowrap">
+                            {showLabelInside && (
+                              <span className="text-[11px] font-bold num drop-shadow-xs whitespace-nowrap leading-none">
+                                {chartMode === 'orders'
+                                  ? `${item.orders} Orders`
+                                  : `${formatQuantity(item.quantity)} L`}
+                              </span>
+                            )}
+                          </div>
+                          {!showLabelInside && (
+                            <span
+                              className={`ml-2 text-[11px] font-bold num whitespace-nowrap leading-none ${
+                                value > 0 ? 'text-forest-950' : 'text-forest-600'
+                              }`}
+                            >
                               {chartMode === 'orders'
                                 ? `${item.orders} Orders`
                                 : `${formatQuantity(item.quantity)} L`}
                             </span>
-                          </div>
+                          )}
                         </div>
 
                         {/* 3. Share % & Total Revenue */}

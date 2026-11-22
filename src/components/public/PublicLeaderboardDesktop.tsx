@@ -74,7 +74,7 @@ const DesktopSectorRow = memo(function DesktopSectorRow({
   maxSectorLiters: number;
 }) {
   const liters = Number(sec.total_liters) || 0;
-  const pct = Math.min(100, Math.round((liters / maxSectorLiters) * 100));
+  const pct = Math.min(100, (liters / maxSectorLiters) * 100);
   return (
     <tr className="hover:bg-white/60 transition-colors">
       <td className="py-3 px-4">
@@ -105,7 +105,7 @@ const DesktopSectorRow = memo(function DesktopSectorRow({
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#C40E16] to-[#5C0A0E]"
             style={{
-              width: `${liters > 0 ? Math.max(4, pct) : 0}%`,
+              width: `${liters > 0 ? Math.max(1.5, pct) : 0}%`,
             }}
           />
         </div>
@@ -124,7 +124,7 @@ const DesktopUnitRow = memo(function DesktopUnitRow({
   maxUnitLiters: number;
 }) {
   const liters = Number(unit.total_liters) || 0;
-  const pct = Math.min(100, Math.round((liters / maxUnitLiters) * 100));
+  const pct = Math.min(100, (liters / maxUnitLiters) * 100);
   return (
     <tr className="hover:bg-white/60 transition-colors">
       <td className="py-3 px-4">
@@ -184,20 +184,9 @@ export function PublicLeaderboardDesktop({
   const overallTopUnits =
     data.top_units && data.top_units.length > 0 ? data.top_units : pageUnits;
 
-  const maxSectorLiters = useMemo(
-    () =>
-      Math.max(1, ...sectors.map((s) => Number(s.total_liters) || 0)),
-    [sectors]
-  );
-  const maxUnitLiters = useMemo(
-    () =>
-      Math.max(
-        1,
-        Number(data.max_unit_liters) ||
-          Math.max(1, ...pageUnits.map((u) => Number(u.total_liters) || 0))
-      ),
-    [data.max_unit_liters, pageUnits]
-  );
+  const divisionTarget = Math.max(1, Number(summary.division_limit) || 1000);
+  const maxSectorLiters = divisionTarget;
+  const maxUnitLiters = divisionTarget;
 
   const sectorFilterOptions = useMemo(
     () => [

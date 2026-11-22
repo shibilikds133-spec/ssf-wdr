@@ -143,11 +143,6 @@ export function AdminDashboardDesktop({
     }));
   }, [chartMode, sectorStats, topUnits]);
 
-  const maxChartQty = useMemo(
-    () => Math.max(...chartItems.map((i) => i.quantity), 1),
-    [chartItems]
-  );
-
   const leftListItems = useMemo(() => {
     if (leftListMode === 'sectors') {
       return sectorStats.slice(0, 4).map((s) => ({
@@ -617,15 +612,16 @@ export function AdminDashboardDesktop({
               ) : (
                 <div className="space-y-2.5 my-auto py-1">
                   {chartItems.slice(0, 5).map((item, idx) => {
-                    const pct =
-                      maxChartQty > 0 && item.quantity > 0
-                        ? Math.min(100, Math.max(3, Math.round((item.quantity / maxChartQty) * 100)))
-                        : 0;
-                    const showLabelInside = pct >= 18;
-                    const share = calcLimitSharePercent(
+                    const shareNum = calcLimitSharePercent(
                       item.quantity,
                       divisionLimit
-                    ).toFixed(1);
+                    );
+                    const pct =
+                      item.quantity > 0
+                        ? Math.min(100, Math.max(0, shareNum))
+                        : 0;
+                    const showLabelInside = pct >= 18;
+                    const share = shareNum.toFixed(1);
 
                     const barColor =
                       idx === 0
@@ -655,24 +651,25 @@ export function AdminDashboardDesktop({
                         </div>
 
                         {/* 2. Horizontal progress track & proportional rounded bar */}
-                        <div className="flex-1 bg-milk-100/90 rounded-xl h-8 relative flex items-center p-1 overflow-hidden border border-milk-border/60">
+                        <div className="flex-1 bg-milk-100/90 rounded-full h-5 relative flex items-center p-0.5 overflow-hidden border border-milk-border/60">
                           <div
-                            className={`h-full rounded-lg transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
-                              showLabelInside ? 'px-3' : ''
+                            className={`h-full rounded-full transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
+                              showLabelInside ? 'px-2.5' : ''
                             }`}
                             style={{
-                              width: pct > 0 ? `${pct}%` : '6px',
+                              width: pct > 0 ? `${pct}%` : '0px',
+                              minWidth: item.quantity > 0 ? '6px' : '0px',
                             }}
                           >
                             {showLabelInside && (
-                              <span className="text-xs font-bold num drop-shadow-xs whitespace-nowrap">
+                              <span className="text-[11px] font-bold num drop-shadow-xs whitespace-nowrap leading-none">
                                 {formatQuantity(item.quantity)} L
                               </span>
                             )}
                           </div>
                           {!showLabelInside && (
                             <span
-                              className={`ml-2 text-xs font-bold num whitespace-nowrap ${
+                              className={`ml-2 text-[11px] font-bold num whitespace-nowrap leading-none ${
                                 item.quantity > 0
                                   ? 'text-plum-900'
                                   : 'text-ink-600'

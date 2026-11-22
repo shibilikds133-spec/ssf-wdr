@@ -14,7 +14,6 @@ import {
 import type { SectorDashboardResponse } from '../../types';
 import {
   calcLimitSharePercent,
-  calcSectorUnitSharePercent,
   formatCurrency,
   formatDateTime,
   formatQuantity,
@@ -355,14 +354,20 @@ export function SectorDashboardMobile({
             {chartItems.map((item, idx) => {
               const value =
                 chartMode === 'orders' ? item.orders : item.quantity;
-              const pct =
-                maxChartValue > 0 && value > 0
-                  ? Math.max(20, Math.round((value / maxChartValue) * 100))
-                  : 0;
-              const share = calcSectorUnitSharePercent(
+              const divShareNum = calcLimitSharePercent(
                 item.quantity,
-                totalQuantity
-              ).toFixed(1);
+                divisionLimit
+              );
+              const pct =
+                chartMode === 'orders'
+                  ? maxChartValue > 0 && value > 0
+                    ? Math.min(100, Math.max(0, (value / maxChartValue) * 100))
+                    : 0
+                  : item.quantity > 0
+                  ? Math.min(100, Math.max(0, divShareNum))
+                  : 0;
+              const showLabelInside = pct >= 22;
+              const share = divShareNum.toFixed(1);
 
               const barColor =
                 idx === 0
@@ -408,20 +413,35 @@ export function SectorDashboardMobile({
                   </div>
 
                   {/* Bottom Row: Full-width Horizontal Bar */}
-                  <div className="w-full bg-leaf-100/90 rounded-xl h-7 relative flex items-center p-1 overflow-hidden border border-leaf-border/60">
+                  <div className="w-full bg-leaf-100/90 rounded-full h-4 sm:h-5 relative flex items-center p-0.5 overflow-hidden border border-leaf-border/60">
                     <div
-                      className={`h-full rounded-lg transition-all duration-300 flex items-center justify-end px-2.5 shadow-2xs ${barColor}`}
+                      className={`h-full rounded-full transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
+                        showLabelInside ? 'px-2' : ''
+                      }`}
                       style={{
-                        width: pct > 0 ? `${pct}%` : '24%',
-                        minWidth: '52px',
+                        width: pct > 0 ? `${pct}%` : '0px',
+                        minWidth: value > 0 ? '6px' : '0px',
                       }}
                     >
-                      <span className="text-[11px] font-bold num drop-shadow-xs whitespace-nowrap">
+                      {showLabelInside && (
+                        <span className="text-[10px] font-bold num drop-shadow-xs whitespace-nowrap leading-none">
+                          {chartMode === 'orders'
+                            ? `${item.orders} Orders`
+                            : `${formatQuantity(item.quantity)} L`}
+                        </span>
+                      )}
+                    </div>
+                    {!showLabelInside && (
+                      <span
+                        className={`ml-2 text-[10px] font-bold num whitespace-nowrap leading-none ${
+                          value > 0 ? 'text-forest-950' : 'text-forest-600'
+                        }`}
+                      >
                         {chartMode === 'orders'
                           ? `${item.orders} Orders`
                           : `${formatQuantity(item.quantity)} L`}
                       </span>
-                    </div>
+                    )}
                   </div>
                 </div>
               );
