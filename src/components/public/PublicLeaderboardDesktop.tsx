@@ -146,9 +146,6 @@ export function PublicLeaderboardDesktop({
                   Live
                 </span>
               </div>
-              <p className="font-ml text-xs text-[#7A2E33]">
-                ഡിസംബർ 11 വെള്ളി • ലൈവ് ലീഡർബോർഡ് &amp; ക്വിക്ക് ഓർഡർ
-              </p>
             </div>
           </div>
 
@@ -285,10 +282,10 @@ export function PublicLeaderboardDesktop({
             {/* Rate & Status Card */}
             <div className="glass-rose-card rounded-3xl p-5 flex flex-col justify-between">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-[#7A2E33]">
+                <span className="text-xs font-semibold text-[#7A2E33] whitespace-nowrap">
                   Per-Liter Rate
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#5C0A0E]/[0.08] text-[#5C0A0E] font-ml">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap shrink-0 bg-white/75 backdrop-blur-md border border-[#5C0A0E]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-2px_rgba(92,10,14,0.08)] text-[#5C0A0E] font-ml leading-none">
                   ഡിസംബർ 11 വെള്ളി
                 </span>
               </div>
