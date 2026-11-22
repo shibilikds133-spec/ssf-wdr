@@ -297,6 +297,12 @@
   font-family: 'Cooper Black', 'Cooper Std Black', 'Caprasimo', Georgia, serif;
 }
 
+.font-ml {
+  font-family: 'Noto Sans Malayalam', 'Plus Jakarta Sans', system-ui, sans-serif;
+  line-height: 1.72;
+  letter-spacing: 0.005em;
+}
+
 /* SSF Brand Logo Animated Loader */
 .ssf-loader__mark {
   transform-origin: center;

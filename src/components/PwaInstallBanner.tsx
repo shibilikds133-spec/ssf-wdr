@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Download, X } from 'lucide-react';
+import { useDocs } from '../context/DocsContext';
 import {
   clearDeferredInstallPrompt,
   getDeferredInstallPrompt,
@@ -146,6 +147,7 @@ function AddSquareIcon({ className }: { className?: string }) {
 
 export function PwaInstallBanner() {
   const location = useLocation();
+  const { isOpen: isDocsOpen } = useDocs();
   const theme = getBannerTheme(location.pathname);
 
   const [delayReady, setDelayReady] = useState(false);
@@ -204,7 +206,7 @@ export function PwaInstallBanner() {
   }, []);
 
   const mode: BannerMode =
-    installed || dismissed || !delayReady
+    installed || dismissed || !delayReady || isDocsOpen
       ? null
       : deferredEvent
       ? 'chromium'

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { AppLoader } from '../components/AppLoader';
 import { ExportReportModal } from '../components/ExportReportModal';
@@ -12,6 +18,8 @@ import { UnitDesktopShell } from '../components/unit/UnitDesktopShell';
 import { UnitMobileShell } from '../components/unit/UnitMobileShell';
 import { UnitOrdersTab } from '../components/unit/UnitOrdersTab';
 import { isSessionExpiredError, useAuth } from '../context/AuthContext';
+import { useRegisterPageDocs } from '../context/DocsContext';
+import type { DocPageKey } from '../data/malayalamDocs';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { clearCached } from '../lib/cache';
 import { supabase } from '../lib/supabase';
@@ -23,9 +31,16 @@ interface ToastState {
   message: string;
 }
 
+function getUnitDocPageKey(pathname: string): DocPageKey {
+  if (pathname.startsWith('/dashboard/orders')) return 'unit_orders';
+  if (pathname.startsWith('/dashboard/reports')) return 'unit_reports';
+  return 'unit_dashboard';
+}
+
 export default function UnitDashboardPage() {
   const { session, logout, handleSessionExpired } = useAuth();
   const isDesktop = useIsDesktop();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [data, setData] = useState<UnitDashboardResponse | null>(null);
@@ -141,6 +156,21 @@ export default function UnitDashboardPage() {
     logout();
     navigate('/', { replace: true });
   }, [logout, navigate]);
+
+  const activeDocPageKey = getUnitDocPageKey(location.pathname);
+  const suspendDocsAutoOpen =
+    !session ||
+    session.role !== 'UNIT' ||
+    loading ||
+    !data ||
+    quickOrderOpen ||
+    Boolean(markPaidEntry) ||
+    Boolean(exportModalConfig);
+
+  useRegisterPageDocs(session?.role === 'UNIT' ? activeDocPageKey : null, {
+    theme: 'orange',
+    suspendAutoOpen: suspendDocsAutoOpen,
+  });
 
   if (!session || session.role !== 'UNIT') {
     return null;

@@ -1,11 +1,14 @@
 import { RefreshCw } from 'lucide-react';
 import { AppLayout } from '../components/AppLayout';
 import { SsfLogo } from '../components/SsfLogo';
+import { useRegisterPageDocs } from '../context/DocsContext';
 import { usePublicStats } from '../hooks/usePublicStats';
 import { formatQuantity } from '../utils/format';
 
 export default function PublicPage() {
   const { data, loading, error, refresh } = usePublicStats();
+
+  useRegisterPageDocs('public_leaderboard', { theme: 'plum' });
 
   return (
     <AppLayout>

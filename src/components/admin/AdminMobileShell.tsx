@@ -10,6 +10,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
+import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
 
 interface AdminMobileShellProps {
@@ -48,7 +49,7 @@ export function AdminMobileShell({
 
   return (
     <div className="h-[100dvh] overflow-hidden flex flex-col bg-transparent text-ink-900">
-      <header className="h-14 shrink-0 z-30 glass-milk-header px-4 sm:px-6 flex items-center justify-between transform-gpu">
+      <header className="h-14 shrink-0 z-30 glass-milk-header px-4 sm:px-6 flex items-center justify-between gap-2 transform-gpu">
         <div className="flex items-center gap-2.5 min-w-0">
           <SsfLogo className="h-5 w-auto shrink-0" />
           <div className="flex items-center gap-2 min-w-0">
@@ -67,7 +68,8 @@ export function AdminMobileShell({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <PageDocsButton theme="plum" labelBreakpoint="sm" />
           <button
             type="button"
             onClick={onRefresh}

@@ -11,6 +11,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
+import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
 
 interface AdminDesktopShellProps {
@@ -109,6 +110,8 @@ export function AdminDesktopShell({
 
           {/* Right Controls */}
           <div className="flex items-center gap-2 shrink-0 justify-self-end">
+            <PageDocsButton theme="plum" labelBreakpoint="xl" />
+
             <button
               type="button"
               onClick={onRefresh}

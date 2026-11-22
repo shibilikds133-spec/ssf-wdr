@@ -4,9 +4,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import {
+  getDocsAccountScope,
+  mergeSeenDocPageLists,
+  normalizeDocPageKeys,
+  writeLocalSeenDocPage,
+} from '../utils/docsConfig';
 import { supabase } from '../lib/supabase';
 import type { AuthSession, UserRole } from '../types';
 
@@ -38,6 +45,7 @@ interface AuthContextValue {
   ) => Promise<FirstLoginResult>;
   logout: (notice?: string) => void;
   handleSessionExpired: (message?: string) => void;
+  markDocPageSeen: (pageKey: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -134,6 +142,9 @@ function readStoredSession(): AuthSession | null {
       ...(typeof record.expires_at === 'string'
         ? { expires_at: record.expires_at }
         : {}),
+      ...(Array.isArray(record.seen_doc_pages)
+        ? { seen_doc_pages: normalizeDocPageKeys(record.seen_doc_pages) }
+        : {}),
     };
   } catch {
     return null;
@@ -153,6 +164,7 @@ interface AuthLoginResponse {
   sector_name?: unknown;
   entity_id?: unknown;
   must_change_password?: unknown;
+  seen_doc_pages?: unknown;
   expires_at?: unknown;
 }
 
@@ -173,6 +185,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authNotice, setAuthNotice] = useState<string | null>(() =>
     readNotice()
   );
+  const sessionRef = useRef<AuthSession | null>(session);
+  sessionRef.current = session;
 
   const clearAuthNotice = useCallback(() => {
     setAuthNotice(null);
@@ -219,7 +233,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           typeof res.username === 'string' &&
           typeof res.name === 'string'
         ) {
-          const refreshed: AuthSession = {
+          const serverSeen = normalizeDocPageKeys(res.seen_doc_pages);
+          const refreshedBase: AuthSession = {
             role: res.role,
             code: res.code,
             login_code: res.login_code,
@@ -237,8 +252,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ? { expires_at: res.expires_at }
               : {}),
           };
-          saveSession(refreshed);
-          setSession(refreshed);
+          setSession((prev) => {
+            if (!prev) return null;
+            const sameAccount =
+              prev.role === refreshedBase.role &&
+              prev.login_code === refreshedBase.login_code;
+            const mergedSeen = sameAccount
+              ? mergeSeenDocPageLists(prev.seen_doc_pages, serverSeen)
+              : serverSeen;
+            const refreshed: AuthSession = {
+              ...refreshedBase,
+              seen_doc_pages: mergedSeen,
+            };
+            saveSession(refreshed);
+            return refreshed;
+          });
         }
       } catch {
         // Keep existing local session on transient offline/timeout error
@@ -301,6 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: result.username,
           name: result.name,
           must_change_password: mustChange,
+          seen_doc_pages: normalizeDocPageKeys(result.seen_doc_pages),
           ...(typeof result.token === 'string' ? { token: result.token } : {}),
           ...(typeof result.sector_name === 'string'
             ? { sector_name: result.sector_name }
@@ -313,6 +342,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             : {}),
         };
 
+        // Guard: logging in marks 'login' docs seen in localStorage even if card wasn't dismissed manually
+        writeLocalSeenDocPage('guest', 'login');
         saveSession(nextSession);
         setSession(nextSession);
         return {
@@ -439,6 +470,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const markDocPageSeen = useCallback(async (pageKey: string): Promise<void> => {
+    const key = pageKey.trim().toLowerCase();
+    if (!key) return;
+
+    const currentSession = sessionRef.current;
+    const scope = getDocsAccountScope(currentSession);
+    writeLocalSeenDocPage(scope, key);
+    if (key === 'login' || key === 'public_leaderboard') {
+      writeLocalSeenDocPage('guest', key);
+    }
+
+    if (!currentSession) return;
+
+    const alreadyInSession = Boolean(
+      currentSession.seen_doc_pages?.includes(key)
+    );
+
+    if (!alreadyInSession) {
+      setSession((prev) => {
+        if (!prev) return prev;
+        const nextSeen = mergeSeenDocPageLists(prev.seen_doc_pages, [key]);
+        if (
+          prev.seen_doc_pages &&
+          prev.seen_doc_pages.length === nextSeen.length
+        ) {
+          return prev;
+        }
+        const updated: AuthSession = { ...prev, seen_doc_pages: nextSeen };
+        saveSession(updated);
+        return updated;
+      });
+    }
+
+    const authCode = currentSession.token || currentSession.code;
+    if (!authCode || alreadyInSession) return;
+
+    try {
+      const { data, error } = await supabase.rpc('auth_mark_doc_page_seen', {
+        p_code: authCode,
+        p_page_key: key,
+      });
+      if (error || !data || typeof data !== 'object') return;
+      const record = data as { seen_doc_pages?: unknown };
+      const serverSeen = normalizeDocPageKeys(record.seen_doc_pages);
+      if (serverSeen.length === 0) return;
+
+      setSession((prev) => {
+        if (
+          !prev ||
+          prev.role !== currentSession.role ||
+          prev.login_code !== currentSession.login_code
+        ) {
+          return prev;
+        }
+        const merged = mergeSeenDocPageLists(prev.seen_doc_pages, serverSeen);
+        const updated: AuthSession = { ...prev, seen_doc_pages: merged };
+        saveSession(updated);
+        return updated;
+      });
+    } catch {
+      // Non-blocking background sync; localStorage already holds seen state
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -449,6 +544,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeFirstLogin,
       logout,
       handleSessionExpired,
+      markDocPageSeen,
     }),
     [
       session,
@@ -459,6 +555,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeFirstLogin,
       logout,
       handleSessionExpired,
+      markDocPageSeen,
     ]
   );
 

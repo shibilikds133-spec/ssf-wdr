@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS sectors (
   password_hash TEXT,
   must_change_password BOOLEAN NOT NULL DEFAULT true,
   contact_phone TEXT NOT NULL DEFAULT '',
+  seen_doc_pages TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS units (
   password_hash TEXT,
   must_change_password BOOLEAN NOT NULL DEFAULT true,
   contact_phone TEXT NOT NULL DEFAULT '',
+  seen_doc_pages TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -46,13 +48,15 @@ ALTER TABLE sectors
   ADD COLUMN IF NOT EXISTS username TEXT,
   ADD COLUMN IF NOT EXISTS password_hash TEXT,
   ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT '';
+  ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS seen_doc_pages TEXT[] NOT NULL DEFAULT '{}';
 
 ALTER TABLE units
   ADD COLUMN IF NOT EXISTS username TEXT,
   ADD COLUMN IF NOT EXISTS password_hash TEXT,
   ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT '';
+  ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS seen_doc_pages TEXT[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS entries (
   id SERIAL PRIMARY KEY,
@@ -140,7 +144,8 @@ INSERT INTO app_settings (key, value) VALUES
   ('unit_rate', '250'),
   ('division_target', '10000'),
   ('challenge_title', 'SSF Wandoor Division Payasam Challenge'),
-  ('is_challenge_open', 'true')
+  ('is_challenge_open', 'true'),
+  ('admin_seen_doc_pages', '[]')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO app_internal_secrets (key, value)
@@ -722,6 +727,7 @@ DECLARE
   v_exp_epoch BIGINT := FLOOR(EXTRACT(EPOCH FROM v_expires))::BIGINT;
   v_jwt TEXT;
   v_ok BOOLEAN;
+  v_seen_jsonb JSONB := '[]'::jsonb;
 BEGIN
   IF v_user = '' OR v_pass = '' THEN
     RETURN jsonb_build_object('valid', false, 'error', 'User ID and password are required');
@@ -743,6 +749,12 @@ BEGIN
       RETURN jsonb_build_object('valid', false, 'error', 'Invalid password');
     END IF;
 
+    SELECT COALESCE(NULLIF(TRIM(value), ''), '[]')::JSONB
+    INTO v_seen_jsonb
+    FROM app_settings
+    WHERE key = 'admin_seen_doc_pages';
+    v_seen_jsonb := COALESCE(v_seen_jsonb, '[]'::jsonb);
+
     INSERT INTO auth_sessions (role, entity_id, login_code, last_active_at, expires_at)
     VALUES ('ADMIN', NULL, v_admin_code, now(), v_expires)
     RETURNING token INTO v_token;
@@ -758,6 +770,7 @@ BEGIN
       'username', v_admin_user,
       'name', 'Division Admin',
       'must_change_password', false,
+      'seen_doc_pages', v_seen_jsonb,
       'expires_at', v_expires
     );
   END IF;
@@ -794,6 +807,7 @@ BEGIN
       'name', v_sector.name,
       'entity_id', v_sector.id,
       'must_change_password', v_sector.must_change_password,
+      'seen_doc_pages', to_jsonb(COALESCE(v_sector.seen_doc_pages, '{}'::TEXT[])),
       'expires_at', v_expires
     );
   END IF;
@@ -832,6 +846,7 @@ BEGIN
       'sector_name', v_unit.sector_name,
       'entity_id', v_unit.id,
       'must_change_password', v_unit.must_change_password,
+      'seen_doc_pages', to_jsonb(COALESCE(v_unit.seen_doc_pages, '{}'::TEXT[])),
       'expires_at', v_expires
     );
   END IF;
@@ -866,6 +881,7 @@ DECLARE
   v_login_code TEXT;
   v_sector_name TEXT;
   v_must_change BOOLEAN := false;
+  v_seen_doc_pages JSONB := '[]'::jsonb;
   v_new_jwt TEXT;
 BEGIN
   IF v_clean = '' THEN
@@ -917,6 +933,11 @@ BEGIN
     SELECT COALESCE(NULLIF(TRIM(value), ''), 'SSF Wandoor')
     INTO v_admin_user FROM app_settings WHERE key = 'admin_username';
     SELECT UPPER(TRIM(value)) INTO v_admin_code FROM app_settings WHERE key = 'admin_code';
+    SELECT COALESCE(NULLIF(TRIM(value), ''), '[]')::JSONB
+    INTO v_seen_doc_pages
+    FROM app_settings
+    WHERE key = 'admin_seen_doc_pages';
+    v_seen_doc_pages := COALESCE(v_seen_doc_pages, '[]'::jsonb);
     v_username := COALESCE(v_admin_user, 'SSF Wandoor');
     v_name := 'Division Admin';
     v_login_code := COALESCE(v_admin_code, v_sess.login_code);
@@ -931,6 +952,7 @@ BEGIN
     v_name := v_sector.name;
     v_login_code := v_sector.login_code;
     v_must_change := v_sector.must_change_password;
+    v_seen_doc_pages := to_jsonb(COALESCE(v_sector.seen_doc_pages, '{}'::TEXT[]));
   ELSIF v_sess.role = 'UNIT' THEN
     SELECT u.*, s.name AS s_name INTO v_unit
     FROM units u JOIN sectors s ON s.id = u.sector_id
@@ -944,6 +966,7 @@ BEGIN
     v_login_code := v_unit.login_code;
     v_sector_name := v_unit.s_name;
     v_must_change := v_unit.must_change_password;
+    v_seen_doc_pages := to_jsonb(COALESCE(v_unit.seen_doc_pages, '{}'::TEXT[]));
   ELSE
     RETURN jsonb_build_object('valid', false, 'expired', true);
   END IF;
@@ -964,6 +987,7 @@ BEGIN
     'name', v_name,
     'login_code', v_login_code,
     'must_change_password', v_must_change,
+    'seen_doc_pages', v_seen_doc_pages,
     'entity_id', v_sess.entity_id,
     'sector_name', v_sector_name,
     'expires_at', v_new_expires
@@ -1136,6 +1160,92 @@ BEGIN
   END IF;
 
   RETURN true;
+END;
+$$;
+
+-- 6.6b PERSIST SEEN MALAYALAM DOC PAGE KEYS PER ACCOUNT
+CREATE OR REPLACE FUNCTION auth_mark_doc_page_seen(
+  p_code TEXT,
+  p_page_key TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_key TEXT := LOWER(TRIM(COALESCE(p_page_key, '')));
+  v_sess RECORD;
+  v_arr TEXT[];
+BEGIN
+  IF v_key = '' OR LENGTH(v_key) > 64 THEN
+    RAISE EXCEPTION 'Invalid doc page key';
+  END IF;
+
+  -- 1. Check ADMIN
+  IF is_valid_admin_auth(p_code) THEN
+    SELECT ARRAY(
+      SELECT DISTINCT elem
+      FROM jsonb_array_elements_text(
+        COALESCE(
+          NULLIF(TRIM((SELECT value FROM app_settings WHERE key = 'admin_seen_doc_pages')), ''),
+          '[]'
+        )::JSONB
+      ) AS elem
+    ) INTO v_arr;
+
+    IF NOT (v_key = ANY(COALESCE(v_arr, '{}'::TEXT[]))) THEN
+      v_arr := array_append(COALESCE(v_arr, '{}'::TEXT[]), v_key);
+      INSERT INTO app_settings (key, value)
+      VALUES ('admin_seen_doc_pages', to_jsonb(v_arr)::TEXT)
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
+    END IF;
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'seen_doc_pages', to_jsonb(COALESCE(v_arr, '{}'::TEXT[]))
+    );
+  END IF;
+
+  -- 2. Check SECTOR session
+  SELECT * INTO v_sess FROM verify_and_slide_session(p_code, 'SECTOR') LIMIT 1;
+  IF FOUND AND v_sess.entity_id IS NOT NULL THEN
+    UPDATE sectors
+    SET seen_doc_pages = CASE
+      WHEN v_key = ANY(seen_doc_pages) THEN seen_doc_pages
+      ELSE array_append(seen_doc_pages, v_key)
+    END
+    WHERE id = v_sess.entity_id
+    RETURNING seen_doc_pages INTO v_arr;
+
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'success', true,
+        'seen_doc_pages', to_jsonb(COALESCE(v_arr, '{}'::TEXT[]))
+      );
+    END IF;
+  END IF;
+
+  -- 3. Check UNIT session
+  SELECT * INTO v_sess FROM verify_and_slide_session(p_code, 'UNIT') LIMIT 1;
+  IF FOUND AND v_sess.entity_id IS NOT NULL THEN
+    UPDATE units
+    SET seen_doc_pages = CASE
+      WHEN v_key = ANY(seen_doc_pages) THEN seen_doc_pages
+      ELSE array_append(seen_doc_pages, v_key)
+    END
+    WHERE id = v_sess.entity_id
+    RETURNING seen_doc_pages INTO v_arr;
+
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'success', true,
+        'seen_doc_pages', to_jsonb(COALESCE(v_arr, '{}'::TEXT[]))
+      );
+    END IF;
+  END IF;
+
+  RAISE EXCEPTION 'SESSION_EXPIRED: Unauthorized session.';
 END;
 $$;
 
@@ -3703,6 +3813,7 @@ GRANT EXECUTE ON FUNCTION
   auth_refresh_session(TEXT),
   auth_complete_first_login(TEXT, TEXT, TEXT),
   auth_logout(TEXT),
+  auth_mark_doc_page_seen(TEXT, TEXT),
   request_password_reset(TEXT),
   admin_reset_account_password(TEXT, TEXT, INT, TEXT),
   admin_dismiss_reset_request(TEXT, INT),

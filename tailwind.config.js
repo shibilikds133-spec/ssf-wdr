@@ -6,6 +6,7 @@ export default {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
         ssf: ['"Cooper Black"', '"Cooper Std Black"', '"Caprasimo"', 'Georgia', 'serif'],
+        ml: ['"Noto Sans Malayalam"', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       colors: {
         plum: {

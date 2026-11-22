@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { AppLoader } from '../components/AppLoader';
 import { ExportReportModal } from '../components/ExportReportModal';
@@ -13,6 +19,8 @@ import { SectorManageTab } from '../components/sector/SectorManageTab';
 import { SectorMobileShell } from '../components/sector/SectorMobileShell';
 import { SectorUnitsTab } from '../components/sector/SectorUnitsTab';
 import { isSessionExpiredError, useAuth } from '../context/AuthContext';
+import { useRegisterPageDocs } from '../context/DocsContext';
+import type { DocPageKey } from '../data/malayalamDocs';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { clearCached } from '../lib/cache';
 import { supabase } from '../lib/supabase';
@@ -24,9 +32,23 @@ interface ToastState {
   message: string;
 }
 
+function getSectorDocPageKey(pathname: string): DocPageKey {
+  if (pathname.startsWith('/sector/units')) return 'sector_units';
+  if (
+    pathname.startsWith('/sector/entries') ||
+    pathname.startsWith('/sector/orders')
+  ) {
+    return 'sector_orders';
+  }
+  if (pathname.startsWith('/sector/reports')) return 'sector_reports';
+  if (pathname.startsWith('/sector/manage')) return 'sector_manage';
+  return 'sector_dashboard';
+}
+
 export default function SectorDashboardPage() {
   const { session, logout, handleSessionExpired } = useAuth();
   const isDesktop = useIsDesktop();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [data, setData] = useState<SectorDashboardResponse | null>(null);
@@ -144,6 +166,20 @@ export default function SectorDashboardPage() {
     logout();
     navigate('/', { replace: true });
   }, [logout, navigate]);
+
+  const activeDocPageKey = getSectorDocPageKey(location.pathname);
+  const suspendDocsAutoOpen =
+    !session ||
+    session.role !== 'SECTOR' ||
+    loading ||
+    !data ||
+    Boolean(markPaidEntry) ||
+    Boolean(exportModalConfig);
+
+  useRegisterPageDocs(session?.role === 'SECTOR' ? activeDocPageKey : null, {
+    theme: 'forest',
+    suspendAutoOpen: suspendDocsAutoOpen,
+  });
 
   if (!session || session.role !== 'SECTOR') {
     return null;

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, LogOut } from 'lucide-react';
 import { getHomeRouteForRole, useAuth } from '../context/AuthContext';
 import { BrandText } from './BrandText';
+import { PageDocsButton } from './docs/PageDocsButton';
 import { SsfLogo } from './SsfLogo';
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -44,6 +45,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-2 shrink-0">
+            <PageDocsButton
+              theme="plum"
+              pageKey="public_leaderboard"
+              labelBreakpoint="sm"
+            />
             {session ? (
               <>
                 <Link

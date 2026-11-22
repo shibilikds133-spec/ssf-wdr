@@ -9,6 +9,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
+import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
 
 interface UnitMobileShellProps {
@@ -60,6 +61,7 @@ export function UnitMobileShell({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          <PageDocsButton theme="orange" labelBreakpoint="sm" />
           <button
             type="button"
             onClick={onRefresh}

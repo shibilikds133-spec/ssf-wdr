@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
+import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
 
 interface UnitDesktopShellProps {
@@ -124,6 +125,8 @@ export function UnitDesktopShell({
               <Plus className="w-3.5 h-3.5" />
               <span>Quick Order</span>
             </button>
+
+            <PageDocsButton theme="orange" labelBreakpoint="xl" />
 
             <button
               type="button"

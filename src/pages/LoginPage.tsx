@@ -12,8 +12,11 @@ import {
   X,
 } from 'lucide-react';
 import { BrandText } from '../components/BrandText';
+import { LoginTopDocsCard } from '../components/docs/LoginTopDocsCard';
+import { PageDocsButton } from '../components/docs/PageDocsButton';
 import { SsfLogo } from '../components/SsfLogo';
 import { getHomeRouteForRole, useAuth } from '../context/AuthContext';
+import { useRegisterPageDocs } from '../context/DocsContext';
 import { supabase } from '../lib/supabase';
 
 export default function LoginPage() {
@@ -45,6 +48,12 @@ export default function LoginPage() {
       }, 40);
     }
   }, [uidParam]);
+
+  useRegisterPageDocs(session ? null : 'login', {
+    theme: 'plum',
+    mode: 'inline-top',
+    suspendAutoOpen: Boolean(session) || resetModalOpen,
+  });
 
   if (session) {
     if (session.must_change_password) {
@@ -123,7 +132,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-4 sm:p-6 text-ink-900">
+    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center px-4 pt-14 pb-8 sm:p-6 sm:pt-16 text-ink-900">
+      {/* Top-Right Docs Toggle Button */}
+      <div className="fixed top-[max(0.75rem,env(safe-area-inset-top))] right-3 sm:top-5 sm:right-5 z-40">
+        <PageDocsButton
+          theme="plum"
+          pageKey="login"
+          action="toggle"
+          labelBreakpoint="sm"
+        />
+      </div>
+
+      {/* Mode A: Non-Blocking Top Malayalam Docs Card */}
+      <LoginTopDocsCard />
+
       {/* Centered SSF Logo Squircle Badge */}
       <Link
         to="/"

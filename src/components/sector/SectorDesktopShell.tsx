@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
+import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
 
 interface SectorDesktopShellProps {
@@ -112,6 +113,8 @@ export function SectorDesktopShell({
 
           {/* Right Controls */}
           <div className="flex items-center gap-2 shrink-0 justify-self-end">
+            <PageDocsButton theme="forest" labelBreakpoint="xl" />
+
             <button
               type="button"
               onClick={onRefresh}

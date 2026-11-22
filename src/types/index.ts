@@ -12,6 +12,7 @@ export interface AuthSession {
   sector_name?: string;
   entity_id?: number;
   must_change_password: boolean;
+  seen_doc_pages?: string[];
   expires_at?: string;
 }
 

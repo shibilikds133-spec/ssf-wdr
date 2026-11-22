@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { AdminDashboardDesktop } from '../components/admin/AdminDashboardDesktop';
 import { AdminDashboardMobile } from '../components/admin/AdminDashboardMobile';
@@ -14,6 +20,8 @@ import { MarkPaidModal } from '../components/MarkPaidModal';
 import { OrderEntryModal } from '../components/OrderEntryModal';
 import { PortalReportsPage } from '../components/reports/PortalReportsPage';
 import { isSessionExpiredError, useAuth } from '../context/AuthContext';
+import { useRegisterPageDocs } from '../context/DocsContext';
+import type { DocPageKey } from '../data/malayalamDocs';
 import { useIsDesktop } from '../hooks/useIsDesktop';
 import { clearCached } from '../lib/cache';
 import { supabase } from '../lib/supabase';
@@ -25,9 +33,18 @@ interface ToastState {
   message: string;
 }
 
+function getAdminDocPageKey(pathname: string): DocPageKey {
+  if (pathname.startsWith('/admin/units')) return 'admin_units';
+  if (pathname.startsWith('/admin/entries')) return 'admin_entries';
+  if (pathname.startsWith('/admin/reports')) return 'admin_reports';
+  if (pathname.startsWith('/admin/settings')) return 'admin_settings';
+  return 'admin_dashboard';
+}
+
 export default function AdminDashboardPage() {
   const { session, logout, handleSessionExpired } = useAuth();
   const isDesktop = useIsDesktop();
+  const location = useLocation();
   const navigate = useNavigate();
 
   const [data, setData] = useState<AdminDashboardResponse | null>(null);
@@ -144,6 +161,21 @@ export default function AdminDashboardPage() {
     logout();
     navigate('/', { replace: true });
   }, [logout, navigate]);
+
+  const activeDocPageKey = getAdminDocPageKey(location.pathname);
+  const suspendDocsAutoOpen =
+    !session ||
+    session.role !== 'ADMIN' ||
+    loading ||
+    !data ||
+    addOrderOpen ||
+    Boolean(markPaidEntry) ||
+    Boolean(exportModalConfig);
+
+  useRegisterPageDocs(session?.role === 'ADMIN' ? activeDocPageKey : null, {
+    theme: 'plum',
+    suspendAutoOpen: suspendDocsAutoOpen,
+  });
 
   if (!session || session.role !== 'ADMIN') {
     return null;
