@@ -127,13 +127,6 @@ export function SectorDashboardDesktop({
     }));
   }, [chartMode, rankedUnitsByQty, rankedUnitsByOrders]);
 
-  const maxChartValue = useMemo(() => {
-    if (chartMode === 'orders') {
-      return Math.max(...chartItems.map((i) => i.orders), 1);
-    }
-    return Math.max(...chartItems.map((i) => i.quantity), 1);
-  }, [chartMode, chartItems]);
-
   // Top 4 units for left column progress list
   const top4Units = useMemo(() => rankedUnitsByQty.slice(0, 4), [rankedUnitsByQty]);
 
@@ -557,11 +550,7 @@ export function SectorDashboardDesktop({
                       divisionLimit
                     );
                     const pct =
-                      chartMode === 'orders'
-                        ? maxChartValue > 0 && value > 0
-                          ? Math.min(100, Math.max(0, (value / maxChartValue) * 100))
-                          : 0
-                        : item.quantity > 0
+                      item.quantity > 0
                         ? Math.min(100, Math.max(0, divShareNum))
                         : 0;
                     const showLabelInside = pct >= 18;

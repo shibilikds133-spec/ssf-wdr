@@ -95,13 +95,6 @@ export function SectorDashboardMobile({
     }));
   }, [chartMode, rankedUnitsByQty, rankedUnitsByOrders]);
 
-  const maxChartValue = useMemo(() => {
-    if (chartMode === 'orders') {
-      return Math.max(...chartItems.map((i) => i.orders), 1);
-    }
-    return Math.max(...chartItems.map((i) => i.quantity), 1);
-  }, [chartMode, chartItems]);
-
   const filteredRecentEntries = useMemo(() => {
     const q = recentSearch.trim().toLowerCase();
     const matched = q
@@ -359,13 +352,7 @@ export function SectorDashboardMobile({
                 divisionLimit
               );
               const pct =
-                chartMode === 'orders'
-                  ? maxChartValue > 0 && value > 0
-                    ? Math.min(100, Math.max(0, (value / maxChartValue) * 100))
-                    : 0
-                  : item.quantity > 0
-                  ? Math.min(100, Math.max(0, divShareNum))
-                  : 0;
+                item.quantity > 0 ? Math.min(100, Math.max(0, divShareNum)) : 0;
               const showLabelInside = pct >= 22;
               const share = divShareNum.toFixed(1);
 

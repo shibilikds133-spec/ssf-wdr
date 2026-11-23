@@ -132,11 +132,6 @@ export function UnitDashboardMobile({
       .reverse();
   }, [chartMode, entries]);
 
-  const maxChartQty = useMemo(
-    () => Math.max(...chartItems.map((i) => i.quantity), 1),
-    [chartItems]
-  );
-
   const filteredRecentEntries = useMemo(() => {
     const q = recentSearch.trim().toLowerCase();
     const matched = q
@@ -490,10 +485,14 @@ export function UnitDashboardMobile({
         ) : (
           <div className="space-y-2 py-1">
             {chartItems.map((item, idx) => {
+              const shareNum = calcLimitSharePercent(
+                item.quantity,
+                divisionLimit
+              );
               const pct =
-                maxChartQty > 0 && item.quantity > 0
-                  ? Math.max(20, Math.round((item.quantity / maxChartQty) * 100))
-                  : 0;
+                item.quantity > 0 ? Math.min(100, Math.max(0, shareNum)) : 0;
+              const showLabelInside = pct >= 22;
+              const share = shareNum.toFixed(1);
               const barColor =
                 idx === 0
                   ? 'bg-[#F46A30] text-white'
@@ -520,23 +519,36 @@ export function UnitDashboardMobile({
                     </span>
                   </div>
 
-                  <div className="flex-1 bg-[#F6F2E7] rounded-xl h-7 sm:h-8 relative flex items-center p-1 overflow-hidden border border-[#E5DEC9]">
+                  <div className="flex-1 bg-[#F6F2E7] rounded-full h-4 sm:h-5 relative flex items-center p-0.5 overflow-hidden border border-[#E5DEC9]">
                     <div
-                      className={`h-full rounded-lg transition-all duration-300 flex items-center justify-end px-2.5 shadow-2xs ${barColor}`}
+                      className={`h-full rounded-full transition-all duration-300 flex items-center justify-end shadow-2xs shrink-0 ${barColor} ${
+                        showLabelInside ? 'px-2' : ''
+                      }`}
                       style={{
-                        width: pct > 0 ? `${pct}%` : '24%',
-                        minWidth: '52px',
+                        width: pct > 0 ? `${pct}%` : '0px',
+                        minWidth: item.quantity > 0 ? '6px' : '0px',
                       }}
                     >
-                      <span className="text-[11px] sm:text-xs font-bold num whitespace-nowrap">
+                      {showLabelInside && (
+                        <span className="text-[10px] font-bold num whitespace-nowrap leading-none">
+                          {formatQuantity(item.quantity)} L
+                        </span>
+                      )}
+                    </div>
+                    {!showLabelInside && (
+                      <span
+                        className={`ml-2 text-[10px] font-bold num whitespace-nowrap leading-none ${
+                          item.quantity > 0 ? 'text-[#261812]' : 'text-[#6B5449]'
+                        }`}
+                      >
                         {formatQuantity(item.quantity)} L
                       </span>
-                    </div>
+                    )}
                   </div>
 
                   <div className="w-16 text-right shrink-0 num">
                     <span className="text-xs font-bold text-[#261812] block leading-tight">
-                      {item.orders} ord
+                      {share}%
                     </span>
                     <span className="text-[10px] text-[#6B5449] block truncate">
                       {formatCurrency(item.amount)}
