@@ -11,6 +11,7 @@ import {
 import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
+import { UnitPasswordNoticeBanner } from '../UnitPasswordNoticeBanner';
 
 interface UnitMobileShellProps {
   children: ReactNode;
@@ -90,7 +91,8 @@ export function UnitMobileShell({
         ref={mainRef}
         className="flex-1 min-w-0 overflow-y-auto [scrollbar-gutter:stable]"
       >
-        <div className="pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] sm:pl-[calc(1.5rem+env(safe-area-inset-left,0px))] sm:pr-[calc(1.5rem+env(safe-area-inset-right,0px))] pt-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] max-w-4xl mx-auto">
+        <div className="pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] sm:pl-[calc(1.5rem+env(safe-area-inset-left,0px))] sm:pr-[calc(1.5rem+env(safe-area-inset-right,0px))] pt-3.5 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] max-w-4xl mx-auto">
+          <UnitPasswordNoticeBanner variant="unit" className="mb-3.5" />
           {children}
         </div>
       </main>

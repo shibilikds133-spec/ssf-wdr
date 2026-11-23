@@ -23,7 +23,7 @@ export function ProtectedRoute({
     return <Navigate to="/login" replace />;
   }
 
-  if (session.must_change_password === true) {
+  if (session.must_change_password === true && session.role !== 'UNIT') {
     return <Navigate to="/setup-password" replace />;
   }
 

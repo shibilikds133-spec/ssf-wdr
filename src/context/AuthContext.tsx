@@ -172,7 +172,8 @@ function readStoredSession(): AuthSession | null {
       login_code: record.login_code,
       username: record.username,
       name: record.name,
-      must_change_password: record.must_change_password,
+      must_change_password:
+        record.role === 'UNIT' ? false : record.must_change_password,
       ...(typeof record.token === 'string' ? { token: record.token } : {}),
       ...(typeof record.sector_name === 'string'
         ? { sector_name: record.sector_name }
@@ -302,7 +303,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             login_code: res.login_code,
             username: res.username,
             name: res.name,
-            must_change_password: res.must_change_password === true,
+            must_change_password:
+              res.role === 'UNIT' ? false : res.must_change_password === true,
             ...(typeof res.token === 'string' ? { token: res.token } : {}),
             ...(typeof res.sector_name === 'string'
               ? { sector_name: res.sector_name }
@@ -403,7 +405,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
         }
 
-        const mustChange = result.must_change_password === true;
+        const mustChange =
+          result.role === 'UNIT' ? false : result.must_change_password === true;
         const nextSession: AuthSession = {
           role: result.role,
           code: result.code,
@@ -474,6 +477,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ): Promise<FirstLoginResult> => {
       if (!session) {
         return { ok: false, error: 'Session expired. Please sign in again.' };
+      }
+
+      if (session.role === 'UNIT') {
+        return {
+          ok: false,
+          error:
+            'Unit portal password cannot be changed manually; use your Unit Order Code.',
+        };
       }
 
       const token = session.token ?? session.code;

@@ -28,7 +28,9 @@ export default function FirstLoginSetupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isSetupActive = Boolean(session && session.must_change_password);
+  const isSetupActive = Boolean(
+    session && session.role !== 'UNIT' && session.must_change_password
+  );
   useRegisterPageDocs(isSetupActive ? 'setup_password' : null, {
     theme: 'plum',
     suspendAutoOpen: !isSetupActive,
@@ -38,7 +40,7 @@ export default function FirstLoginSetupPage() {
     return <Navigate to="/login" replace />;
   }
 
-  if (!session.must_change_password) {
+  if (session.role === 'UNIT' || !session.must_change_password) {
     return <Navigate to={getHomeRouteForRole(session.role)} replace />;
   }
 

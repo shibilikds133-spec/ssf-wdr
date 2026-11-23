@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS units (
   login_code TEXT UNIQUE NOT NULL, -- WDR1 to WDR99
   username TEXT,
   password_hash TEXT,
-  must_change_password BOOLEAN NOT NULL DEFAULT true,
+  must_change_password BOOLEAN NOT NULL DEFAULT false,
   contact_phone TEXT NOT NULL DEFAULT '',
   seen_doc_pages TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
@@ -54,9 +54,61 @@ ALTER TABLE sectors
 ALTER TABLE units
   ADD COLUMN IF NOT EXISTS username TEXT,
   ADD COLUMN IF NOT EXISTS password_hash TEXT,
-  ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS contact_phone TEXT NOT NULL DEFAULT '',
   ADD COLUMN IF NOT EXISTS seen_doc_pages TEXT[] NOT NULL DEFAULT '{}';
+
+ALTER TABLE units ALTER COLUMN must_change_password SET DEFAULT false;
+
+-- Enforce Unit Portal Password = Unit Order Code (login_code) automatically
+CREATE OR REPLACE FUNCTION trg_sync_unit_order_code_password()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  NEW.login_code := UPPER(TRIM(COALESCE(NEW.login_code, '')));
+  NEW.must_change_password := false;
+
+  IF TG_OP = 'INSERT'
+     OR NEW.login_code IS DISTINCT FROM OLD.login_code
+     OR NEW.password_hash IS NULL
+     OR (crypt(NEW.login_code, NEW.password_hash) <> NEW.password_hash) THEN
+    NEW.password_hash := crypt(NEW.login_code, gen_salt('bf'));
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_units_sync_order_code_password ON units;
+CREATE TRIGGER trg_units_sync_order_code_password
+BEFORE INSERT OR UPDATE OF login_code, password_hash, must_change_password
+ON units
+FOR EACH ROW
+EXECUTE FUNCTION trg_sync_unit_order_code_password();
+
+-- Sync all existing Unit rows so password_hash matches login_code and must_change_password = false
+UPDATE units
+SET
+  login_code = UPPER(TRIM(login_code)),
+  password_hash = crypt(UPPER(TRIM(login_code)), gen_salt('bf')),
+  must_change_password = false
+WHERE
+  must_change_password = true
+  OR password_hash IS NULL
+  OR login_code <> UPPER(TRIM(login_code))
+  OR (crypt(UPPER(TRIM(login_code)), password_hash) <> password_hash);
+
+DO $$
+BEGIN
+  IF to_regclass('public.password_reset_requests') IS NOT NULL THEN
+    UPDATE password_reset_requests
+    SET status = 'RESOLVED', resolved_at = now()
+    WHERE account_type = 'UNIT' AND status = 'PENDING';
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS entries (
   id SERIAL PRIMARY KEY,
@@ -828,7 +880,7 @@ BEGIN
     );
   END IF;
 
-  -- 3. Check Unit
+  -- 3. Check Unit (Password is always synced to the Unit Order Code / login_code)
   SELECT u.*, s.name AS sector_name INTO v_unit
   FROM units u
   JOIN sectors s ON s.id = u.sector_id
@@ -836,13 +888,27 @@ BEGIN
 
   IF FOUND THEN
     IF v_unit.password_hash IS NOT NULL THEN
-      v_ok := (crypt(v_pass, v_unit.password_hash) = v_unit.password_hash);
+      v_ok := (
+        crypt(UPPER(v_pass), v_unit.password_hash) = v_unit.password_hash
+        OR crypt(v_pass, v_unit.password_hash) = v_unit.password_hash
+        OR UPPER(v_pass) = UPPER(v_unit.login_code)
+      );
     ELSE
       v_ok := (UPPER(v_pass) = UPPER(v_unit.login_code));
     END IF;
 
     IF NOT COALESCE(v_ok, false) THEN
       RETURN jsonb_build_object('valid', false, 'error', 'Invalid password');
+    END IF;
+
+    IF v_unit.must_change_password = true
+       OR v_unit.password_hash IS NULL
+       OR (crypt(UPPER(TRIM(v_unit.login_code)), v_unit.password_hash) <> v_unit.password_hash) THEN
+      UPDATE units
+      SET
+        password_hash = crypt(UPPER(TRIM(v_unit.login_code)), gen_salt('bf')),
+        must_change_password = false
+      WHERE id = v_unit.id;
     END IF;
 
     INSERT INTO auth_sessions (role, entity_id, login_code, last_active_at, expires_at)
@@ -861,7 +927,7 @@ BEGIN
       'name', v_unit.name,
       'sector_name', v_unit.sector_name,
       'entity_id', v_unit.id,
-      'must_change_password', v_unit.must_change_password,
+      'must_change_password', false,
       'seen_doc_pages', to_jsonb(COALESCE(v_unit.seen_doc_pages, '{}'::TEXT[])),
       'help_kb_version', COALESCE((SELECT version FROM help_kb_store WHERE id = 1), 0),
       'admin_whatsapp_phone', COALESCE((SELECT value FROM app_settings WHERE key = 'admin_whatsapp_phone'), ''),
@@ -983,7 +1049,7 @@ BEGIN
     v_name := v_unit.name;
     v_login_code := v_unit.login_code;
     v_sector_name := v_unit.s_name;
-    v_must_change := v_unit.must_change_password;
+    v_must_change := false;
     v_seen_doc_pages := to_jsonb(COALESCE(v_unit.seen_doc_pages, '{}'::TEXT[]));
   ELSE
     RETURN jsonb_build_object('valid', false, 'expired', true);
@@ -1051,6 +1117,10 @@ BEGIN
 
   IF v_sess_role IS NULL THEN
     RAISE EXCEPTION 'Invalid or expired session';
+  END IF;
+
+  IF v_sess_role = 'UNIT' THEN
+    RAISE EXCEPTION 'Unit portal password cannot be changed manually; use your Unit Order Code.';
   END IF;
 
   IF LENGTH(v_new_pass) < 6 THEN
@@ -1322,12 +1392,24 @@ BEGIN
       RAISE EXCEPTION 'Account not found';
     END IF;
 
-    v_account_type := 'UNIT';
-    v_account_id := v_unit.id;
-    v_account_name := v_unit.name;
-    v_username := v_unit.username;
-    v_login_code := v_unit.login_code;
-    v_contact_phone := v_unit.contact_phone;
+    UPDATE units
+    SET
+      password_hash = crypt(UPPER(TRIM(v_unit.login_code)), gen_salt('bf')),
+      must_change_password = false
+    WHERE id = v_unit.id;
+
+    UPDATE password_reset_requests
+    SET status = 'RESOLVED', resolved_at = now()
+    WHERE account_type = 'UNIT'
+      AND account_id = v_unit.id
+      AND status = 'PENDING';
+
+    RETURN jsonb_build_object(
+      'success', true,
+      'already_pending', false,
+      'is_unit_order_code', true,
+      'message', 'Unit Portal password is your Unit Order Code (WDR...). Please sign in using your Unit Order Code.'
+    );
   END IF;
 
   IF EXISTS (
@@ -1423,20 +1505,15 @@ BEGIN
     END IF;
 
     v_username := v_unit.username;
-    v_login_code := v_unit.login_code;
+    v_login_code := UPPER(TRIM(v_unit.login_code));
     v_contact_phone := COALESCE(v_unit.contact_phone, '');
 
-    IF v_temp = '' THEN
-      UPDATE units
-      SET password_hash = NULL, must_change_password = true
-      WHERE id = p_account_id;
-      v_return_pwd := v_login_code;
-    ELSE
-      UPDATE units
-      SET password_hash = crypt(v_temp, gen_salt('bf')), must_change_password = true
-      WHERE id = p_account_id;
-      v_return_pwd := v_temp;
-    END IF;
+    UPDATE units
+    SET
+      password_hash = crypt(UPPER(TRIM(v_unit.login_code)), gen_salt('bf')),
+      must_change_password = false
+    WHERE id = p_account_id;
+    v_return_pwd := v_login_code;
   END IF;
 
   DELETE FROM auth_sessions
@@ -4120,6 +4197,7 @@ END;
 $$;
 
 -- 6.33b SECTOR: LIST CREDENTIALS FOR OWN UNITS (PAGINATED)
+DROP FUNCTION IF EXISTS sector_list_credentials(TEXT, TEXT, TEXT, INT, INT);
 CREATE OR REPLACE FUNCTION sector_list_credentials(
   p_code TEXT,
   p_filter TEXT DEFAULT 'ALL',
@@ -4277,17 +4355,12 @@ BEGIN
     RAISE EXCEPTION 'Unit not found in your sector';
   END IF;
 
-  IF v_temp = '' THEN
-    UPDATE units
-    SET password_hash = NULL, must_change_password = true
-    WHERE id = p_unit_id AND sector_id = v_sector.id;
-    v_return_pwd := v_unit.login_code;
-  ELSE
-    UPDATE units
-    SET password_hash = crypt(v_temp, gen_salt('bf')), must_change_password = true
-    WHERE id = p_unit_id AND sector_id = v_sector.id;
-    v_return_pwd := v_temp;
-  END IF;
+  UPDATE units
+  SET
+    password_hash = crypt(UPPER(TRIM(v_unit.login_code)), gen_salt('bf')),
+    must_change_password = false
+  WHERE id = p_unit_id AND sector_id = v_sector.id;
+  v_return_pwd := UPPER(TRIM(v_unit.login_code));
 
   DELETE FROM auth_sessions
   WHERE role = 'UNIT' AND entity_id = p_unit_id;

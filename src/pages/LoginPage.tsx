@@ -15,6 +15,7 @@ import { BrandText } from '../components/BrandText';
 import { LoginTopDocsCard } from '../components/docs/LoginTopDocsCard';
 import { PageDocsButton } from '../components/docs/PageDocsButton';
 import { SsfLogo } from '../components/SsfLogo';
+import { UnitPasswordNoticeBanner } from '../components/UnitPasswordNoticeBanner';
 import { getHomeRouteForRole, useAuth } from '../context/AuthContext';
 import { useRegisterPageDocs } from '../context/DocsContext';
 import { supabase } from '../lib/supabase';
@@ -56,7 +57,7 @@ export default function LoginPage() {
   });
 
   if (session) {
-    if (session.must_change_password) {
+    if (session.must_change_password && session.role !== 'UNIT') {
       return <Navigate to="/setup-password" replace />;
     }
     return <Navigate to={getHomeRouteForRole(session.role)} replace />;
@@ -77,7 +78,7 @@ export default function LoginPage() {
 
     const res = await login(trimmedUser, trimmedPass);
     if (res.ok && res.role) {
-      if (res.must_change_password) {
+      if (res.must_change_password && res.role !== 'UNIT') {
         navigate('/setup-password', { replace: true });
       } else {
         navigate(getHomeRouteForRole(res.role), { replace: true });
@@ -145,6 +146,9 @@ export default function LoginPage() {
 
       {/* Mode A: Non-Blocking Top Malayalam Docs Card */}
       <LoginTopDocsCard />
+
+      {/* 3-Day Top Frosted Glass Unit Password Notice Banner */}
+      <UnitPasswordNoticeBanner variant="login" />
 
       {/* Centered SSF Logo Squircle Badge */}
       <Link

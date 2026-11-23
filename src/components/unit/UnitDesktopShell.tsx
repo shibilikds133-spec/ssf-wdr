@@ -12,6 +12,7 @@ import {
 import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
 import { SsfLogo } from '../SsfLogo';
+import { UnitPasswordNoticeBanner } from '../UnitPasswordNoticeBanner';
 
 interface UnitDesktopShellProps {
   children: ReactNode;
@@ -176,7 +177,10 @@ export function UnitDesktopShell({
         ref={mainRef}
         className="flex-1 min-w-0 overflow-y-auto [scrollbar-gutter:stable]"
       >
-        <div className="max-w-[1360px] mx-auto pl-[calc(1.5rem+env(safe-area-inset-left,0px))] pr-[calc(1.5rem+env(safe-area-inset-right,0px))] pt-2 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]">{children}</div>
+        <div className="max-w-[1360px] mx-auto pl-[calc(1.5rem+env(safe-area-inset-left,0px))] pr-[calc(1.5rem+env(safe-area-inset-right,0px))] pt-2 pb-[calc(2.5rem+env(safe-area-inset-bottom,0px))]">
+          <UnitPasswordNoticeBanner variant="unit" className="mb-4" />
+          {children}
+        </div>
       </main>
     </div>
   );
