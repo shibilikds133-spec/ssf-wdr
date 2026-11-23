@@ -3,6 +3,7 @@ import {
   getIstDateKey,
   type ReportDataSource,
   type ReportFilterConfig,
+  type ReportOrderRow,
   type ReportPayload,
   type ReportUnitSummaryRow,
 } from '../reports';
@@ -32,6 +33,17 @@ export interface FormattedWhatsAppReport {
   encodedLength: number;
 }
 
+interface WhatsAppPaymentContext {
+  isUnpaidOnly: boolean;
+  isPaidOnly: boolean;
+  isPaidCashOnly: boolean;
+  isPaidUpiOnly: boolean;
+  statusLine: string;
+  titleSuffix: string;
+  sectionTag: string;
+  orderQualifier: string;
+}
+
 const DIVIDER = '━━━━━━━━━━━━━━━━━━';
 const IST_TIMEZONE = 'Asia/Kolkata';
 const DEFAULT_CAMPAIGN_PERIOD = '22 Nov – 20 Dec 2026';
@@ -50,6 +62,74 @@ const SHORT_MONTHS = [
   'Nov',
   'Dec',
 ] as const;
+
+function resolvePaymentContext(config: ReportFilterConfig): WhatsAppPaymentContext {
+  const isUnpaidOnly =
+    config.template === 'UNPAID_DUES' || config.paymentStatus === 'UNPAID';
+  const isPaidCashOnly = !isUnpaidOnly && config.paymentMode === 'CASH';
+  const isPaidUpiOnly = !isUnpaidOnly && config.paymentMode === 'UPI';
+  const isPaidOnly =
+    !isUnpaidOnly && (config.paymentStatus === 'PAID' || config.paymentMode !== 'ALL');
+
+  if (isUnpaidOnly) {
+    return {
+      isUnpaidOnly: true,
+      isPaidOnly: false,
+      isPaidCashOnly: false,
+      isPaidUpiOnly: false,
+      statusLine: 'Unpaid Only',
+      titleSuffix: 'Unpaid',
+      sectionTag: 'UNPAID',
+      orderQualifier: 'Unpaid ',
+    };
+  }
+  if (isPaidCashOnly) {
+    return {
+      isUnpaidOnly: false,
+      isPaidOnly: true,
+      isPaidCashOnly: true,
+      isPaidUpiOnly: false,
+      statusLine: 'Paid (Cash)',
+      titleSuffix: 'Paid (Cash)',
+      sectionTag: 'PAID — CASH',
+      orderQualifier: 'Paid ',
+    };
+  }
+  if (isPaidUpiOnly) {
+    return {
+      isUnpaidOnly: false,
+      isPaidOnly: true,
+      isPaidCashOnly: false,
+      isPaidUpiOnly: true,
+      statusLine: 'Paid (UPI)',
+      titleSuffix: 'Paid (UPI)',
+      sectionTag: 'PAID — UPI',
+      orderQualifier: 'Paid ',
+    };
+  }
+  if (isPaidOnly) {
+    return {
+      isUnpaidOnly: false,
+      isPaidOnly: true,
+      isPaidCashOnly: false,
+      isPaidUpiOnly: false,
+      statusLine: 'Paid Only',
+      titleSuffix: 'Paid',
+      sectionTag: 'PAID',
+      orderQualifier: 'Paid ',
+    };
+  }
+  return {
+    isUnpaidOnly: false,
+    isPaidOnly: false,
+    isPaidCashOnly: false,
+    isPaidUpiOnly: false,
+    statusLine: '',
+    titleSuffix: '',
+    sectionTag: '',
+    orderQualifier: '',
+  };
+}
 
 function pad2(n: number): string {
   return String(Math.max(0, Math.floor(n))).padStart(2, '0');
@@ -75,9 +155,9 @@ function formatCountIn(count: number): string {
   return new Intl.NumberFormat('en-IN').format(safe);
 }
 
-function formatOrdersLabel(count: number): string {
+function formatOrdersLabel(count: number, qualifier = ''): string {
   const safe = Number.isFinite(count) ? Math.round(count) : 0;
-  return `${formatCountIn(safe)} ${safe === 1 ? 'Order' : 'Orders'}`;
+  return `${formatCountIn(safe)} ${qualifier}${safe === 1 ? 'Order' : 'Orders'}`;
 }
 
 function formatQtyIn(qty: number): string {
@@ -178,25 +258,95 @@ function addCents(a: number, b: number): number {
 function buildHeaderLines(
   subtitle: string,
   periodLabel: string,
-  updatedLabel: string
+  updatedLabel: string,
+  payCtx: WhatsAppPaymentContext
 ): string[] {
+  const lines = ['*SSF WANDOOR DIVISION*', `Payasam Challenge — ${subtitle}`];
+  if (payCtx.statusLine) {
+    lines.push(`Status : ${payCtx.statusLine}`);
+  }
+  lines.push(`Period : ${periodLabel}`);
+  lines.push(`Updated: ${updatedLabel}`);
+  lines.push(DIVIDER);
+  return lines;
+}
+
+function buildDetailedRowAmountLines(
+  payCtx: WhatsAppPaymentContext,
+  amounts: { cash: number; upi: number; unpaid: number; total: number }
+): string[] {
+  if (payCtx.isUnpaidOnly) {
+    return [
+      `    Status: Unpaid | Due: *${formatPdfCurrency(amounts.unpaid || amounts.total)}*`,
+    ];
+  }
+  if (payCtx.isPaidCashOnly) {
+    return [
+      `    Paid (Cash): *${formatPdfCurrency(amounts.cash || amounts.total)}*`,
+    ];
+  }
+  if (payCtx.isPaidUpiOnly) {
+    return [
+      `    Paid (UPI): *${formatPdfCurrency(amounts.upi || amounts.total)}*`,
+    ];
+  }
+  if (payCtx.isPaidOnly) {
+    return [
+      `    Cash: ${formatPdfCurrency(amounts.cash)} | UPI: ${formatPdfCurrency(amounts.upi)}`,
+      `    Paid Total: *${formatPdfCurrency(amounts.total)}*`,
+    ];
+  }
   return [
-    '*SSF WANDOOR DIVISION*',
-    `Payasam Challenge — ${subtitle}`,
-    `Period : ${periodLabel}`,
-    `Updated: ${updatedLabel}`,
-    DIVIDER,
+    `    Cash: ${formatPdfCurrency(amounts.cash)} | UPI: ${formatPdfCurrency(amounts.upi)} | Unpaid: ${formatPdfCurrency(amounts.unpaid)}`,
+    `    Total: *${formatPdfCurrency(amounts.total)}*`,
   ];
 }
 
-function buildDetailedGrandTotalLines(params: {
-  orders: number;
-  liters: number;
-  cash: number;
-  upi: number;
-  unpaid: number;
-  total: number;
-}): string[] {
+function buildDetailedGrandTotalLines(
+  payCtx: WhatsAppPaymentContext,
+  params: {
+    orders: number;
+    liters: number;
+    cash: number;
+    upi: number;
+    unpaid: number;
+    total: number;
+  }
+): string[] {
+  if (payCtx.isUnpaidOnly) {
+    return [
+      DIVIDER,
+      '*GRAND TOTAL (UNPAID)*',
+      `Unpaid Orders : ${formatCountIn(params.orders)} | Liters : ${formatQtyIn(params.liters)}`,
+      `*TOTAL UNPAID : ${formatPdfCurrency(params.unpaid || params.total)}*`,
+    ];
+  }
+  if (payCtx.isPaidCashOnly) {
+    return [
+      DIVIDER,
+      '*GRAND TOTAL (PAID — CASH)*',
+      `Paid Orders : ${formatCountIn(params.orders)} | Liters : ${formatQtyIn(params.liters)}`,
+      `*TOTAL CASH : ${formatPdfCurrency(params.cash || params.total)}*`,
+    ];
+  }
+  if (payCtx.isPaidUpiOnly) {
+    return [
+      DIVIDER,
+      '*GRAND TOTAL (PAID — UPI)*',
+      `Paid Orders : ${formatCountIn(params.orders)} | Liters : ${formatQtyIn(params.liters)}`,
+      `*TOTAL UPI  : ${formatPdfCurrency(params.upi || params.total)}*`,
+    ];
+  }
+  if (payCtx.isPaidOnly) {
+    return [
+      DIVIDER,
+      '*GRAND TOTAL (PAID)*',
+      `Paid Orders : ${formatCountIn(params.orders)} | Liters : ${formatQtyIn(params.liters)}`,
+      `Cash        : ${formatPdfCurrency(params.cash)}`,
+      `UPI         : ${formatPdfCurrency(params.upi)}`,
+      `*TOTAL PAID : ${formatPdfCurrency(params.total)}*`,
+    ];
+  }
   return [
     DIVIDER,
     '*GRAND TOTAL*',
@@ -208,11 +358,21 @@ function buildDetailedGrandTotalLines(params: {
   ];
 }
 
-function buildStatusGrandTotalLines(orders: number, liters: number): string[] {
+function buildStatusGrandTotalLines(
+  payCtx: WhatsAppPaymentContext,
+  orders: number,
+  liters: number
+): string[] {
+  const orderLabel = payCtx.isUnpaidOnly
+    ? 'TOTAL UNPAID ORDERS'
+    : payCtx.isPaidOnly
+    ? 'TOTAL PAID ORDERS'
+    : 'TOTAL ORDERS';
+  const literLabel = payCtx.isUnpaidOnly ? 'TOTAL UNPAID LITERS' : 'TOTAL LITERS';
   return [
     DIVIDER,
-    `*TOTAL ORDERS : ${formatCountIn(orders)}*`,
-    `*TOTAL LITERS : ${formatQtyIn(liters)}*`,
+    `*${orderLabel} : ${formatCountIn(orders)}*`,
+    `*${literLabel} : ${formatQtyIn(liters)}*`,
   ];
 }
 
@@ -220,13 +380,19 @@ function buildSectorWiseMessage(
   payload: ReportPayload,
   mode: ReportShareMode,
   periodLabel: string,
-  updatedLabel: string
+  updatedLabel: string,
+  payCtx: WhatsAppPaymentContext
 ): FormattedWhatsAppReport {
-  const lines = buildHeaderLines(
-    mode === 'status' ? 'Sector Order Status' : 'Detailed Report',
-    periodLabel,
-    updatedLabel
-  );
+  const subtitle =
+    mode === 'status'
+      ? payCtx.titleSuffix
+        ? `Sector ${payCtx.titleSuffix} Order Status`
+        : 'Sector Order Status'
+      : payCtx.titleSuffix
+      ? `Sector ${payCtx.titleSuffix} Detailed Report`
+      : 'Detailed Report';
+
+  const lines = buildHeaderLines(subtitle, periodLabel, updatedLabel, payCtx);
 
   const rollup = reconcileRollupRows(payload.sectorRows);
   const direct = payload.divisionDirectBreakdown;
@@ -240,55 +406,64 @@ function buildSectorWiseMessage(
   const grandUnpaid = addCents(rollup.unpaidAmount, hasDirect ? direct.unpaidAmount : 0);
 
   const sectorCount = payload.sectorRows.length;
+  const tagPrefix = payCtx.sectionTag ? `${payCtx.sectionTag} — ` : '';
 
   if (mode === 'status') {
-    lines.push(`*SECTOR-WISE SUMMARY (${sectorCount} SECTORS)*`);
+    lines.push(`*${tagPrefix}SECTOR-WISE SUMMARY (${sectorCount} SECTORS)*`);
     lines.push('');
     if (sectorCount === 0 && !hasDirect) {
       lines.push('No sector records match the current filters.');
     } else {
       payload.sectorRows.forEach((sec, idx) => {
         lines.push(
-          `${pad2(idx + 1)}. ${cleanName(sec.sectorName)} — ${formatOrdersLabel(sec.orders)} | ${formatQtyIn(sec.liters)}`
+          `${pad2(idx + 1)}. ${cleanName(sec.sectorName)} — ${formatOrdersLabel(sec.orders, payCtx.orderQualifier)} | ${formatQtyIn(sec.liters)}`
         );
       });
       if (hasDirect) {
         lines.push(
-          `Division Direct — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
+          `Division Direct — ${formatOrdersLabel(direct.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(direct.totalLiters)}`
         );
       }
     }
-    lines.push(...buildStatusGrandTotalLines(grandOrders, grandLiters));
+    lines.push(...buildStatusGrandTotalLines(payCtx, grandOrders, grandLiters));
   } else {
-    lines.push(`*SECTOR-WISE DETAILED (${sectorCount} SECTORS)*`);
+    lines.push(`*${tagPrefix}SECTOR-WISE DETAILED (${sectorCount} SECTORS)*`);
     lines.push('');
     if (sectorCount === 0 && !hasDirect) {
       lines.push('No sector records match the current filters.');
     } else {
       payload.sectorRows.forEach((sec, idx) => {
         lines.push(
-          `${pad2(idx + 1)}. *${cleanName(sec.sectorName)}* — ${formatOrdersLabel(sec.orders)} | ${formatQtyIn(sec.liters)}`
+          `${pad2(idx + 1)}. *${cleanName(sec.sectorName)}* — ${formatOrdersLabel(sec.orders, payCtx.orderQualifier)} | ${formatQtyIn(sec.liters)}`
         );
         lines.push(
-          `    Cash: ${formatPdfCurrency(sec.cashAmount)} | UPI: ${formatPdfCurrency(sec.upiAmount)} | Unpaid: ${formatPdfCurrency(sec.unpaidAmount)}`
+          ...buildDetailedRowAmountLines(payCtx, {
+            cash: sec.cashAmount,
+            upi: sec.upiAmount,
+            unpaid: sec.unpaidAmount,
+            total: sec.totalAmount,
+          })
         );
-        lines.push(`    Total: *${formatPdfCurrency(sec.totalAmount)}*`);
         if (idx < sectorCount - 1 || hasDirect) {
           lines.push('');
         }
       });
       if (hasDirect) {
         lines.push(
-          `*Division Direct* — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
+          `*Division Direct* — ${formatOrdersLabel(direct.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(direct.totalLiters)}`
         );
         lines.push(
-          `    Cash: ${formatPdfCurrency(direct.cashAmount)} | UPI: ${formatPdfCurrency(direct.upiAmount)} | Unpaid: ${formatPdfCurrency(direct.unpaidAmount)}`
+          ...buildDetailedRowAmountLines(payCtx, {
+            cash: direct.cashAmount,
+            upi: direct.upiAmount,
+            unpaid: direct.unpaidAmount,
+            total: direct.totalAmount,
+          })
         );
-        lines.push(`    Total: *${formatPdfCurrency(direct.totalAmount)}*`);
       }
     }
     lines.push(
-      ...buildDetailedGrandTotalLines({
+      ...buildDetailedGrandTotalLines(payCtx, {
         orders: grandOrders,
         liters: grandLiters,
         cash: grandCash,
@@ -302,7 +477,7 @@ function buildSectorWiseMessage(
   const text = lines.join('\n');
   return {
     text,
-    title: 'SSF Wandoor Division — Sector Report',
+    title: `SSF Wandoor Division — ${subtitle}`,
     mode,
     lineCount: lines.length,
     encodedLength: encodeURIComponent(text).length,
@@ -313,13 +488,19 @@ function buildUnitGroupedMessage(
   payload: ReportPayload,
   mode: ReportShareMode,
   periodLabel: string,
-  updatedLabel: string
+  updatedLabel: string,
+  payCtx: WhatsAppPaymentContext
 ): FormattedWhatsAppReport {
-  const lines = buildHeaderLines(
-    mode === 'status' ? 'Unit Order Status' : 'Detailed Report',
-    periodLabel,
-    updatedLabel
-  );
+  const subtitle =
+    mode === 'status'
+      ? payCtx.titleSuffix
+        ? `${payCtx.titleSuffix} Unit Order Status`
+        : 'Unit Order Status'
+      : payCtx.titleSuffix
+      ? `${payCtx.titleSuffix} Detailed Report`
+      : 'Detailed Report';
+
+  const lines = buildHeaderLines(subtitle, periodLabel, updatedLabel, payCtx);
 
   // Group all unit rows by Sector
   const sectorGroups = new Map<
@@ -369,22 +550,26 @@ function buildUnitGroupedMessage(
   } else {
     orderedGroups.forEach((group, gIdx) => {
       lines.push(
-        `${formatSectorBoldHeader(group.sectorName)} (${formatOrdersLabel(group.totalOrders)} | ${formatQtyIn(group.totalLiters)})`
+        `${formatSectorBoldHeader(group.sectorName)} (${formatOrdersLabel(group.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(group.totalLiters)})`
       );
       group.units.forEach((unit, uIdx) => {
         const safeUnit = cleanName(unit.unitName);
         if (mode === 'status') {
           lines.push(
-            `${pad2(uIdx + 1)}. ${safeUnit} — ${formatOrdersLabel(unit.orders)} | ${formatQtyIn(unit.liters)}`
+            `${pad2(uIdx + 1)}. ${safeUnit} — ${formatOrdersLabel(unit.orders, payCtx.orderQualifier)} | ${formatQtyIn(unit.liters)}`
           );
         } else {
           lines.push(
-            `${pad2(uIdx + 1)}. ${safeUnit} — ${formatOrdersLabel(unit.orders)} | ${formatQtyIn(unit.liters)}`
+            `${pad2(uIdx + 1)}. ${safeUnit} — ${formatOrdersLabel(unit.orders, payCtx.orderQualifier)} | ${formatQtyIn(unit.liters)}`
           );
           lines.push(
-            `    Cash: ${formatPdfCurrency(unit.cashAmount)} | UPI: ${formatPdfCurrency(unit.upiAmount)} | Unpaid: ${formatPdfCurrency(unit.unpaidAmount)}`
+            ...buildDetailedRowAmountLines(payCtx, {
+              cash: unit.cashAmount,
+              upi: unit.upiAmount,
+              unpaid: unit.unpaidAmount,
+              total: unit.totalAmount,
+            })
           );
-          lines.push(`    Total: *${formatPdfCurrency(unit.totalAmount)}*`);
         }
       });
       if (gIdx < orderedGroups.length - 1 || includeDirect) {
@@ -394,29 +579,33 @@ function buildUnitGroupedMessage(
 
     if (includeDirect) {
       lines.push(
-        `*DIVISION DIRECT* (${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)})`
+        `*DIVISION DIRECT* (${formatOrdersLabel(direct.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(direct.totalLiters)})`
       );
       if (mode === 'status') {
         lines.push(
-          `01. Division Direct — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
+          `01. Division Direct — ${formatOrdersLabel(direct.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(direct.totalLiters)}`
         );
       } else {
         lines.push(
-          `01. Division Direct — ${formatOrdersLabel(direct.totalOrders)} | ${formatQtyIn(direct.totalLiters)}`
+          `01. Division Direct — ${formatOrdersLabel(direct.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(direct.totalLiters)}`
         );
         lines.push(
-          `    Cash: ${formatPdfCurrency(direct.cashAmount)} | UPI: ${formatPdfCurrency(direct.upiAmount)} | Unpaid: ${formatPdfCurrency(direct.unpaidAmount)}`
+          ...buildDetailedRowAmountLines(payCtx, {
+            cash: direct.cashAmount,
+            upi: direct.upiAmount,
+            unpaid: direct.unpaidAmount,
+            total: direct.totalAmount,
+          })
         );
-        lines.push(`    Total: *${formatPdfCurrency(direct.totalAmount)}*`);
       }
     }
   }
 
   if (mode === 'status') {
-    lines.push(...buildStatusGrandTotalLines(grandOrders, grandLiters));
+    lines.push(...buildStatusGrandTotalLines(payCtx, grandOrders, grandLiters));
   } else {
     lines.push(
-      ...buildDetailedGrandTotalLines({
+      ...buildDetailedGrandTotalLines(payCtx, {
         orders: grandOrders,
         liters: grandLiters,
         cash: grandCash,
@@ -430,31 +619,53 @@ function buildUnitGroupedMessage(
   const text = lines.join('\n');
   return {
     text,
-    title: 'SSF Wandoor Division — Unit Report',
+    title: `SSF Wandoor Division — ${subtitle}`,
     mode,
     lineCount: lines.length,
     encodedLength: encodeURIComponent(text).length,
   };
 }
 
-function buildSingleUnitOrDirectMessage(
+/**
+ * Customer-level Delivery Sheet or Unpaid Dues list for Sector/Division/Unit scopes.
+ * - Delivery Sheet includes `[ ]` handover markers + customer name + qty + payment status (+ mobile & amount in Detailed mode).
+ * - Unpaid Dues includes explicit `Unpaid` status + customer name + qty (+ mobile & due amount in Detailed mode).
+ */
+function buildCustomerOrderListMessage(
   payload: ReportPayload,
   mode: ReportShareMode,
   periodLabel: string,
-  updatedLabel: string
+  updatedLabel: string,
+  payCtx: WhatsAppPaymentContext
 ): FormattedWhatsAppReport {
+  const isDelivery = payload.config.template === 'DELIVERY_SHEET';
+  const isUnpaidTemplate = payload.config.template === 'UNPAID_DUES';
   const isDirect = payload.config.scope === 'DIVISION_DIRECT';
-  const subtitle = isDirect
-    ? mode === 'status'
+  const isMultiUnit =
+    payload.config.scope === 'ENTIRE_DIVISION' ||
+    payload.config.scope === 'SECTOR_SPECIFIC' ||
+    payload.config.scope === 'ENTIRE_SECTOR';
+
+  const subtitle = isDelivery
+    ? payCtx.titleSuffix
+      ? `Delivery Sheet (${payCtx.titleSuffix})`
+      : 'Delivery Sheet'
+    : isUnpaidTemplate
+    ? 'Unpaid Dues List'
+    : isDirect
+    ? payCtx.titleSuffix
+      ? `Division Direct — ${payCtx.titleSuffix} Orders`
+      : mode === 'status'
       ? 'Division Direct Order Status'
       : 'Division Direct Detailed Report'
+    : payCtx.titleSuffix
+    ? `Unit ${payCtx.titleSuffix} Orders`
     : mode === 'status'
     ? 'Unit Order Status'
     : 'Unit Detailed Report';
 
-  const lines = buildHeaderLines(subtitle, periodLabel, updatedLabel);
+  const lines = buildHeaderLines(subtitle, periodLabel, updatedLabel, payCtx);
 
-  // Reconcile using cent-integer math from pdfAccounting directly
   const orderInputs = payload.orderRows.map((r) => ({
     quantity: r.quantity,
     unit_rate_applied: r.unitRateApplied,
@@ -465,66 +676,132 @@ function buildSingleUnitOrDirectMessage(
   }));
   const reconciled = reconcileOrderEntries(orderInputs, payload.unitRate);
 
-  if (isDirect) {
-    lines.push(
-      `*DIVISION DIRECT* (${formatOrdersLabel(reconciled.totalOrders)} | ${formatQtyIn(reconciled.totalLiters)})`
+  const renderOrderRowLines = (order: ReportOrderRow, idx: number): string[] => {
+    const custName = cleanName(order.contributorName);
+    const payLabel = formatOrderPaymentShort(
+      order.paymentStatus,
+      order.paymentMode
     );
-  } else {
-    const sectorName =
-      payload.orderRows[0]?.sectorName ||
-      payload.unitRows[0]?.sectorName ||
-      extractSectorFromScopeSubtitle(payload.scopeSubtitle) ||
-      'Sector';
-    const unitName =
-      payload.orderRows[0]?.unitName ||
-      payload.unitRows[0]?.unitName ||
-      extractUnitFromScopeSubtitle(payload.scopeSubtitle) ||
-      'Unit';
-    lines.push(formatSectorBoldHeader(sectorName));
-    lines.push(
-      `${cleanName(unitName)} — ${formatOrdersLabel(reconciled.totalOrders)} | ${formatQtyIn(reconciled.totalLiters)}`
-    );
-  }
+    const prefix = isDelivery ? `[ ] ${pad2(idx + 1)}.` : `${pad2(idx + 1)}.`;
+    const unitTag =
+      isMultiUnit && !order.isDivisionDirect && order.unitName
+        ? ` (${cleanName(order.unitName)})`
+        : '';
 
-  // Append customer breakdown on delivery/unpaid/direct/detailed order lists
-  const includeCustomerRows =
-    payload.orderRows.length > 0 &&
-    (isDirect ||
-      payload.config.template === 'DELIVERY_SHEET' ||
-      payload.config.template === 'UNPAID_DUES' ||
-      payload.config.template === 'DETAILED_ORDERS');
+    if (mode === 'status') {
+      // Strictly ZERO money in Default Status mode, while preserving payment status / delivery state
+      return [
+        `${prefix} ${custName}${unitTag} — ${formatQtyIn(order.quantity)} | ${payLabel}`,
+      ];
+    }
 
-  if (includeCustomerRows) {
-    lines.push('');
-    lines.push(
-      mode === 'status'
-        ? `*ORDER LIST (${formatCountIn(payload.orderRows.length)})*`
-        : `*ORDERS DETAILED (${formatCountIn(payload.orderRows.length)})*`
-    );
-    payload.orderRows.forEach((order, idx) => {
-      const custName = cleanName(order.contributorName);
-      if (mode === 'status') {
-        lines.push(`${pad2(idx + 1)}. ${custName} — ${formatQtyIn(order.quantity)}`);
-      } else {
-        const payLabel = formatOrderPaymentShort(
-          order.paymentStatus,
-          order.paymentMode
-        );
-        lines.push(`${pad2(idx + 1)}. ${custName} — ${formatQtyIn(order.quantity)}`);
-        lines.push(
-          `    ${payLabel} | Total: *${formatPdfCurrency(order.totalAmount)}*`
-        );
-      }
+    const phonePart = order.mobileNumber ? `Ph: ${order.mobileNumber} | ` : '';
+    const amountLabel =
+      order.paymentStatus === 'UNPAID' ? 'Due' : 'Total';
+    return [
+      `${prefix} ${custName}${unitTag} — ${formatQtyIn(order.quantity)}`,
+      `    ${phonePart}${payLabel} | ${amountLabel}: *${formatPdfCurrency(order.totalAmount)}*`,
+    ];
+  };
+
+  if (isMultiUnit) {
+    // Group customer rows by Sector (Bold *SECTOR*) so multi-sector lists stay cleanly organized
+    const groups = new Map<
+      string,
+      { sectorName: string; isDirectGroup: boolean; orders: ReportOrderRow[]; totalLiters: number }
+    >();
+
+    for (const row of payload.orderRows) {
+      const isDirectRow = row.isDivisionDirect;
+      const sName = isDirectRow
+        ? 'Division Direct'
+        : cleanName(row.sectorName, 'Other Sector');
+      const key = isDirectRow ? '__direct__' : `${row.sectorId ?? 0}::${sName.toLowerCase()}`;
+      const existing = groups.get(key) ?? {
+        sectorName: sName,
+        isDirectGroup: isDirectRow,
+        orders: [],
+        totalLiters: 0,
+      };
+      existing.orders.push(row);
+      existing.totalLiters = addCents(existing.totalLiters, row.quantity);
+      groups.set(key, existing);
+    }
+
+    const orderedGroups = [...groups.values()].sort((a, b) => {
+      if (a.isDirectGroup !== b.isDirectGroup) return a.isDirectGroup ? 1 : -1;
+      return a.sectorName.localeCompare(b.sectorName);
     });
+
+    if (orderedGroups.length === 0) {
+      lines.push('No matching orders found.');
+    } else {
+      orderedGroups.forEach((group, gIdx) => {
+        const heading = group.isDirectGroup
+          ? '*DIVISION DIRECT*'
+          : formatSectorBoldHeader(group.sectorName);
+        lines.push(
+          `${heading} (${formatOrdersLabel(group.orders.length, payCtx.orderQualifier)} | ${formatQtyIn(group.totalLiters)})`
+        );
+        group.orders.forEach((order, oIdx) => {
+          lines.push(...renderOrderRowLines(order, oIdx));
+        });
+        if (gIdx < orderedGroups.length - 1) {
+          lines.push('');
+        }
+      });
+    }
+  } else {
+    if (isDirect) {
+      lines.push(
+        `*DIVISION DIRECT* (${formatOrdersLabel(reconciled.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(reconciled.totalLiters)})`
+      );
+    } else {
+      const sectorName =
+        payload.orderRows[0]?.sectorName ||
+        payload.unitRows[0]?.sectorName ||
+        extractSectorFromScopeSubtitle(payload.scopeSubtitle) ||
+        'Sector';
+      const unitName =
+        payload.orderRows[0]?.unitName ||
+        payload.unitRows[0]?.unitName ||
+        extractUnitFromScopeSubtitle(payload.scopeSubtitle) ||
+        'Unit';
+      lines.push(formatSectorBoldHeader(sectorName));
+      lines.push(
+        `${cleanName(unitName)} — ${formatOrdersLabel(reconciled.totalOrders, payCtx.orderQualifier)} | ${formatQtyIn(reconciled.totalLiters)}`
+      );
+    }
+
+    if (payload.orderRows.length > 0) {
+      lines.push('');
+      const listHeading = isDelivery
+        ? `*DELIVERY LIST (${formatCountIn(payload.orderRows.length)})*`
+        : payCtx.isUnpaidOnly
+        ? `*UNPAID ORDERS (${formatCountIn(payload.orderRows.length)})*`
+        : payCtx.isPaidOnly
+        ? `*${payCtx.sectionTag} ORDERS (${formatCountIn(payload.orderRows.length)})*`
+        : mode === 'status'
+        ? `*ORDER LIST (${formatCountIn(payload.orderRows.length)})*`
+        : `*ORDERS DETAILED (${formatCountIn(payload.orderRows.length)})*`;
+      lines.push(listHeading);
+      payload.orderRows.forEach((order, idx) => {
+        lines.push(...renderOrderRowLines(order, idx));
+      });
+    }
   }
 
   if (mode === 'status') {
     lines.push(
-      ...buildStatusGrandTotalLines(reconciled.totalOrders, reconciled.totalLiters)
+      ...buildStatusGrandTotalLines(
+        payCtx,
+        reconciled.totalOrders,
+        reconciled.totalLiters
+      )
     );
   } else {
     lines.push(
-      ...buildDetailedGrandTotalLines({
+      ...buildDetailedGrandTotalLines(payCtx, {
         orders: reconciled.totalOrders,
         liters: reconciled.totalLiters,
         cash: reconciled.cashAmount,
@@ -538,9 +815,7 @@ function buildSingleUnitOrDirectMessage(
   const text = lines.join('\n');
   return {
     text,
-    title: isDirect
-      ? 'SSF Wandoor Division — Division Direct'
-      : 'SSF Wandoor Division — Unit Report',
+    title: `SSF Wandoor Division — ${subtitle}`,
     mode,
     lineCount: lines.length,
     encodedLength: encodeURIComponent(text).length,
@@ -566,6 +841,8 @@ function extractUnitFromScopeSubtitle(subtitle: string): string {
  * Pure structured WhatsApp formatter integrated with the shared PDF report engine.
  * - Default mode is `'status'` (`Order Status` only — strictly ZERO money).
  * - Opt-in `'detailed'` mode shares full accounting breakdown matching `pdfAccounting.ts`.
+ * - Every report type (Unpaid, Paid Cash/UPI, Delivery Sheet, Sector/Unit Summary, Detailed Orders)
+ *   carries its own explicit status header, tailored row fields, and totals.
  * - Enforces zero-padded `01.` numbering, `━━━━━━━━━━━━━━━━━━` dividers, bold `*SECTOR*`
  *   headers + normal-weight unit rows, and zero exposed `Order Code`.
  * - Uses full filtered dataset (never truncated to 10-per-page UI pagination).
@@ -579,18 +856,36 @@ export function buildWhatsAppReportText({
   const updatedLabel = formatUpdatedTimestamp(now);
   const currentPayload = buildReportPayload(source, config, now);
   const periodLabel = formatPeriodLabel(currentPayload.config, now);
+  const payCtx = resolvePaymentContext(currentPayload.config);
 
-  // Single-unit or Division Direct scopes
+  // Delivery Sheet (all portals/scopes) or Single-Unit / Division Direct scopes -> customer-level list
   if (
+    currentPayload.config.template === 'DELIVERY_SHEET' ||
     currentPayload.config.scope === 'THIS_UNIT' ||
     currentPayload.config.scope === 'UNIT_SPECIFIC' ||
     currentPayload.config.scope === 'DIVISION_DIRECT'
   ) {
-    return buildSingleUnitOrDirectMessage(
+    return buildCustomerOrderListMessage(
       currentPayload,
       mode,
       periodLabel,
-      updatedLabel
+      updatedLabel,
+      payCtx
+    );
+  }
+
+  // Unpaid Dues on a Sector scope -> customer-level Unpaid Dues collection list
+  if (
+    currentPayload.config.template === 'UNPAID_DUES' &&
+    (currentPayload.config.scope === 'SECTOR_SPECIFIC' ||
+      currentPayload.config.scope === 'ENTIRE_SECTOR')
+  ) {
+    return buildCustomerOrderListMessage(
+      currentPayload,
+      mode,
+      periodLabel,
+      updatedLabel,
+      payCtx
     );
   }
 
@@ -604,7 +899,8 @@ export function buildWhatsAppReportText({
       currentPayload,
       mode,
       periodLabel,
-      updatedLabel
+      updatedLabel,
+      payCtx
     );
   }
 
@@ -618,5 +914,11 @@ export function buildWhatsAppReportText({
           now
         );
 
-  return buildUnitGroupedMessage(unitPayload, mode, periodLabel, updatedLabel);
+  return buildUnitGroupedMessage(
+    unitPayload,
+    mode,
+    periodLabel,
+    updatedLabel,
+    payCtx
+  );
 }
