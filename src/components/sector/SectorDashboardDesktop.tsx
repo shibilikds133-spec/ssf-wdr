@@ -23,10 +23,14 @@ import {
   formatQuantity,
 } from '../../utils/format';
 import type { ReportFilterConfig } from '../../utils/reports';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 
 interface SectorDashboardDesktopProps {
   data: SectorDashboardResponse;
+  sectorCode: string;
   onOpenExportModal: (initialConfig?: Partial<ReportFilterConfig>) => void;
+  onMutated: (msg: string) => Promise<void>;
+  onError?: (msg: string) => void;
 }
 
 const PIXEL_COLUMNS = [
@@ -54,7 +58,10 @@ const UNIT_BAR_COLORS = [
 
 export function SectorDashboardDesktop({
   data,
+  sectorCode,
   onOpenExportModal,
+  onMutated,
+  onError,
 }: SectorDashboardDesktopProps) {
   const navigate = useNavigate();
   const { sector, settings, summary, units, entries } = data;
@@ -795,9 +802,19 @@ export function SectorDashboardDesktop({
                         </td>
                         <td className="py-2.5 pl-4 text-right whitespace-nowrap">
                           {entry.payment_status === 'UNPAID' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-vibrant-coralSoft text-vibrant-coral">
-                              Unpaid
-                            </span>
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-vibrant-coralSoft text-vibrant-coral">
+                                Unpaid
+                              </span>
+                              <InlinePaymentUpdater
+                                portal="SECTOR"
+                                authCode={sectorCode}
+                                entryId={entry.id}
+                                compact
+                                onPaid={onMutated}
+                                onError={onError}
+                              />
+                            </div>
                           ) : (
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${

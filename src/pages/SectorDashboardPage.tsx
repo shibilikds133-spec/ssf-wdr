@@ -256,16 +256,22 @@ export default function SectorDashboardPage() {
                 isDesktop ? (
                   <SectorDashboardDesktop
                     data={data}
+                    sectorCode={session.code}
                     onOpenExportModal={(cfg) =>
                       setExportModalConfig(cfg ?? { scope: 'ENTIRE_SECTOR' })
                     }
+                    onMutated={handleMutated}
+                    onError={(msg) => showToast('error', msg)}
                   />
                 ) : (
                   <SectorDashboardMobile
                     data={data}
+                    sectorCode={session.code}
                     onOpenExportModal={(cfg) =>
                       setExportModalConfig(cfg ?? { scope: 'ENTIRE_SECTOR' })
                     }
+                    onMutated={handleMutated}
+                    onError={(msg) => showToast('error', msg)}
                   />
                 )
               }
@@ -300,7 +306,6 @@ export default function SectorDashboardPage() {
                   refreshKey={dataVersion}
                   initialUnitId={selectedUnitIdForEntries}
                   onClearUnitFilter={() => setSelectedUnitIdForEntries('ALL')}
-                  onMarkPaid={(entry) => setMarkPaidEntry(entry)}
                   onMutated={handleMutated}
                   onError={(msg) => showToast('error', msg)}
                 />

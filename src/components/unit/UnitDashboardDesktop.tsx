@@ -28,13 +28,16 @@ import {
 } from '../../utils/format';
 import type { ReportFilterConfig } from '../../utils/reports';
 import { buildWhatsAppReceiptUrl } from '../../utils/whatsapp';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 import { PushNotificationSettingsCard } from '../PushNotificationSettingsCard';
 
 interface UnitDashboardDesktopProps {
   data: UnitDashboardResponse;
+  unitCode: string;
   onOpenQuickOrder: () => void;
-  onMarkPaid: (entry: EntryItem) => void;
   onOpenExportModal: (initialConfig?: Partial<ReportFilterConfig>) => void;
+  onMutated: (msg: string) => Promise<void>;
+  onError?: (msg: string) => void;
 }
 
 const PIXEL_COLUMNS = [
@@ -55,9 +58,11 @@ const PIXEL_COLUMNS = [
 
 export function UnitDashboardDesktop({
   data,
+  unitCode,
   onOpenQuickOrder,
-  onMarkPaid,
   onOpenExportModal,
+  onMutated,
+  onError,
 }: UnitDashboardDesktopProps) {
   const { unit, settings, summary, entries } = data;
 
@@ -897,13 +902,14 @@ export function UnitDashboardDesktop({
                         <td className="py-2.5 pl-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
                             {entry.payment_status === 'UNPAID' && (
-                              <button
-                                type="button"
-                                onClick={() => onMarkPaid(entry)}
-                                className="px-2.5 py-1 rounded-lg glass-orange text-white text-[11px] font-semibold hover:opacity-95 transition-opacity"
-                              >
-                                Mark as Paid
-                              </button>
+                              <InlinePaymentUpdater
+                                portal="UNIT"
+                                authCode={unitCode}
+                                entryId={entry.id}
+                                compact
+                                onPaid={onMutated}
+                                onError={onError}
+                              />
                             )}
                             <button
                               type="button"

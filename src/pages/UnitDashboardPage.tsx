@@ -257,20 +257,24 @@ export default function UnitDashboardPage() {
                 isDesktop ? (
                   <UnitDashboardDesktop
                     data={data}
+                    unitCode={session.code}
                     onOpenQuickOrder={handleOpenQuickOrder}
-                    onMarkPaid={(entry) => setMarkPaidEntry(entry)}
                     onOpenExportModal={(cfg) =>
                       setExportModalConfig(cfg ?? { scope: 'THIS_UNIT' })
                     }
+                    onMutated={handleMutated}
+                    onError={(msg) => showToast('error', msg)}
                   />
                 ) : (
                   <UnitDashboardMobile
                     data={data}
+                    unitCode={session.code}
                     onOpenQuickOrder={handleOpenQuickOrder}
-                    onMarkPaid={(entry) => setMarkPaidEntry(entry)}
                     onOpenExportModal={(cfg) =>
                       setExportModalConfig(cfg ?? { scope: 'THIS_UNIT' })
                     }
+                    onMutated={handleMutated}
+                    onError={(msg) => showToast('error', msg)}
                   />
                 )
               }
@@ -286,7 +290,7 @@ export default function UnitDashboardPage() {
                   unitCode={session.code}
                   refreshKey={dataVersion}
                   onOpenQuickOrder={handleOpenQuickOrder}
-                  onMarkPaid={(entry) => setMarkPaidEntry(entry)}
+                  onMutated={handleMutated}
                   onError={(msg) => showToast('error', msg)}
                 />
               }

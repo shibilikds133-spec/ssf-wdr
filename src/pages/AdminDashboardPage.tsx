@@ -246,18 +246,24 @@ export default function AdminDashboardPage() {
                 isDesktop ? (
                   <AdminDashboardDesktop
                     data={data}
+                    adminCode={session.code}
                     onOpenAddOrder={() => setAddOrderOpen(true)}
                     onOpenExportModal={(cfg) =>
                       setExportModalConfig(cfg ?? { scope: 'ENTIRE_DIVISION' })
                     }
+                    onMutated={handleMutated}
+                    onError={(msg) => showToast('error', msg)}
                   />
                 ) : (
                   <AdminDashboardMobile
                     data={data}
+                    adminCode={session.code}
                     onOpenAddOrder={() => setAddOrderOpen(true)}
                     onOpenExportModal={(cfg) =>
                       setExportModalConfig(cfg ?? { scope: 'ENTIRE_DIVISION' })
                     }
+                    onMutated={handleMutated}
+                    onError={(msg) => showToast('error', msg)}
                   />
                 )
               }
@@ -293,7 +299,6 @@ export default function AdminDashboardPage() {
                   initialUnitId={selectedUnitIdForEntries}
                   onClearUnitFilter={() => setSelectedUnitIdForEntries('ALL')}
                   onOpenAddOrder={() => setAddOrderOpen(true)}
-                  onMarkPaid={(entry) => setMarkPaidEntry(entry)}
                   onMutated={handleMutated}
                   onError={(msg) => showToast('error', msg)}
                 />

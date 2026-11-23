@@ -20,15 +20,22 @@ import {
 } from '../../utils/format';
 import type { ReportFilterConfig } from '../../utils/reports';
 import { BrandText } from '../BrandText';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 
 interface SectorDashboardMobileProps {
   data: SectorDashboardResponse;
+  sectorCode: string;
   onOpenExportModal: (initialConfig?: Partial<ReportFilterConfig>) => void;
+  onMutated: (msg: string) => Promise<void>;
+  onError?: (msg: string) => void;
 }
 
 export function SectorDashboardMobile({
   data,
+  sectorCode,
   onOpenExportModal,
+  onMutated,
+  onError,
 }: SectorDashboardMobileProps) {
   const { sector, settings, summary, units, entries } = data;
 
@@ -520,12 +527,24 @@ export function SectorDashboardMobile({
                   </div>
                 </div>
 
-                <div className="text-right shrink-0 num">
-                  <div className="text-xs font-bold text-forest-950">
-                    {formatQuantity(Number(entry.quantity) || 0)} L
-                  </div>
-                  <div className="text-[10px] text-forest-600">
-                    {formatCurrency(Number(entry.total_amount) || 0)}
+                <div className="flex items-center gap-2 shrink-0">
+                  {entry.payment_status === 'UNPAID' && (
+                    <InlinePaymentUpdater
+                      portal="SECTOR"
+                      authCode={sectorCode}
+                      entryId={entry.id}
+                      compact
+                      onPaid={onMutated}
+                      onError={onError}
+                    />
+                  )}
+                  <div className="text-right shrink-0 num">
+                    <div className="text-xs font-bold text-forest-950">
+                      {formatQuantity(Number(entry.quantity) || 0)} L
+                    </div>
+                    <div className="text-[10px] text-forest-600">
+                      {formatCurrency(Number(entry.total_amount) || 0)}
+                    </div>
                   </div>
                 </div>
               </div>

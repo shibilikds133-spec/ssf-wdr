@@ -1,6 +1,5 @@
 import { startTransition, useEffect, useRef, useState } from 'react';
 import {
-  CheckCircle2,
   Download,
   MessageCircle,
   Phone,
@@ -24,6 +23,7 @@ import {
   formatQuantity,
 } from '../../utils/format';
 import { buildWhatsAppReceiptUrl } from '../../utils/whatsapp';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 import { PaginationBar } from '../PaginationBar';
 import { SelectDropdown } from '../SelectDropdown';
 
@@ -39,7 +39,7 @@ interface UnitOrdersTabProps {
   unitCode: string;
   refreshKey?: number;
   onOpenQuickOrder: () => void;
-  onMarkPaid: (entry: EntryItem) => void;
+  onMutated: (msg: string) => Promise<void>;
   onError?: (msg: string) => void;
 }
 
@@ -51,7 +51,7 @@ export function UnitOrdersTab({
   unitCode,
   refreshKey = 0,
   onOpenQuickOrder,
-  onMarkPaid,
+  onMutated,
   onError,
 }: UnitOrdersTabProps) {
   const [search, setSearch] = useState('');
@@ -379,14 +379,13 @@ export function UnitOrdersTab({
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1.5">
                           {entry.payment_status === 'UNPAID' && (
-                            <button
-                              type="button"
-                              onClick={() => onMarkPaid(entry)}
-                              className="px-2.5 py-1 rounded-lg glass-orange text-white text-xs font-semibold hover:opacity-95 transition-opacity inline-flex items-center gap-1"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Mark as Paid
-                            </button>
+                            <InlinePaymentUpdater
+                              portal="UNIT"
+                              authCode={unitCode}
+                              entryId={entry.id}
+                              onPaid={onMutated}
+                              onError={onError}
+                            />
                           )}
                           <button
                             type="button"
@@ -485,16 +484,16 @@ export function UnitOrdersTab({
                     {formatDateTime(entry.created_at)}
                   </span>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
                     {entry.payment_status === 'UNPAID' && (
-                      <button
-                        type="button"
-                        onClick={() => onMarkPaid(entry)}
-                        className="px-3 py-1.5 rounded-xl glass-orange text-white text-xs font-semibold inline-flex items-center gap-1"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Mark as Paid
-                      </button>
+                      <InlinePaymentUpdater
+                        portal="UNIT"
+                        authCode={unitCode}
+                        entryId={entry.id}
+                        compact
+                        onPaid={onMutated}
+                        onError={onError}
+                      />
                     )}
                     <button
                       type="button"

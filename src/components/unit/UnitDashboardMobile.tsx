@@ -26,20 +26,25 @@ import {
 import type { ReportFilterConfig } from '../../utils/reports';
 import { buildWhatsAppReceiptUrl } from '../../utils/whatsapp';
 import { BrandText } from '../BrandText';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 import { PushNotificationSettingsCard } from '../PushNotificationSettingsCard';
 
 interface UnitDashboardMobileProps {
   data: UnitDashboardResponse;
+  unitCode: string;
   onOpenQuickOrder: () => void;
-  onMarkPaid: (entry: EntryItem) => void;
   onOpenExportModal: (initialConfig?: Partial<ReportFilterConfig>) => void;
+  onMutated: (msg: string) => Promise<void>;
+  onError?: (msg: string) => void;
 }
 
 export function UnitDashboardMobile({
   data,
+  unitCode,
   onOpenQuickOrder,
-  onMarkPaid,
   onOpenExportModal,
+  onMutated,
+  onError,
 }: UnitDashboardMobileProps) {
   const { unit, settings, summary, entries } = data;
 
@@ -642,13 +647,14 @@ export function UnitDashboardMobile({
                   </div>
 
                   {entry.payment_status === 'UNPAID' && (
-                    <button
-                      type="button"
-                      onClick={() => onMarkPaid(entry)}
-                      className="px-2 py-1 rounded-lg glass-orange text-white text-[10px] font-bold"
-                    >
-                      Paid
-                    </button>
+                    <InlinePaymentUpdater
+                      portal="UNIT"
+                      authCode={unitCode}
+                      entryId={entry.id}
+                      compact
+                      onPaid={onMutated}
+                      onError={onError}
+                    />
                   )}
                   <button
                     type="button"

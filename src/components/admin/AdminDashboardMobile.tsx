@@ -21,17 +21,24 @@ import {
 } from '../../utils/format';
 import type { ReportFilterConfig } from '../../utils/reports';
 import { BrandText } from '../BrandText';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 
 interface AdminDashboardMobileProps {
   data: AdminDashboardResponse;
+  adminCode: string;
   onOpenAddOrder: () => void;
   onOpenExportModal: (initialConfig?: Partial<ReportFilterConfig>) => void;
+  onMutated: (msg: string) => Promise<void>;
+  onError?: (msg: string) => void;
 }
 
 export function AdminDashboardMobile({
   data,
+  adminCode,
   onOpenAddOrder,
   onOpenExportModal,
+  onMutated,
+  onError,
 }: AdminDashboardMobileProps) {
   const { settings, summary, sectors, unit_summaries, entries } = data;
 
@@ -543,12 +550,24 @@ export function AdminDashboardMobile({
                   </div>
                 </div>
 
-                <div className="text-right shrink-0 num">
-                  <div className="text-xs font-bold text-plum-900">
-                    {formatQuantity(Number(entry.quantity) || 0)} L
-                  </div>
-                  <div className="text-[10px] text-ink-600">
-                    {formatCurrency(Number(entry.total_amount) || 0)}
+                <div className="flex items-center gap-2 shrink-0">
+                  {entry.payment_status === 'UNPAID' && (
+                    <InlinePaymentUpdater
+                      portal="ADMIN"
+                      authCode={adminCode}
+                      entryId={entry.id}
+                      compact
+                      onPaid={onMutated}
+                      onError={onError}
+                    />
+                  )}
+                  <div className="text-right shrink-0 num">
+                    <div className="text-xs font-bold text-plum-900">
+                      {formatQuantity(Number(entry.quantity) || 0)} L
+                    </div>
+                    <div className="text-[10px] text-ink-600">
+                      {formatCurrency(Number(entry.total_amount) || 0)}
+                    </div>
                   </div>
                 </div>
               </div>

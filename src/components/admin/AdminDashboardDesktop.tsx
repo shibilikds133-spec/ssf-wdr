@@ -22,11 +22,15 @@ import {
   formatQuantity,
 } from '../../utils/format';
 import type { ReportFilterConfig } from '../../utils/reports';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 
 interface AdminDashboardDesktopProps {
   data: AdminDashboardResponse;
+  adminCode: string;
   onOpenAddOrder: () => void;
   onOpenExportModal: (initialConfig?: Partial<ReportFilterConfig>) => void;
+  onMutated: (msg: string) => Promise<void>;
+  onError?: (msg: string) => void;
 }
 
 const PIXEL_COLUMNS = [
@@ -54,8 +58,11 @@ const SECTOR_BAR_COLORS = [
 
 export function AdminDashboardDesktop({
   data,
+  adminCode,
   onOpenAddOrder,
   onOpenExportModal,
+  onMutated,
+  onError,
 }: AdminDashboardDesktopProps) {
   const navigate = useNavigate();
   const { settings, summary, sectors, unit_summaries, entries } = data;
@@ -866,9 +873,19 @@ export function AdminDashboardDesktop({
                         </td>
                         <td className="py-2.5 pl-4 text-right whitespace-nowrap">
                           {entry.payment_status === 'UNPAID' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-vibrant-coralSoft text-vibrant-coral">
-                              Unpaid
-                            </span>
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-vibrant-coralSoft text-vibrant-coral">
+                                Unpaid
+                              </span>
+                              <InlinePaymentUpdater
+                                portal="ADMIN"
+                                authCode={adminCode}
+                                entryId={entry.id}
+                                compact
+                                onPaid={onMutated}
+                                onError={onError}
+                              />
+                            </div>
                           ) : (
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${

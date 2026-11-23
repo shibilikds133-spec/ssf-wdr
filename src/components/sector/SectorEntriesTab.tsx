@@ -1,6 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CheckCircle2,
   Download,
   Pencil,
   Phone,
@@ -10,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { supabase } from '../../lib/supabase';
+import { InlinePaymentUpdater } from '../InlinePaymentUpdater';
 import { PaginationBar } from '../PaginationBar';
 import { SelectDropdown } from '../SelectDropdown';
 import type {
@@ -40,7 +40,6 @@ interface SectorEntriesTabProps {
   refreshKey?: number;
   initialUnitId: number | 'ALL';
   onClearUnitFilter: () => void;
-  onMarkPaid: (entry: EntryItem) => void;
   onMutated: (msg: string) => Promise<void>;
   onError: (msg: string) => void;
 }
@@ -54,7 +53,6 @@ export function SectorEntriesTab({
   refreshKey = 0,
   initialUnitId,
   onClearUnitFilter,
-  onMarkPaid,
   onMutated,
   onError,
 }: SectorEntriesTabProps) {
@@ -465,14 +463,15 @@ export function SectorEntriesTab({
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-1">
                           {entry.payment_status === 'UNPAID' && (
-                            <button
-                              type="button"
-                              onClick={() => onMarkPaid(entry)}
-                              className="px-2.5 py-1 rounded-lg glass-forest text-white text-xs font-semibold hover:opacity-95 transition-opacity inline-flex items-center gap-1 mr-1"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Mark as Paid
-                            </button>
+                            <div className="mr-1">
+                              <InlinePaymentUpdater
+                                portal="SECTOR"
+                                authCode={sectorCode}
+                                entryId={entry.id}
+                                onPaid={onMutated}
+                                onError={onError}
+                              />
+                            </div>
                           )}
                           <button
                             type="button"
@@ -595,15 +594,16 @@ export function SectorEntriesTab({
                   <span className="font-medium text-forest-950 truncate max-w-[55%]">
                     {entry.unit_name ?? 'Unit'}
                   </span>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     {entry.payment_status === 'UNPAID' && (
-                      <button
-                        type="button"
-                        onClick={() => onMarkPaid(entry)}
-                        className="px-2.5 py-1 rounded-lg glass-forest text-white text-[11px] font-semibold"
-                      >
-                        Mark as Paid
-                      </button>
+                      <InlinePaymentUpdater
+                        portal="SECTOR"
+                        authCode={sectorCode}
+                        entryId={entry.id}
+                        compact
+                        onPaid={onMutated}
+                        onError={onError}
+                      />
                     )}
                     <span className="text-[11px] num">
                       {formatDateTime(entry.created_at)}
