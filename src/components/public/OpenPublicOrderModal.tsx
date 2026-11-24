@@ -3,7 +3,9 @@ import {
   CheckCircle2,
   Loader2,
   MapPin,
+  Minus,
   Phone,
+  Plus,
   PlusCircle,
   ShoppingBag,
   User,
@@ -14,14 +16,12 @@ import type { PublicSectorOption, PublicUnitOption } from '../../types';
 import { formatCurrency, formatQuantity } from '../../utils/format';
 import {
   blockNegativeNumericKeys,
-  sanitizePositiveDecimal,
   sanitizePositiveInteger,
 } from '../../utils/inputGuards';
 import { SelectDropdown } from '../SelectDropdown';
 
 interface OpenPublicOrderModalProps {
   perLiterRate: number;
-  lang: 'ml' | 'en';
   onClose: () => void;
 }
 
@@ -39,7 +39,6 @@ interface SubmittedReceipt {
 
 export default function OpenPublicOrderModal({
   perLiterRate,
-  lang,
   onClose,
 }: OpenPublicOrderModalProps) {
   const [customerName, setCustomerName] = useState('');
@@ -102,10 +101,7 @@ export default function OpenPublicOrderModal({
     () => [
       {
         value: 'ALL',
-        label:
-          lang === 'ml'
-            ? 'എല്ലാ സെക്ടറുകളും / All Sectors'
-            : 'All Sectors / എല്ലാ സെക്ടറുകളും',
+        label: 'എല്ലാ സെക്ടറുകളും / All Sectors',
       },
       ...[...sectors]
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -114,7 +110,7 @@ export default function OpenPublicOrderModal({
           label: s.name,
         })),
     ],
-    [sectors, lang]
+    [sectors]
   );
 
   const unitOptions = useMemo(
@@ -131,9 +127,16 @@ export default function OpenPublicOrderModal({
     [filteredUnits]
   );
 
-  const numericQty = Number(quantity);
-  const validQty = Number.isFinite(numericQty) && numericQty > 0 ? numericQty : 0;
+  const numericQty = Number.parseInt(quantity, 10);
+  const validQty =
+    Number.isInteger(numericQty) && numericQty >= 1 ? numericQty : 0;
   const computedTotal = Math.round(validQty * perLiterRate * 100) / 100;
+
+  const handleStep = (delta: number) => {
+    const base = Number.isInteger(numericQty) && numericQty >= 1 ? numericQty : 1;
+    const next = Math.min(500, Math.max(1, base + delta));
+    setQuantity(String(next));
+  };
 
   const handleSectorChange = (nextSector: string) => {
     setSectorFilter(nextSector);
@@ -165,29 +168,21 @@ export default function OpenPublicOrderModal({
 
     const cleanName = customerName.trim();
     if (cleanName.length < 2) {
-      setError(
-        lang === 'ml'
-          ? 'ദയവായി നിങ്ങളുടെ പേര് നൽകുക (കുറഞ്ഞത് 2 അക്ഷരങ്ങൾ).'
-          : 'Please enter your full name (at least 2 characters).'
-      );
+      setError('ദയവായി നിങ്ങളുടെ പേര് നൽകുക / Please enter your full name.');
       return;
     }
 
     const cleanMobile = mobile.replace(/\D/g, '');
     if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
       setError(
-        lang === 'ml'
-          ? 'ദയവായി 10 അക്ക സാധുവായ മൊബൈൽ നമ്പർ നൽകുക.'
-          : 'Please enter a valid 10-digit Indian mobile number.'
+        'ദയവായി 10 അക്ക സാധുവായ മൊബൈൽ നമ്പർ നൽകുക / Please enter a valid 10-digit mobile number.'
       );
       return;
     }
 
-    if (!Number.isFinite(numericQty) || numericQty <= 0 || numericQty > 500) {
+    if (!Number.isInteger(numericQty) || numericQty < 1 || numericQty > 500) {
       setError(
-        lang === 'ml'
-          ? 'ദയവായി 0-ൽ കൂടുതൽ (പരമാവധി 500 ലിറ്റർ) അളവ് നൽകുക.'
-          : 'Please enter a quantity greater than 0 (up to 500 liters).'
+        'ഒരു ലിറ്ററോ ഒന്നിലധികം പൂർണ്ണ ലിറ്ററോ മാത്രമേ നൽകാനാകൂ (1L, 2L, 3L...) / Only whole liters (1L, 2L, 3L...) are allowed.'
       );
       return;
     }
@@ -228,31 +223,27 @@ export default function OpenPublicOrderModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="open-order-modal-title"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#1E2038]/45 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#2B0406]/50 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#F8F7F0] border border-[#282B4A]/18 shadow-2xl text-[#282B4A] pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#FFF8F6] border border-[#5C0A0E]/20 shadow-2xl text-[#2B0406] pb-[env(safe-area-inset-bottom,0px)]">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 bg-[#F8F7F0]/95 backdrop-blur-md border-b border-[#282B4A]/12">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 glass-crimson text-white">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-9 h-9 rounded-2xl bg-[#282B4A] text-[#F8F7F0] flex items-center justify-center shrink-0">
+            <span className="w-9 h-9 rounded-2xl bg-white/15 border border-white/25 text-[#FCE36D] flex items-center justify-center shrink-0">
               <ShoppingBag className="w-4 h-4" />
             </span>
             <div className="min-w-0">
               <h2
                 id="open-order-modal-title"
-                className="text-base font-extrabold text-[#1E2038] truncate font-ml"
+                className="text-base font-extrabold text-white truncate font-ml"
               >
-                {lang === 'ml'
-                  ? 'ഓർഡർ നൽകുക / Place Order'
-                  : 'Place Order / ഓർഡർ നൽകുക'}
+                ഓർഡർ നൽകുക / Place Order
               </h2>
-              <p className="text-[11px] text-[#5A5E7D] font-medium">
-                {lang === 'ml'
-                  ? 'ഓർഡർ കോഡ് ആവശ്യമില്ല • No Order Code Required'
-                  : 'No Order Code Required • ഓർഡർ കോഡ് ആവശ്യമില്ല'}
+              <p className="text-[11px] text-white/80 font-medium">
+                ഓർഡർ കോഡ് ആവശ്യമില്ല • No Order Code Required
               </p>
             </div>
           </div>
@@ -262,7 +253,7 @@ export default function OpenPublicOrderModal({
             onClick={onClose}
             disabled={submitting}
             aria-label="Close"
-            className="w-8 h-8 rounded-full bg-[#EEEBDA] hover:bg-[#282B4A]/10 text-[#282B4A] flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -270,51 +261,51 @@ export default function OpenPublicOrderModal({
 
         {receipt ? (
           <div className="p-5 sm:p-6 space-y-5">
-            <div className="rounded-2xl bg-[#EEEBDA]/85 border border-[#282B4A]/14 p-5 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-[#282B4A] text-[#F8F7F0] mx-auto flex items-center justify-center">
+            <div className="rounded-2xl bg-white border border-[#5C0A0E]/14 p-5 text-center space-y-3 shadow-xs">
+              <div className="w-12 h-12 rounded-2xl glass-crimson-solid text-[#FCE36D] mx-auto flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-extrabold text-[#1E2038] font-ml">
+              <h3 className="text-base font-extrabold text-[#2B0406] font-ml">
                 ഓർഡർ അപേക്ഷ ലഭിച്ചു! / Order Request Received!
               </h3>
-              <p className="text-xs sm:text-sm text-[#282B4A] leading-relaxed font-ml">
+              <p className="text-xs sm:text-sm text-[#4A070A] leading-relaxed font-ml">
                 താങ്കളുടെ ഓർഡർ അപേക്ഷ ലഭിച്ചിട്ടുണ്ട്! ഡിവിഷൻ കമ്മിറ്റി പരിശോധിച്ച്
                 ഉടൻ ഉറപ്പാക്കുന്നതാണ്.
               </p>
-              <p className="text-xs text-[#5A5E7D] leading-relaxed">
+              <p className="text-xs text-[#7A2E33] leading-relaxed">
                 Your order request has been received and will be confirmed
                 shortly by the Division Committee.
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white/80 border border-[#282B4A]/12 p-4 space-y-2 text-xs">
+            <div className="rounded-2xl bg-white/90 border border-[#5C0A0E]/12 p-4 space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#5A5E7D]">പേര് / Name</span>
-                <span className="font-bold text-[#1E2038]">
+                <span className="text-[#7A2E33]">പേര് / Name</span>
+                <span className="font-bold text-[#2B0406]">
                   {receipt.customer_name}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#5A5E7D]">ഫോൺ / Mobile</span>
-                <span className="font-bold text-[#1E2038] num">
+                <span className="text-[#7A2E33]">ഫോൺ / Mobile</span>
+                <span className="font-bold text-[#2B0406] num">
                   +91 {receipt.mobile}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#5A5E7D]">അളവ് / Quantity</span>
-                <span className="font-bold text-[#1E2038] num">
+                <span className="text-[#7A2E33]">അളവ് / Quantity</span>
+                <span className="font-bold text-[#2B0406] num">
                   {formatQuantity(receipt.quantity)} L
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#5A5E7D]">തുക / Total Amount</span>
-                <span className="font-extrabold text-[#1E2038] num">
+                <span className="text-[#7A2E33]">തുക / Total Amount</span>
+                <span className="font-extrabold text-[#5C0A0E] num">
                   {formatCurrency(receipt.total_amount)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#5A5E7D]">യൂണിറ്റ് / Unit</span>
-                <span className="font-semibold text-[#282B4A]">
+                <span className="text-[#7A2E33]">യൂണിറ്റ് / Unit</span>
+                <span className="font-semibold text-[#4A070A]">
                   {receipt.unit_name ?? 'തിരഞ്ഞെടുത്തിട്ടില്ല / Not Selected'}
                 </span>
               </div>
@@ -324,15 +315,15 @@ export default function OpenPublicOrderModal({
               <button
                 type="button"
                 onClick={handlePlaceAnother}
-                className="flex-1 h-11 rounded-2xl bg-[#282B4A] hover:bg-[#1E2038] text-[#F8F7F0] text-sm font-bold inline-flex items-center justify-center gap-2 transition-colors shadow-sm font-ml"
+                className="flex-1 h-11 rounded-2xl glass-crimson-solid hover:opacity-95 text-white text-sm font-bold inline-flex items-center justify-center gap-2 transition-opacity shadow-sm font-ml"
               >
-                <PlusCircle className="w-4 h-4" />
+                <PlusCircle className="w-4 h-4 text-[#FCE36D]" />
                 <span>മറ്റൊരു ഓർഡർ നൽകുക / Place Another Order</span>
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="h-11 px-5 rounded-2xl bg-[#EEEBDA] hover:bg-[#282B4A]/10 text-[#1E2038] text-sm font-bold transition-colors"
+                className="h-11 px-5 rounded-2xl bg-white border border-[#5C0A0E]/18 hover:bg-[#5C0A0E]/5 text-[#4A070A] text-sm font-bold transition-colors"
               >
                 Close
               </button>
@@ -353,12 +344,12 @@ export default function OpenPublicOrderModal({
             <div className="space-y-1.5">
               <label
                 htmlFor="open-order-name"
-                className="block text-xs font-bold text-[#1E2038] font-ml"
+                className="block text-xs font-bold text-[#2B0406] font-ml"
               >
-                പേര് / Full Name <span className="text-red-600">*</span>
+                പേര് / Full Name <span className="text-[#C40E16]">*</span>
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-[#5A5E7D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <User className="w-4 h-4 text-[#7A2E33] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   id="open-order-name"
                   type="text"
@@ -367,7 +358,7 @@ export default function OpenPublicOrderModal({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="ഉദാ: മുഹമ്മദ് അലി / e.g. Muhammed Ali"
-                  className="w-full h-11 pl-10 pr-3.5 rounded-2xl bg-white border border-[#282B4A]/18 text-sm text-[#1E2038] placeholder:text-[#5A5E7D]/60 focus:outline-none focus:ring-2 focus:ring-[#282B4A]/25 focus:border-[#282B4A]"
+                  className="w-full h-11 pl-10 pr-3.5 rounded-2xl bg-white border border-[#5C0A0E]/20 text-sm text-[#2B0406] placeholder:text-[#7A2E33]/55 focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
               </div>
             </div>
@@ -376,13 +367,14 @@ export default function OpenPublicOrderModal({
             <div className="space-y-1.5">
               <label
                 htmlFor="open-order-mobile"
-                className="block text-xs font-bold text-[#1E2038] font-ml"
+                className="block text-xs font-bold text-[#2B0406] font-ml"
               >
-                ഫോൺ നമ്പർ / Mobile Number <span className="text-red-600">*</span>
+                ഫോൺ നമ്പർ / Mobile Number{' '}
+                <span className="text-[#C40E16]">*</span>
               </label>
               <div className="relative flex items-center">
-                <Phone className="w-4 h-4 text-[#5A5E7D] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <span className="absolute left-10 text-xs font-bold text-[#5A5E7D] select-none">
+                <Phone className="w-4 h-4 text-[#7A2E33] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <span className="absolute left-10 text-xs font-bold text-[#7A2E33] select-none">
                   +91
                 </span>
                 <input
@@ -397,38 +389,38 @@ export default function OpenPublicOrderModal({
                     setMobile(sanitizePositiveInteger(e.target.value).slice(0, 10))
                   }
                   placeholder="9876543210"
-                  className="w-full h-11 pl-[4.4rem] pr-3.5 rounded-2xl bg-white border border-[#282B4A]/18 text-sm font-semibold num text-[#1E2038] placeholder:text-[#5A5E7D]/55 focus:outline-none focus:ring-2 focus:ring-[#282B4A]/25 focus:border-[#282B4A]"
+                  className="w-full h-11 pl-[4.4rem] pr-3.5 rounded-2xl bg-white border border-[#5C0A0E]/20 text-sm font-semibold num text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
               </div>
             </div>
 
-            {/* 3. Quantity (Liters) */}
+            {/* 3. Quantity (Whole Liters Only: 1L, 2L, 3L...) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <label
                   htmlFor="open-order-qty"
-                  className="block text-xs font-bold text-[#1E2038] font-ml"
+                  className="block text-xs font-bold text-[#2B0406] font-ml"
                 >
                   എത്ര ലിറ്റർ / Quantity (Liters){' '}
-                  <span className="text-red-600">*</span>
+                  <span className="text-[#C40E16]">*</span>
                 </label>
-                <span className="text-[11px] font-bold text-[#5A5E7D] num">
+                <span className="text-[11px] font-bold text-[#5C0A0E] num">
                   {formatCurrency(perLiterRate)} / L
                 </span>
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-5 gap-1.5">
                 {QUICK_LITER_CHIPS.map((chip) => {
-                  const active = Number(quantity) === chip;
+                  const active = validQty === chip;
                   return (
                     <button
                       key={chip}
                       type="button"
                       onClick={() => setQuantity(String(chip))}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold num transition-colors ${
+                      className={`py-2 rounded-xl text-xs font-extrabold num transition-colors ${
                         active
-                          ? 'bg-[#282B4A] text-[#F8F7F0] shadow-xs'
-                          : 'bg-[#EEEBDA] text-[#282B4A] hover:bg-[#282B4A]/12 border border-[#282B4A]/12'
+                          ? 'glass-crimson text-white shadow-sm'
+                          : 'bg-white border border-[#5C0A0E]/16 text-[#4A070A] hover:bg-[#5C0A0E]/5'
                       }`}
                     >
                       {chip}L
@@ -437,38 +429,62 @@ export default function OpenPublicOrderModal({
                 })}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleStep(-1)}
+                  disabled={submitting || validQty <= 1}
+                  aria-label="Decrease quantity"
+                  className="w-10 h-11 rounded-2xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#5C0A0E]/5 disabled:opacity-40 shrink-0"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
                 <input
                   id="open-order-qty"
-                  type="number"
-                  inputMode="decimal"
-                  min={0.5}
-                  max={500}
-                  step="0.5"
+                  type="text"
+                  inputMode="numeric"
                   required
                   value={quantity}
-                  onKeyDown={blockNegativeNumericKeys}
+                  onKeyDown={(e) => {
+                    blockNegativeNumericKeys(e);
+                    if (e.key === '.' || e.key === ',') {
+                      e.preventDefault();
+                    }
+                  }}
                   onChange={(e) =>
-                    setQuantity(sanitizePositiveDecimal(e.target.value))
+                    setQuantity(sanitizePositiveInteger(e.target.value))
                   }
-                  className="w-28 h-11 px-3.5 rounded-2xl bg-white border border-[#282B4A]/18 text-sm font-extrabold num text-[#1E2038] focus:outline-none focus:ring-2 focus:ring-[#282B4A]/25 focus:border-[#282B4A]"
+                  placeholder="1"
+                  className="w-20 h-11 px-2 text-center rounded-2xl bg-white border border-[#5C0A0E]/20 text-base font-extrabold num text-[#2B0406] focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
-                <div className="flex-1 h-11 px-3.5 rounded-2xl bg-[#EEEBDA]/85 border border-[#282B4A]/12 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-[#5A5E7D] font-ml">
-                    ആകെ തുക / Total
+                <button
+                  type="button"
+                  onClick={() => handleStep(1)}
+                  disabled={submitting}
+                  aria-label="Increase quantity"
+                  className="w-10 h-11 rounded-2xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#5C0A0E]/5 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <div className="flex-1 h-11 px-3.5 rounded-2xl bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/12 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#7A2E33] font-ml">
+                    ആകെ / Total
                   </span>
-                  <span className="text-sm font-extrabold text-[#1E2038] num">
+                  <span className="text-sm font-extrabold text-[#5C0A0E] num">
                     {formatCurrency(computedTotal)}
                   </span>
                 </div>
               </div>
+              <p className="text-[11px] text-[#7A2E33] font-ml">
+                1 ലിറ്റർ, 2 ലിറ്റർ എന്നിങ്ങനെ പൂർണ്ണ ലിറ്ററുകൾ മാത്രമേ നൽകാനാകൂ.
+              </p>
             </div>
 
             {/* 4. Optional Unit Selection */}
-            <div className="rounded-2xl bg-[#EEEBDA]/65 border border-[#282B4A]/12 p-3.5 space-y-2.5">
+            <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/14 p-3.5 space-y-2.5">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#282B4A] shrink-0" />
-                <span className="text-xs font-bold text-[#1E2038] font-ml">
+                <MapPin className="w-4 h-4 text-[#5C0A0E] shrink-0" />
+                <span className="text-xs font-bold text-[#2B0406] font-ml">
                   യൂണിറ്റ് (ഓപ്ഷണൽ — നിർബന്ധമില്ല) / Unit (Optional)
                 </span>
               </div>
@@ -491,7 +507,7 @@ export default function OpenPublicOrderModal({
                   ariaLabel="Optional Unit Selection"
                 />
               </div>
-              <p className="text-[11px] text-[#5A5E7D] font-ml">
+              <p className="text-[11px] text-[#7A2E33] font-ml">
                 യൂണിറ്റ് അറിയില്ലെങ്കിൽ തിരഞ്ഞെടുക്കാതെ തന്നെ ഓർഡർ നൽകാം.
               </p>
             </div>
@@ -499,7 +515,7 @@ export default function OpenPublicOrderModal({
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-12 rounded-2xl bg-[#282B4A] hover:bg-[#1E2038] disabled:opacity-60 text-[#F8F7F0] text-sm font-extrabold inline-flex items-center justify-center gap-2 transition-colors shadow-md font-ml"
+              className="w-full h-12 rounded-2xl glass-crimson-solid hover:opacity-95 disabled:opacity-60 text-white text-sm font-extrabold inline-flex items-center justify-center gap-2 transition-opacity shadow-md font-ml"
             >
               {submitting ? (
                 <>
@@ -508,7 +524,7 @@ export default function OpenPublicOrderModal({
                 </>
               ) : (
                 <>
-                  <ShoppingBag className="w-4 h-4" />
+                  <ShoppingBag className="w-4 h-4 text-[#FCE36D]" />
                   <span>ഓർഡർ സമർപ്പിക്കുക / Submit Order</span>
                 </>
               )}

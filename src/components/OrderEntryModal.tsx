@@ -23,7 +23,6 @@ import type {
 import { formatCurrency, formatQuantity } from '../utils/format';
 import {
   blockNegativeNumericKeys,
-  sanitizePositiveDecimal,
   sanitizePositiveInteger,
 } from '../utils/inputGuards';
 import { notifyOrderCreated } from '../utils/pushNotifications';
@@ -128,14 +127,15 @@ export function OrderEntryModal({
       }));
   }, [units, sectors, unitSearch]);
 
-  const parsedQty = Number.parseFloat(quantity);
-  const safeQty = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 0;
+  const parsedQty = Number.parseInt(quantity, 10);
+  const safeQty =
+    Number.isInteger(parsedQty) && parsedQty >= 1 ? parsedQty : 0;
   const previewTotal = Math.round(safeQty * unitRate * 100) / 100;
 
   const handleStep = (delta: number) => {
-    const current = Number.parseFloat(quantity);
-    const base = Number.isFinite(current) && current > 0 ? current : 1;
-    const next = Math.max(1, Math.round((base + delta) * 100) / 100);
+    const current = Number.parseInt(quantity, 10);
+    const base = Number.isInteger(current) && current >= 1 ? current : 1;
+    const next = Math.max(1, base + delta);
     setQuantity(String(next));
   };
 
@@ -169,8 +169,8 @@ export function OrderEntryModal({
       setError('Please enter a valid 10-digit mobile number.');
       return;
     }
-    if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
-      setError('Quantity must be greater than zero.');
+    if (!Number.isInteger(parsedQty) || parsedQty < 1) {
+      setError('Only whole liters (1L, 2L, 3L...) are allowed.');
       return;
     }
     if (paymentStatus === null) {
@@ -547,12 +547,17 @@ export function OrderEntryModal({
                 <input
                   id="order-quantity"
                   type="text"
-                  inputMode="decimal"
+                  inputMode="numeric"
                   required
                   value={quantity}
-                  onKeyDown={blockNegativeNumericKeys}
+                  onKeyDown={(e) => {
+                    blockNegativeNumericKeys(e);
+                    if (e.key === '.' || e.key === ',') {
+                      e.preventDefault();
+                    }
+                  }}
                   onChange={(e) =>
-                    setQuantity(sanitizePositiveDecimal(e.target.value))
+                    setQuantity(sanitizePositiveInteger(e.target.value))
                   }
                   disabled={submitting}
                   className={`flex-1 px-3 py-2 text-center text-base font-extrabold rounded-xl border ${borderClass} bg-white text-ink-900 num`}

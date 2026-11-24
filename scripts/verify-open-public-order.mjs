@@ -164,6 +164,16 @@ try {
   createdRequestIds.push(reqB.id);
   console.log('PASS: Submitted Request A (no unit) & Request B (WDR202) as anon');
 
+  // 3b. Assert fractional liters like 1.5 are rejected
+  const { error: fracErr } = await rpc('submit_public_order_request', {
+    p_customer_name: 'Verify Fractional Guard',
+    p_mobile: '9876543212',
+    p_quantity: 1.5,
+    p_unit_id: null,
+  });
+  assert.ok(fracErr, 'Fractional quantity (1.5L) must be rejected');
+  console.log('PASS: Fractional quantity (1.5L) rejected by submit_public_order_request');
+
   // 4. Assert official entries & leaderboard did NOT change while pending
   const afterSubmitEntriesRes = await ownerClient.query(
     `SELECT COUNT(*)::INT AS cnt FROM entries WHERE is_deleted = false`
@@ -322,6 +332,12 @@ try {
         ])
         .catch(() => {});
     }
+    await ownerClient
+      .query(`DELETE FROM entries WHERE contributor_name LIKE 'Verify Test Customer%'`)
+      .catch(() => {});
+    await ownerClient
+      .query(`DELETE FROM public_order_requests WHERE customer_name LIKE 'Verify Test Customer%'`)
+      .catch(() => {});
     await ownerClient.end().catch(() => {});
   }
   if (pgAnonClient) {

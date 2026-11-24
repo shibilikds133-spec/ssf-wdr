@@ -36,6 +36,7 @@ interface PublicLeaderboardMobileProps {
   onUnitPageChange: (nextPage: number) => void;
   onRefresh: () => void;
   onOpenQuickEntry: () => void;
+  isOpenOrderPortal?: boolean;
 }
 
 type LeaderboardTab = 'SECTORS' | 'UNITS';
@@ -162,6 +163,7 @@ export function PublicLeaderboardMobile({
   onUnitPageChange,
   onRefresh,
   onOpenQuickEntry,
+  isOpenOrderPortal = false,
 }: PublicLeaderboardMobileProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('SECTORS');
@@ -251,16 +253,23 @@ export function PublicLeaderboardMobile({
               />
             </button>
 
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="h-9 px-3 rounded-full glass-crimson-solid text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity"
-            >
-              <LogIn className="w-3.5 h-3.5 shrink-0" />
-              <span>Login</span>
-            </button>
+            {!isOpenOrderPortal && (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="h-9 px-3 rounded-full glass-crimson-solid text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity"
+              >
+                <LogIn className="w-3.5 h-3.5 shrink-0" />
+                <span>Login</span>
+              </button>
+            )}
 
-            <PageDocsButton theme="public" pageKey="public_leaderboard" />
+            <PageDocsButton
+              theme="public"
+              pageKey={
+                isOpenOrderPortal ? 'public_order_portal' : 'public_leaderboard'
+              }
+            />
           </div>
         </div>
       </header>
@@ -399,14 +408,18 @@ export function PublicLeaderboardMobile({
         aria-label="Quick Entry Navigation"
         className="fixed bottom-0 inset-x-0 z-40 glass-rose-header border-t border-[#5C0A0E]/15 border-b-0 pl-[calc(1rem+env(safe-area-inset-left,0px))] pr-[calc(1rem+env(safe-area-inset-right,0px))] pt-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom,0px))] gpu-chrome"
       >
-        {summary.orders_open ? (
+        {isOpenOrderPortal || summary.orders_open ? (
           <button
             type="button"
             onClick={onOpenQuickEntry}
             className="w-full py-3 px-5 rounded-2xl glass-crimson-solid text-white font-ml text-sm font-bold inline-flex items-center justify-center gap-2 shadow-md active:scale-[0.99] transition-transform"
           >
             <PlusCircle className="w-4 h-4 text-[#FCE36D] shrink-0" />
-            <span>ക്വിക്ക് എൻട്രി (Quick Entry)</span>
+            <span>
+              {isOpenOrderPortal
+                ? 'ഓർഡർ നൽകുക (Place Order)'
+                : 'ക്വിക്ക് എൻട്രി (Quick Entry)'}
+            </span>
           </button>
         ) : (
           <button

@@ -11,11 +11,17 @@ interface AssistantRouteMeta {
   theme: DocsPortalTheme;
   role: HelpAssistantRole;
   hasMobileBottomNav: boolean;
+  excludeCodeFaqs?: boolean;
 }
 
 function getAssistantRouteMeta(pathname: string): AssistantRouteMeta {
   if (pathname.startsWith('/order') || pathname.startsWith('/public-order')) {
-    return { theme: 'order', role: 'PUBLIC', hasMobileBottomNav: true };
+    return {
+      theme: 'public',
+      role: 'PUBLIC',
+      hasMobileBottomNav: true,
+      excludeCodeFaqs: true,
+    };
   }
   if (pathname.startsWith('/admin')) {
     return { theme: 'plum', role: 'ADMIN', hasMobileBottomNav: true };
@@ -40,7 +46,6 @@ const LAUNCHER_STYLES: Record<DocsPortalTheme, string> = {
   forest: 'glass-agent-forest text-white',
   orange: 'glass-agent-orange text-white',
   public: 'glass-agent-public text-white',
-  order: 'glass-agent-order text-white',
 };
 
 export function SmartAssistantLauncher() {
@@ -48,9 +53,8 @@ export function SmartAssistantLauncher() {
   const { session } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
-  const { theme, role, hasMobileBottomNav } = getAssistantRouteMeta(
-    location.pathname
-  );
+  const { theme, role, hasMobileBottomNav, excludeCodeFaqs } =
+    getAssistantRouteMeta(location.pathname);
 
   const positionClass = hasMobileBottomNav
     ? 'fixed right-[calc(0.875rem+env(safe-area-inset-right,0px))] bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:right-[calc(1.25rem+env(safe-area-inset-right,0px))] lg:bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] z-[45]'
@@ -86,6 +90,7 @@ export function SmartAssistantLauncher() {
             theme={theme}
             role={role}
             hasMobileBottomNav={hasMobileBottomNav}
+            excludeCodeFaqs={excludeCodeFaqs}
             session={session}
             onClose={() => setIsOpen(false)}
           />

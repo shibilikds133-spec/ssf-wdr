@@ -37,6 +37,7 @@ interface PublicLeaderboardDesktopProps {
   onUnitPageChange: (nextPage: number) => void;
   onRefresh: () => void;
   onOpenQuickEntry: () => void;
+  isOpenOrderPortal?: boolean;
 }
 
 type LeaderboardTab = 'SECTORS' | 'UNITS';
@@ -174,6 +175,7 @@ export function PublicLeaderboardDesktop({
   onUnitPageChange,
   onRefresh,
   onOpenQuickEntry,
+  isOpenOrderPortal = false,
 }: PublicLeaderboardDesktopProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<LeaderboardTab>('SECTORS');
@@ -298,18 +300,18 @@ export function PublicLeaderboardDesktop({
 
             <button
               type="button"
-              disabled={!summary.orders_open}
+              disabled={!isOpenOrderPortal && !summary.orders_open}
               onClick={onOpenQuickEntry}
               className={`h-9 px-4 rounded-full text-xs font-bold inline-flex items-center gap-1.5 transition-[background-color,color,opacity,border-color] ${
-                summary.orders_open
+                isOpenOrderPortal || summary.orders_open
                   ? 'glass-crimson-solid text-white shadow-sm hover:opacity-95'
                   : 'bg-[#5C0A0E]/15 border border-[#5C0A0E]/20 text-[#4A070A] cursor-not-allowed'
               }`}
             >
-              {summary.orders_open ? (
+              {isOpenOrderPortal || summary.orders_open ? (
                 <>
                   <PlusCircle className="w-3.5 h-3.5 text-[#FCE36D] shrink-0" />
-                  <span>Quick Entry</span>
+                  <span>{isOpenOrderPortal ? 'Place Order' : 'Quick Entry'}</span>
                 </>
               ) : (
                 <>
@@ -319,18 +321,22 @@ export function PublicLeaderboardDesktop({
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              className="h-9 px-3.5 rounded-full bg-white/90 border border-[#5C0A0E]/[0.20] text-xs font-bold text-[#2B0406] inline-flex items-center gap-1.5 hover:bg-white transition-colors"
-            >
-              <LogIn className="w-3.5 h-3.5 text-[#5C0A0E] shrink-0" />
-              <span>Portal Login</span>
-            </button>
+            {!isOpenOrderPortal && (
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="h-9 px-3.5 rounded-full bg-white/90 border border-[#5C0A0E]/[0.20] text-xs font-bold text-[#2B0406] inline-flex items-center gap-1.5 hover:bg-white transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5 text-[#5C0A0E] shrink-0" />
+                <span>Portal Login</span>
+              </button>
+            )}
 
             <PageDocsButton
               theme="public"
-              pageKey="public_leaderboard"
+              pageKey={
+                isOpenOrderPortal ? 'public_order_portal' : 'public_leaderboard'
+              }
               labelBreakpoint="xl"
             />
           </div>

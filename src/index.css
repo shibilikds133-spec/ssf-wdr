@@ -71,14 +71,6 @@
       radial-gradient(circle at 100% 0%, rgba(252, 227, 109, 0.16) 0%, transparent 46%),
       radial-gradient(circle at 50% 100%, rgba(92, 10, 14, 0.04) 0%, transparent 55%);
   }
-
-  .portal-canvas-order {
-    background-color: #F8F7F0;
-    background-image:
-      radial-gradient(circle at 0% 0%, rgba(40, 43, 74, 0.06) 0%, transparent 48%),
-      radial-gradient(circle at 100% 0%, rgba(238, 235, 218, 0.65) 0%, transparent 46%),
-      radial-gradient(circle at 50% 100%, rgba(40, 43, 74, 0.04) 0%, transparent 55%);
-  }
   /* 1. Luminous Deep Plum Hero Card with Rich Glass & Beveled Edge Highlight */
   .glass-plum {
     background: linear-gradient(
@@ -481,37 +473,6 @@
       inset 0 -2px 6px rgba(43, 4, 6, 0.36),
       0 8px 20px -6px rgba(92, 10, 14, 0.50);
   }
-
-  .glass-agent-order {
-    background: linear-gradient(
-      145deg,
-      rgba(56, 60, 99, 0.94) 0%,
-      rgba(40, 43, 74, 0.97) 60%,
-      rgba(30, 32, 56, 0.99) 100%
-    );
-    backdrop-filter: blur(12px) saturate(135%);
-    -webkit-backdrop-filter: blur(12px) saturate(135%);
-    border: 1px solid rgba(238, 235, 218, 0.32);
-    box-shadow:
-      inset 0 1.5px 1px rgba(255, 255, 255, 0.32),
-      inset 0 -2px 6px rgba(30, 32, 56, 0.4),
-      0 8px 20px -6px rgba(40, 43, 74, 0.45);
-  }
-
-  .glass-order-card {
-    background: rgba(248, 247, 240, 0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(40, 43, 74, 0.14);
-    box-shadow: 0 1px 3px rgba(30, 32, 56, 0.06);
-  }
-
-  .glass-order-header {
-    background: rgba(248, 247, 240, 0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(40, 43, 74, 0.12);
-  }
 }
 
 .font-ssf {
@@ -589,7 +550,6 @@ html.perf-lite .glass-milk-header,
 html.perf-lite .glass-leaf-header,
 html.perf-lite .glass-cream-header,
 html.perf-lite .glass-agent-public,
-html.perf-lite .glass-agent-order,
 html.perf-lite .glass-agent-plum,
 html.perf-lite .glass-agent-forest,
 html.perf-lite .glass-agent-orange {
@@ -598,8 +558,6 @@ html.perf-lite .glass-agent-orange {
 }
 
 html.perf-lite .glass-scroll-card,
-html.perf-lite .glass-order-card,
-html.perf-lite .glass-order-header,
 html.perf-lite .glass-rose-card,
 html.perf-lite .glass-rose-table {
   backdrop-filter: none;

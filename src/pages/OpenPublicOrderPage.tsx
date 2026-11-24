@@ -8,8 +8,8 @@ import {
   useState,
 } from 'react';
 import { BrandLoadingScreen } from '../components/BrandLoadingScreen';
-import { OpenPublicOrderDesktop } from '../components/public/OpenPublicOrderDesktop';
-import { OpenPublicOrderMobile } from '../components/public/OpenPublicOrderMobile';
+import { PublicLeaderboardDesktop } from '../components/public/PublicLeaderboardDesktop';
+import { PublicLeaderboardMobile } from '../components/public/PublicLeaderboardMobile';
 import { useRegisterPageDocs } from '../context/DocsContext';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useIsDesktop } from '../hooks/useIsDesktop';
@@ -123,7 +123,7 @@ function preloadResponsivePoster(): Promise<void> {
 
 export default function OpenPublicOrderPage() {
   const isDesktop = useIsDesktop();
-  usePortalEdgeTheme('order');
+  usePortalEdgeTheme('public');
   useRegisterPageDocs('public_order_portal');
 
   const [data, setData] = useState<PublicLeaderboardResponse | null>(() =>
@@ -136,7 +136,6 @@ export default function OpenPublicOrderPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [unitsFetching, setUnitsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lang, setLang] = useState<'ml' | 'en'>('ml');
   const [orderModalOpen, setOrderModalOpen] = useState(false);
 
   const [unitSearch, setUnitSearch] = useState('');
@@ -221,20 +220,16 @@ export default function OpenPublicOrderPage() {
     void loadLeaderboard({ fresh: true, isManual: true });
   }, [loadLeaderboard]);
 
-  const handleLangToggle = useCallback(() => {
-    setLang((prev) => (prev === 'ml' ? 'en' : 'ml'));
-  }, []);
-
   if (!data || !posterReady) {
     if (error && !data) {
       return (
-        <div className="min-h-[100dvh] flex items-center justify-center p-6 bg-[#F8F7F0] text-[#1E2038]">
-          <div className="rounded-3xl bg-white border border-[#282B4A]/15 p-6 max-w-sm w-full text-center space-y-3 shadow-sm">
+        <div className="min-h-[100dvh] flex items-center justify-center p-6 public-theme-bg text-[#2B0406]">
+          <div className="rounded-3xl glass-rose-card p-6 max-w-sm w-full text-center space-y-3 shadow-sm">
             <p className="text-sm font-bold">{error}</p>
             <button
               type="button"
               onClick={handleRefresh}
-              className="px-4 py-2 rounded-full bg-[#282B4A] text-[#F8F7F0] text-xs font-bold"
+              className="px-4 py-2 rounded-full glass-crimson-solid text-white text-xs font-bold"
             >
               Retry
             </button>
@@ -248,12 +243,10 @@ export default function OpenPublicOrderPage() {
   return (
     <>
       {isDesktop ? (
-        <OpenPublicOrderDesktop
+        <PublicLeaderboardDesktop
           data={data}
           refreshing={refreshing}
           unitsFetching={unitsFetching}
-          lang={lang}
-          onLangToggle={handleLangToggle}
           unitSearch={unitSearch}
           onUnitSearchChange={handleSearchChange}
           sectorFilter={sectorFilter}
@@ -261,15 +254,14 @@ export default function OpenPublicOrderPage() {
           unitPage={unitPage}
           onUnitPageChange={setUnitPage}
           onRefresh={handleRefresh}
-          onOpenPlaceOrder={() => setOrderModalOpen(true)}
+          onOpenQuickEntry={() => setOrderModalOpen(true)}
+          isOpenOrderPortal
         />
       ) : (
-        <OpenPublicOrderMobile
+        <PublicLeaderboardMobile
           data={data}
           refreshing={refreshing}
           unitsFetching={unitsFetching}
-          lang={lang}
-          onLangToggle={handleLangToggle}
           unitSearch={unitSearch}
           onUnitSearchChange={handleSearchChange}
           sectorFilter={sectorFilter}
@@ -277,7 +269,8 @@ export default function OpenPublicOrderPage() {
           unitPage={unitPage}
           onUnitPageChange={setUnitPage}
           onRefresh={handleRefresh}
-          onOpenPlaceOrder={() => setOrderModalOpen(true)}
+          onOpenQuickEntry={() => setOrderModalOpen(true)}
+          isOpenOrderPortal
         />
       )}
 
@@ -285,7 +278,6 @@ export default function OpenPublicOrderPage() {
         <Suspense fallback={null}>
           <OpenPublicOrderModal
             perLiterRate={Number(data.summary.per_liter_rate) || 250}
-            lang={lang}
             onClose={() => setOrderModalOpen(false)}
           />
         </Suspense>

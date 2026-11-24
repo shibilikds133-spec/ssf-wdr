@@ -30,7 +30,6 @@ import type {
 import { formatCurrency, formatQuantity } from '../../utils/format';
 import {
   blockNegativeNumericKeys,
-  sanitizePositiveDecimal,
   sanitizePositiveInteger,
 } from '../../utils/inputGuards';
 import {
@@ -172,8 +171,9 @@ export function PublicQuickEntryModal({
     };
   }, [validRemembered, selectedSectorId, selectedUnitId, units]);
 
-  const parsedQty = Number.parseFloat(quantity);
-  const safeQty = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 0;
+  const parsedQty = Number.parseInt(quantity, 10);
+  const safeQty =
+    Number.isInteger(parsedQty) && parsedQty >= 1 ? parsedQty : 0;
   const previewTotal = Math.round(safeQty * perLiterRate * 100) / 100;
 
   const handleSectorSelect = (secId: string) => {
@@ -200,9 +200,9 @@ export function PublicQuickEntryModal({
   };
 
   const handleStep = (delta: number) => {
-    const current = Number.parseFloat(quantity);
-    const base = Number.isFinite(current) && current > 0 ? current : 1;
-    const next = Math.max(1, Math.round((base + delta) * 100) / 100);
+    const current = Number.parseInt(quantity, 10);
+    const base = Number.isInteger(current) && current >= 1 ? current : 1;
+    const next = Math.max(1, base + delta);
     setQuantity(String(next));
   };
 
@@ -249,8 +249,10 @@ export function PublicQuickEntryModal({
       setError('യൂണിറ്റ് കോഡ് നിർബന്ധമാണ് (ഉദാ: WDR12).');
       return;
     }
-    if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
-      setError('അളവ് (ലിറ്റർ) പൂജ്യത്തേക്കാൾ കൂടുതൽ ആയിരിക്കണം.');
+    if (!Number.isInteger(parsedQty) || parsedQty < 1) {
+      setError(
+        'ഒരു ലിറ്ററോ ഒന്നിലധികം പൂർണ്ണ ലിറ്ററോ മാത്രമേ നൽകാനാകൂ (1L, 2L, 3L...).'
+      );
       return;
     }
     if (!cleanName) {
@@ -730,11 +732,16 @@ export function PublicQuickEntryModal({
                       <input
                         id="pub-qty-input"
                         type="text"
-                        inputMode="decimal"
+                        inputMode="numeric"
                         value={quantity}
-                        onKeyDown={blockNegativeNumericKeys}
+                        onKeyDown={(e) => {
+                          blockNegativeNumericKeys(e);
+                          if (e.key === '.' || e.key === ',') {
+                            e.preventDefault();
+                          }
+                        }}
                         onChange={(e) =>
-                          setQuantity(sanitizePositiveDecimal(e.target.value))
+                          setQuantity(sanitizePositiveInteger(e.target.value))
                         }
                         placeholder="Custom Liters"
                         className="flex-1 text-center py-2 px-3 rounded-xl border border-[#5C0A0E]/20 bg-white/95 text-sm font-bold text-[#2B0406] num focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"

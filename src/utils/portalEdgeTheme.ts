@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react';
 
-export type PortalEdgeKey = 'public' | 'order' | 'admin' | 'sector' | 'unit' | 'login';
+export type PortalEdgeKey = 'public' | 'admin' | 'sector' | 'unit' | 'login';
 
 export interface PortalEdgeThemeConfig {
   key: PortalEdgeKey;
@@ -21,15 +21,6 @@ export const PORTAL_EDGE_THEMES: Record<PortalEdgeKey, PortalEdgeThemeConfig> = 
     canvasBg: '#FFF8F6',
     manifestHref: '/manifest-public.webmanifest',
     canvasClass: 'portal-canvas-public',
-  },
-  order: {
-    key: 'order',
-    themeColor: '#F8F7F0',
-    edgeTop: '#F8F7F0',
-    edgeBottom: '#F8F7F0',
-    canvasBg: '#F8F7F0',
-    manifestHref: '/manifest-public.webmanifest',
-    canvasClass: 'portal-canvas-order',
   },
   admin: {
     key: 'admin',
@@ -70,9 +61,6 @@ export const PORTAL_EDGE_THEMES: Record<PortalEdgeKey, PortalEdgeThemeConfig> = 
 };
 
 export function resolvePortalEdgeKey(pathname: string): PortalEdgeKey {
-  if (pathname.startsWith('/order') || pathname.startsWith('/public-order')) {
-    return 'order';
-  }
   if (pathname.startsWith('/admin')) return 'admin';
   if (pathname.startsWith('/sector')) return 'sector';
   if (pathname.startsWith('/dashboard')) return 'unit';

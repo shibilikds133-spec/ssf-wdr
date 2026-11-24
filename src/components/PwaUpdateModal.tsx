@@ -40,11 +40,6 @@ const PORTAL_CTA_CLASSES: Record<
     captionText: 'text-[#4A070A]/75',
     pillBorderAccent: 'border-[#5C0A0E]/25',
   },
-  order: {
-    primaryBtn: 'bg-[#282B4A] text-[#F8F7F0] hover:bg-[#1E2038]',
-    captionText: 'text-[#282B4A]/75',
-    pillBorderAccent: 'border-[#282B4A]/25',
-  },
 };
 
 function resolvePortalTheme(pathname: string): DocsPortalTheme {

@@ -5292,10 +5292,10 @@ BEGIN
     RAISE EXCEPTION 'Valid 10-digit Indian mobile number is required';
   END IF;
 
-  v_qty := ROUND(p_quantity, 2);
-  IF v_qty IS NULL OR v_qty <= 0 OR v_qty > 500 THEN
-    RAISE EXCEPTION 'Quantity must be greater than 0 and at most 500 liters';
+  IF p_quantity IS NULL OR p_quantity < 1 OR p_quantity > 500 OR p_quantity <> TRUNC(p_quantity) THEN
+    RAISE EXCEPTION 'Only whole liters (1L, 2L, 3L...) up to 500 liters are allowed';
   END IF;
+  v_qty := TRUNC(p_quantity);
 
   IF p_unit_id IS NOT NULL THEN
     SELECT u.sector_id, u.name, s.name

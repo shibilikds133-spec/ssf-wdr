@@ -601,7 +601,7 @@ export const MALAYALAM_DOCS: Record<DocPageKey, MalayalamPageDoc> = {
 
   public_order_portal: {
     key: 'public_order_portal',
-    theme: 'order',
+    theme: 'public',
     portalLabel: 'Open Public Order Portal',
     title: 'ഓർഡർ കോഡ് ഇല്ലാതെ ഓൺലൈൻ ഓർഡർ നൽകാം',
     intro:

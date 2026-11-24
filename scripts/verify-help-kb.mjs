@@ -115,7 +115,7 @@ const PREDICTION_CASES = [
   { query: 'പണം കിട്ടി', role: 'UNIT', expectedId: 'pay_mark_as_paid' },
   { query: 'aadya login password change', role: 'LOGIN', expectedId: 'auth_first_login' },
   { query: '14 days logout', role: 'UNIT', expectedId: 'auth_session_14days' },
-  { query: '1.5 liter custom alavu', role: 'UNIT', expectedId: 'order_quantity_custom' },
+  { query: '4 liter custom alavu', role: 'UNIT', expectedId: 'order_quantity_custom' },
   { query: 'paid select mandatory', role: 'UNIT', expectedId: 'pay_mandatory' },
   { query: 'login illathe public order', role: 'PUBLIC', expectedId: 'code_public_order' },
   { query: 'vere unit kanunnilla', role: 'UNIT', expectedId: 'code_unit_isolation' },
@@ -159,19 +159,19 @@ try {
   });
   assert.ifError(syncColdErr);
   assert.equal(syncCold?.up_to_date, false, 'Expected up_to_date=false for client version 0');
-  assert.equal(syncCold?.version, 2, 'Expected KB version 2');
+  assert.equal(syncCold?.version, 4, 'Expected KB version 4');
   assert.equal(syncCold?.payload?.categories?.length, 7, 'Expected 7 categories');
   assert.equal(syncCold?.payload?.items?.length, 29, 'Expected 29 KB items');
-  console.log('PASS: 1. get_help_kb_sync(0) returned v2 payload (7 categories, 29 items)');
+  console.log('PASS: 1. get_help_kb_sync(0) returned v4 payload (7 categories, 29 items)');
 
   const { data: syncWarm, error: syncWarmErr } = await rpc('get_help_kb_sync', {
-    p_client_version: 2,
+    p_client_version: 4,
   });
   assert.ifError(syncWarmErr);
-  assert.equal(syncWarm?.up_to_date, true, 'Expected up_to_date=true when client is on v2');
-  assert.equal(syncWarm?.version, 2, 'Expected version=2 on short-circuit response');
+  assert.equal(syncWarm?.up_to_date, true, 'Expected up_to_date=true when client is on v4');
+  assert.equal(syncWarm?.version, 4, 'Expected version=4 on short-circuit response');
   assert.equal('payload' in syncWarm, false, 'Expected payload to be omitted on short-circuit');
-  console.log('PASS: 2. get_help_kb_sync(2) short-circuited with up_to_date=true and NO payload');
+  console.log('PASS: 2. get_help_kb_sync(4) short-circuited with up_to_date=true and NO payload');
 
   // 2. Auth Login & Refresh Piggyback Check on dedicated test unit WDR202
   const unitRes = await ownerClient.query(
@@ -194,7 +194,7 @@ try {
   });
   assert.ifError(loginErr);
   assert.equal(loginData?.valid, true, 'Expected WDR202 login to succeed');
-  assert.equal(loginData?.help_kb_version, 2, 'Expected auth_login to piggyback help_kb_version=2');
+  assert.equal(loginData?.help_kb_version, 4, 'Expected auth_login to piggyback help_kb_version=4');
   tokensToLogout.push(loginData.token);
 
   const { data: refreshData, error: refreshErr } = await rpc('auth_refresh_session', {
@@ -202,11 +202,11 @@ try {
   });
   assert.ifError(refreshErr);
   assert.equal(refreshData?.valid, true, 'Expected auth_refresh_session to succeed');
-  assert.equal(refreshData?.help_kb_version, 2, 'Expected auth_refresh_session to piggyback help_kb_version=2');
+  assert.equal(refreshData?.help_kb_version, 4, 'Expected auth_refresh_session to piggyback help_kb_version=4');
   if (refreshData?.token) tokensToLogout.push(refreshData.token);
 
   await rpc('auth_logout', { p_token: loginData.token });
-  console.log('PASS: 3. auth_login & auth_refresh_session on WDR202 piggybacked help_kb_version=2');
+  console.log('PASS: 3. auth_login & auth_refresh_session on WDR202 piggybacked help_kb_version=4');
 
   // 3. Prediction Engine Accuracy Suite (28 real-world queries)
   const kbPayload = syncCold.payload;
@@ -327,7 +327,7 @@ try {
     );
 
     const { data: syncWithPhone, error: syncPhoneErr } = await rpc('get_help_kb_sync', {
-      p_client_version: 2,
+      p_client_version: 4,
     });
     assert.ifError(syncPhoneErr);
     assert.equal(syncWithPhone?.up_to_date, true);
@@ -340,7 +340,7 @@ try {
     });
     assert.ifError(unitPhoneErr);
     assert.equal(unitPhoneCheck?.valid, true);
-    assert.equal(unitPhoneCheck?.help_kb_version, 2);
+    assert.equal(unitPhoneCheck?.help_kb_version, 4);
     assert.equal(unitPhoneCheck?.admin_whatsapp_phone, '9876543210');
     tokensToLogout.push(unitPhoneCheck.token);
 
