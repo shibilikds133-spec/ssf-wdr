@@ -25,7 +25,17 @@ export async function onRequest(context) {
   let rewrittenHtml = html.replaceAll('__SITE_ORIGIN__', origin);
 
   const normalizedPath = reqUrl.pathname || '/';
-  const isPublicRoute = normalizedPath === '/' || normalizedPath === '/index.html';
+  const canonicalUrl = `${origin}${normalizedPath === '/index.html' ? '/' : normalizedPath}`;
+  rewrittenHtml = rewrittenHtml.replace(
+    `<meta property="og:url" content="${origin}/" />`,
+    `<meta property="og:url" content="${canonicalUrl}" />`
+  );
+
+  const isPublicRoute =
+    normalizedPath === '/' ||
+    normalizedPath === '/index.html' ||
+    normalizedPath === '/order' ||
+    normalizedPath === '/public-order';
   if (isPublicRoute) {
     rewrittenHtml = rewrittenHtml
       .replace(
@@ -35,6 +45,22 @@ export async function onRequest(context) {
       .replace(
         '<meta name="theme-color" content="#381932" />',
         '<meta name="theme-color" content="#FFF8F6" />'
+      );
+  }
+
+  if (normalizedPath === '/order' || normalizedPath === '/public-order') {
+    rewrittenHtml = rewrittenHtml
+      .replace(
+        '<meta property="og:title" content="SSF Wandoor Payasam Challenge" />',
+        '<meta property="og:title" content="SSF Wandoor Payasam Challenge — Order Online" />'
+      )
+      .replace(
+        '<meta name="twitter:title" content="SSF Wandoor Payasam Challenge" />',
+        '<meta name="twitter:title" content="SSF Wandoor Payasam Challenge — Order Online" />'
+      )
+      .replaceAll(
+        'SSF വണ്ടൂർ ഡിവിഷൻ പായസം ചലഞ്ച് — ഔദ്യോഗിക പോർട്ടൽ & ലൈവ് അപ്ഡേറ്റുകൾ.',
+        'ഓർഡർ കോഡ് ഇല്ലാതെ ഓൺലൈനിൽ പായസം ഓർഡർ ചെയ്യാം • 1 ലിറ്റർ ₹250 • SSF വണ്ടൂർ ഡിവിഷൻ.'
       );
   }
 

@@ -278,6 +278,10 @@ export default function OpenPublicOrderPage() {
         <Suspense fallback={null}>
           <OpenPublicOrderModal
             perLiterRate={Number(data.summary.per_liter_rate) || 250}
+            initialSectors={data.sectors.map((s) => ({
+              id: s.id,
+              name: s.name,
+            }))}
             onClose={() => setOrderModalOpen(false)}
           />
         </Suspense>

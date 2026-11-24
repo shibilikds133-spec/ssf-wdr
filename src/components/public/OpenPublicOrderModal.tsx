@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   CheckCircle2,
+  ChevronDown,
   Loader2,
   MapPin,
   Minus,
@@ -11,17 +12,16 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import type { PublicSectorOption, PublicUnitOption } from '../../types';
 import { formatCurrency, formatQuantity } from '../../utils/format';
 import {
   blockNegativeNumericKeys,
   sanitizePositiveInteger,
 } from '../../utils/inputGuards';
-import { SelectDropdown } from '../SelectDropdown';
 
 interface OpenPublicOrderModalProps {
   perLiterRate: number;
+  initialSectors?: PublicSectorOption[];
   onClose: () => void;
 }
 
@@ -37,8 +37,123 @@ interface SubmittedReceipt {
   sector_name: string | null;
 }
 
+async function fetchPublicUnitOptions(): Promise<{
+  sectors: PublicSectorOption[];
+  units: PublicUnitOption[];
+}> {
+  // 1. Prefer same-origin Cloudflare Pages proxy (/api/public/unit-options)
+  try {
+    const res = await fetch('/api/public/unit-options', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (res.ok && ct.toLowerCase().includes('application/json')) {
+      const parsed = (await res.json()) as {
+        sectors?: PublicSectorOption[];
+        units?: PublicUnitOption[];
+      };
+      if (Array.isArray(parsed.sectors) && Array.isArray(parsed.units)) {
+        return { sectors: parsed.sectors, units: parsed.units };
+      }
+    }
+  } catch {
+    // Fall back to direct Supabase RPC (local Vite dev)
+  }
+
+  // 2. Direct Supabase RPC fallback
+  const { supabase } = await import('../../lib/supabase');
+  const { data, error } = await supabase.rpc('get_public_unit_options');
+  if (!error && data) {
+    const parsed = data as {
+      sectors?: PublicSectorOption[];
+      units?: PublicUnitOption[];
+    };
+    return {
+      sectors: Array.isArray(parsed.sectors) ? parsed.sectors : [],
+      units: Array.isArray(parsed.units) ? parsed.units : [],
+    };
+  }
+
+  // 3. Fallback via /api/public/leaderboard?limit=100 if unit-options unavailable
+  const lbRes = await fetch('/api/public/leaderboard?page=1&limit=100', {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  if (lbRes.ok) {
+    const lb = (await lbRes.json()) as {
+      sectors?: Array<{ id: number; name: string }>;
+      items?: Array<{ id: number; name: string; sector_id: number }>;
+      units?: Array<{ id: number; name: string; sector_id: number }>;
+    };
+    const rawUnits = lb.items ?? lb.units ?? [];
+    return {
+      sectors: (lb.sectors ?? []).map((s) => ({ id: s.id, name: s.name })),
+      units: rawUnits.map((u) => ({
+        id: u.id,
+        name: u.name,
+        sector_id: u.sector_id,
+      })),
+    };
+  }
+
+  return { sectors: [], units: [] };
+}
+
+async function submitPublicOrder(payload: {
+  p_customer_name: string;
+  p_mobile: string;
+  p_quantity: number;
+  p_unit_id: number | null;
+}): Promise<SubmittedReceipt> {
+  // 1. Prefer same-origin Cloudflare Pages proxy (/api/public/order-request)
+  try {
+    const res = await fetch('/api/public/order-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (ct.toLowerCase().includes('application/json')) {
+      const json = (await res.json()) as SubmittedReceipt & {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(
+          json.error || 'Unable to submit your order request.'
+        );
+      }
+      return json;
+    }
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      !err.message.toLowerCase().includes('failed to fetch') &&
+      !err.message.toLowerCase().includes('networkerror')
+    ) {
+      throw err;
+    }
+  }
+
+  // 2. Direct Supabase RPC fallback (local Vite dev)
+  const { supabase } = await import('../../lib/supabase');
+  const { data, error } = await supabase.rpc(
+    'submit_public_order_request',
+    payload
+  );
+  if (error) {
+    throw new Error(error.message || 'Unable to submit your order request.');
+  }
+  return data as SubmittedReceipt;
+}
+
 export default function OpenPublicOrderModal({
   perLiterRate,
+  initialSectors = [],
   onClose,
 }: OpenPublicOrderModalProps) {
   const [customerName, setCustomerName] = useState('');
@@ -47,7 +162,7 @@ export default function OpenPublicOrderModal({
   const [sectorFilter, setSectorFilter] = useState<string>('ALL');
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
 
-  const [sectors, setSectors] = useState<PublicSectorOption[]>([]);
+  const [sectors, setSectors] = useState<PublicSectorOption[]>(initialSectors);
   const [units, setUnits] = useState<PublicUnitOption[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(true);
 
@@ -59,16 +174,12 @@ export default function OpenPublicOrderModal({
     let active = true;
     const loadOptions = async () => {
       try {
-        const { data, error: rpcError } = await supabase.rpc(
-          'get_public_unit_options'
-        );
-        if (!active || rpcError || !data) return;
-        const parsed = data as {
-          sectors?: PublicSectorOption[];
-          units?: PublicUnitOption[];
-        };
-        setSectors(Array.isArray(parsed.sectors) ? parsed.sectors : []);
-        setUnits(Array.isArray(parsed.units) ? parsed.units : []);
+        const opts = await fetchPublicUnitOptions();
+        if (!active) return;
+        if (opts.sectors.length > 0) setSectors(opts.sectors);
+        if (opts.units.length > 0) setUnits(opts.units);
+      } catch {
+        // Keep initialSectors if network fails
       } finally {
         if (active) setOptionsLoading(false);
       }
@@ -89,6 +200,11 @@ export default function OpenPublicOrderModal({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose, submitting]);
 
+  const sortedSectors = useMemo(
+    () => [...sectors].sort((a, b) => a.name.localeCompare(b.name)),
+    [sectors]
+  );
+
   const filteredUnits = useMemo(() => {
     const base =
       sectorFilter === 'ALL'
@@ -96,36 +212,6 @@ export default function OpenPublicOrderModal({
         : units.filter((u) => String(u.sector_id) === sectorFilter);
     return [...base].sort((a, b) => a.name.localeCompare(b.name));
   }, [units, sectorFilter]);
-
-  const sectorOptions = useMemo(
-    () => [
-      {
-        value: 'ALL',
-        label: 'എല്ലാ സെക്ടറുകളും / All Sectors',
-      },
-      ...[...sectors]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((s) => ({
-          value: String(s.id),
-          label: s.name,
-        })),
-    ],
-    [sectors]
-  );
-
-  const unitOptions = useMemo(
-    () => [
-      {
-        value: '',
-        label: 'തിരഞ്ഞെടുത്തിട്ടില്ല / Not Selected (Optional)',
-      },
-      ...filteredUnits.map((u) => ({
-        value: String(u.id),
-        label: u.name,
-      })),
-    ],
-    [filteredUnits]
-  );
 
   const numericQty = Number.parseInt(quantity, 10);
   const validQty =
@@ -190,22 +276,12 @@ export default function OpenPublicOrderModal({
     setSubmitting(true);
     try {
       const unitIdNum = selectedUnitId ? Number(selectedUnitId) : null;
-      const { data, error: rpcError } = await supabase.rpc(
-        'submit_public_order_request',
-        {
-          p_customer_name: cleanName,
-          p_mobile: cleanMobile,
-          p_quantity: numericQty,
-          p_unit_id: unitIdNum,
-        }
-      );
-
-      if (rpcError) {
-        setError(rpcError.message || 'Unable to submit your order request.');
-        return;
-      }
-
-      const res = data as SubmittedReceipt;
+      const res = await submitPublicOrder({
+        p_customer_name: cleanName,
+        p_mobile: cleanMobile,
+        p_quantity: numericQty,
+        p_unit_id: unitIdNum,
+      });
       setReceipt(res);
     } catch (err) {
       setError(
@@ -230,7 +306,7 @@ export default function OpenPublicOrderModal({
     >
       <div className="w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[#FFF8F6] border border-[#5C0A0E]/20 shadow-2xl text-[#2B0406] pb-[env(safe-area-inset-bottom,0px)]">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 glass-crimson text-white">
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 glass-crimson text-white">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="w-9 h-9 rounded-2xl bg-white/15 border border-white/25 text-[#FCE36D] flex items-center justify-center shrink-0">
               <ShoppingBag className="w-4 h-4" />
@@ -238,7 +314,7 @@ export default function OpenPublicOrderModal({
             <div className="min-w-0">
               <h2
                 id="open-order-modal-title"
-                className="text-base font-extrabold text-white truncate font-ml"
+                className="text-sm sm:text-base font-extrabold text-white truncate font-ml"
               >
                 ഓർഡർ നൽകുക / Place Order
               </h2>
@@ -253,15 +329,15 @@ export default function OpenPublicOrderModal({
             onClick={onClose}
             disabled={submitting}
             aria-label="Close"
-            className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {receipt ? (
-          <div className="p-5 sm:p-6 space-y-5">
-            <div className="rounded-2xl bg-white border border-[#5C0A0E]/14 p-5 text-center space-y-3 shadow-xs">
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="rounded-2xl bg-white border border-[#5C0A0E]/14 p-5 text-center space-y-2.5 shadow-xs">
               <div className="w-12 h-12 rounded-2xl glass-crimson-solid text-[#FCE36D] mx-auto flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
@@ -330,7 +406,7 @@ export default function OpenPublicOrderModal({
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3.5">
             {error && (
               <div
                 role="alert"
@@ -341,7 +417,7 @@ export default function OpenPublicOrderModal({
             )}
 
             {/* 1. Full Name */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label
                 htmlFor="open-order-name"
                 className="block text-xs font-bold text-[#2B0406] font-ml"
@@ -358,13 +434,13 @@ export default function OpenPublicOrderModal({
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="ഉദാ: മുഹമ്മദ് അലി / e.g. Muhammed Ali"
-                  className="w-full h-11 pl-10 pr-3.5 rounded-2xl bg-white border border-[#5C0A0E]/20 text-sm text-[#2B0406] placeholder:text-[#7A2E33]/55 focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                  className="w-full h-10 pl-10 pr-3.5 rounded-2xl bg-white border border-[#5C0A0E]/20 text-sm text-[#2B0406] placeholder:text-[#7A2E33]/55 focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
               </div>
             </div>
 
             {/* 2. Mobile Number */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label
                 htmlFor="open-order-mobile"
                 className="block text-xs font-bold text-[#2B0406] font-ml"
@@ -389,13 +465,13 @@ export default function OpenPublicOrderModal({
                     setMobile(sanitizePositiveInteger(e.target.value).slice(0, 10))
                   }
                   placeholder="9876543210"
-                  className="w-full h-11 pl-[4.4rem] pr-3.5 rounded-2xl bg-white border border-[#5C0A0E]/20 text-sm font-semibold num text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                  className="w-full h-10 pl-[4.4rem] pr-3.5 rounded-2xl bg-white border border-[#5C0A0E]/20 text-sm font-semibold num text-[#2B0406] placeholder:text-[#7A2E33]/50 focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
               </div>
             </div>
 
             {/* 3. Quantity (Whole Liters Only: 1L, 2L, 3L...) */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <label
                   htmlFor="open-order-qty"
@@ -417,7 +493,7 @@ export default function OpenPublicOrderModal({
                       key={chip}
                       type="button"
                       onClick={() => setQuantity(String(chip))}
-                      className={`py-2 rounded-xl text-xs font-extrabold num transition-colors ${
+                      className={`py-1.5 rounded-xl text-xs font-extrabold num transition-colors ${
                         active
                           ? 'glass-crimson text-white shadow-sm'
                           : 'bg-white border border-[#5C0A0E]/16 text-[#4A070A] hover:bg-[#5C0A0E]/5'
@@ -435,7 +511,7 @@ export default function OpenPublicOrderModal({
                   onClick={() => handleStep(-1)}
                   disabled={submitting || validQty <= 1}
                   aria-label="Decrease quantity"
-                  className="w-10 h-11 rounded-2xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#5C0A0E]/5 disabled:opacity-40 shrink-0"
+                  className="w-10 h-10 rounded-2xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#5C0A0E]/5 disabled:opacity-40 shrink-0"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -455,18 +531,18 @@ export default function OpenPublicOrderModal({
                     setQuantity(sanitizePositiveInteger(e.target.value))
                   }
                   placeholder="1"
-                  className="w-20 h-11 px-2 text-center rounded-2xl bg-white border border-[#5C0A0E]/20 text-base font-extrabold num text-[#2B0406] focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                  className="w-20 h-10 px-2 text-center rounded-2xl bg-white border border-[#5C0A0E]/20 text-base font-extrabold num text-[#2B0406] focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
                 />
                 <button
                   type="button"
                   onClick={() => handleStep(1)}
                   disabled={submitting}
                   aria-label="Increase quantity"
-                  className="w-10 h-11 rounded-2xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#5C0A0E]/5 shrink-0"
+                  className="w-10 h-10 rounded-2xl bg-white border border-[#5C0A0E]/20 flex items-center justify-center text-[#5C0A0E] hover:bg-[#5C0A0E]/5 shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
-                <div className="flex-1 h-11 px-3.5 rounded-2xl bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/12 flex items-center justify-between">
+                <div className="flex-1 h-10 px-3.5 rounded-2xl bg-[#5C0A0E]/[0.06] border border-[#5C0A0E]/12 flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-[#7A2E33] font-ml">
                     ആകെ / Total
                   </span>
@@ -480,33 +556,56 @@ export default function OpenPublicOrderModal({
               </p>
             </div>
 
-            {/* 4. Optional Unit Selection */}
-            <div className="rounded-2xl bg-white/85 border border-[#5C0A0E]/14 p-3.5 space-y-2.5">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#5C0A0E] shrink-0" />
-                <span className="text-xs font-bold text-[#2B0406] font-ml">
-                  യൂണിറ്റ് (ഓപ്ഷണൽ — നിർബന്ധമില്ല) / Unit (Optional)
+            {/* 4. Optional Unit Selection (Crisp Native Selects — zero clipping, instant interaction) */}
+            <div className="rounded-2xl bg-white border border-[#5C0A0E]/16 p-3 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#2B0406] font-ml inline-flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#C40E16] shrink-0" />
+                  <span>യൂണിറ്റ് (ഓപ്ഷണൽ) / Unit (Optional)</span>
                 </span>
+                {optionsLoading && (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#5C0A0E] shrink-0" />
+                )}
               </div>
 
-              <div
-                className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${
-                  optionsLoading ? 'opacity-60 pointer-events-none' : ''
-                }`}
-              >
-                <SelectDropdown
-                  value={sectorFilter}
-                  onChange={handleSectorChange}
-                  options={sectorOptions}
-                  ariaLabel="Optional Sector Filter"
-                />
-                <SelectDropdown
-                  value={selectedUnitId}
-                  onChange={setSelectedUnitId}
-                  options={unitOptions}
-                  ariaLabel="Optional Unit Selection"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="relative">
+                  <select
+                    aria-label="Optional Sector Filter"
+                    value={sectorFilter}
+                    onChange={(e) => handleSectorChange(e.target.value)}
+                    className="w-full h-10 pl-3 pr-8 rounded-xl bg-[#FFF8F6] border border-[#5C0A0E]/20 text-xs font-semibold text-[#2B0406] appearance-none focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                  >
+                    <option value="ALL">എല്ലാ സെക്ടറുകളും / All Sectors</option>
+                    {sortedSectors.map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#5C0A0E] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                <div className="relative">
+                  <select
+                    aria-label="Optional Unit Selection"
+                    value={selectedUnitId}
+                    onChange={(e) => setSelectedUnitId(e.target.value)}
+                    className="w-full h-10 pl-3 pr-8 rounded-xl bg-[#FFF8F6] border border-[#5C0A0E]/20 text-xs font-semibold text-[#2B0406] appearance-none focus:outline-none focus:ring-2 focus:ring-[#5C0A0E]/20 focus:border-[#5C0A0E]"
+                  >
+                    <option value="">
+                      തിരഞ്ഞെടുത്തിട്ടില്ല / Not Selected (Optional)
+                    </option>
+                    {filteredUnits.map((u) => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#5C0A0E] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
+
               <p className="text-[11px] text-[#7A2E33] font-ml">
                 യൂണിറ്റ് അറിയില്ലെങ്കിൽ തിരഞ്ഞെടുക്കാതെ തന്നെ ഓർഡർ നൽകാം.
               </p>
@@ -515,7 +614,7 @@ export default function OpenPublicOrderModal({
             <button
               type="submit"
               disabled={submitting}
-              className="w-full h-12 rounded-2xl glass-crimson-solid hover:opacity-95 disabled:opacity-60 text-white text-sm font-extrabold inline-flex items-center justify-center gap-2 transition-opacity shadow-md font-ml"
+              className="w-full h-11 rounded-2xl glass-crimson-solid hover:opacity-95 disabled:opacity-60 text-white text-sm font-extrabold inline-flex items-center justify-center gap-2 transition-opacity shadow-md font-ml"
             >
               {submitting ? (
                 <>
