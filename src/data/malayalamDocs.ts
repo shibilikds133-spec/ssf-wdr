@@ -21,6 +21,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  ShoppingBag,
   SlidersHorizontal,
   Trophy,
   UserCheck,
@@ -593,6 +594,42 @@ export const MALAYALAM_DOCS: Record<DocPageKey, MalayalamPageDoc> = {
         description:
           'യൂണിറ്റ്, സെക്ടർ, ഡിവിഷൻ ഭാരവാഹികൾക്ക് മുകളിലെ Login ബട്ടൺ വഴി സ്വന്തം പോർട്ടലിലേക്ക് പ്രവേശിക്കാം.',
         icon: LogIn,
+      },
+    ],
+    tip: REOPEN_DOCS_TIP,
+  },
+
+  public_order_portal: {
+    key: 'public_order_portal',
+    theme: 'order',
+    portalLabel: 'Open Public Order Portal',
+    title: 'ഓർഡർ കോഡ് ഇല്ലാതെ ഓൺലൈൻ ഓർഡർ നൽകാം',
+    intro:
+      'SSF വണ്ടൂർ ഡിവിഷൻ പാലട പായസം ചലഞ്ചിലേക്ക് ആർക്കും യൂണിറ്റ് ഓർഡർ കോഡ് ഇല്ലാതെ തന്നെ ഇവിടെ നിന്ന് ഓർഡർ സമർപ്പിക്കാം.',
+    points: [
+      {
+        title: 'ഓർഡർ കോഡ് ആവശ്യമില്ല (No Order Code)',
+        description:
+          'പേര്, മൊബൈൽ നമ്പർ, ആവശ്യമുള്ള ലിറ്റർ എന്നിവ മാത്രം നൽകി സെക്കൻഡുകൾക്കുള്ളിൽ ഓർഡർ നൽകാം. Anyone can place an order without a unit code.',
+        icon: ShoppingBag,
+      },
+      {
+        title: 'യൂണിറ്റ് തിരഞ്ഞെടുക്കൽ ഓപ്ഷണൽ ആണ്',
+        description:
+          'നിങ്ങളുടെ യൂണിറ്റ് അറിയാമെങ്കിൽ മാത്രം തിരഞ്ഞെടുത്താൽ മതി; അല്ലെങ്കിൽ അത് ഒഴിവാക്കി നേരിട്ട് ഓർഡർ സമർപ്പിക്കാം.',
+        icon: CheckCircle2,
+      },
+      {
+        title: 'ഡിവിഷൻ കമ്മിറ്റി ഉറപ്പാക്കൽ',
+        description:
+          'നിങ്ങൾ സമർപ്പിക്കുന്ന ഓർഡറുകൾ ഡിവിഷൻ കമ്മിറ്റി പരിശോധിച്ച് ഫോൺ വഴി ഉറപ്പാക്കിയ ശേഷമായിരിക്കും ഔദ്യോഗിക ലിസ്റ്റിൽ ഉൾപ്പെടുത്തുക.',
+        icon: ShieldCheck,
+      },
+      {
+        title: 'ലൈവ് ലീഡർബോർഡ് കാണാം',
+        description:
+          'ഡിവിഷന്റെയും സെക്ടറുകളുടെയും യൂണിറ്റുകളുടെയും തത്സമയ ലിറ്റർ പുരോഗതി ഇവിടെ കാണാൻ സാധിക്കും.',
+        icon: Trophy,
       },
     ],
     tip: REOPEN_DOCS_TIP,

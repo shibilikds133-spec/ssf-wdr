@@ -11,6 +11,7 @@ import { AdminDashboardDesktop } from '../components/admin/AdminDashboardDesktop
 import { AdminDashboardMobile } from '../components/admin/AdminDashboardMobile';
 import { AdminDesktopShell } from '../components/admin/AdminDesktopShell';
 import { AdminMobileShell } from '../components/admin/AdminMobileShell';
+import { AdminPublicPortalTab } from '../components/admin/AdminPublicPortalTab';
 import { AdminSettingsTab } from '../components/admin/AdminSettingsTab';
 import { AllEntriesTab } from '../components/admin/AllEntriesTab';
 import { UnitSummaryTab } from '../components/admin/UnitSummaryTab';
@@ -305,6 +306,24 @@ export default function AdminDashboardPage() {
               }
             />
             <Route
+              path="public-orders"
+              element={
+                <AdminPublicPortalTab
+                  isDesktop={isDesktop}
+                  adminCode={session.code}
+                  sectors={data.sectors}
+                  units={data.unit_summaries}
+                  refreshKey={dataVersion}
+                  onMutated={handleMutated}
+                  onError={(msg) => showToast('error', msg)}
+                  onSessionExpired={() => {
+                    handleSessionExpired();
+                    navigate('/login', { replace: true });
+                  }}
+                />
+              }
+            />
+            <Route
               path="reports"
               element={
                 <PortalReportsPage
@@ -386,6 +405,7 @@ export default function AdminDashboardPage() {
       <AdminDesktopShell
         refreshing={refreshing}
         pendingResetCount={data?.pending_reset_requests?.length ?? 0}
+        pendingPublicOrdersCount={data?.pending_public_orders_count ?? 0}
         onRefresh={() => void fetchDashboard(true)}
         onLogout={handleLogout}
       >
@@ -399,6 +419,7 @@ export default function AdminDashboardPage() {
       isChallengeOpen={data?.settings.is_challenge_open ?? true}
       refreshing={refreshing}
       pendingResetCount={data?.pending_reset_requests?.length ?? 0}
+      pendingPublicOrdersCount={data?.pending_public_orders_count ?? 0}
       onRefresh={() => void fetchDashboard(true)}
       onLogout={handleLogout}
     >

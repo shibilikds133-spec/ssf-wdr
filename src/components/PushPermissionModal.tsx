@@ -95,6 +95,19 @@ const PORTAL_STYLES: Record<
     topGlow:
       'from-[#C40E16]/[0.14] via-[#5C0A0E]/[0.04] to-transparent',
   },
+  order: {
+    glassSurface:
+      'bg-[#F8F7F0]/[0.94] backdrop-blur-lg border border-[#282B4A]/[0.18] shadow-[0_24px_64px_-12px_rgba(30,32,56,0.32),inset_0_1px_0_rgba(255,255,255,0.95)]',
+    accentPill:
+      'bg-[#282B4A] text-[#F8F7F0] border border-white/20 shadow-sm',
+    iconBadge:
+      'bg-[#282B4A] text-[#F8F7F0] shadow-lg ring-4 ring-[#282B4A]/15',
+    primaryBtn: 'bg-[#282B4A] text-[#F8F7F0] hover:bg-[#1E2038]',
+    secondaryBtn:
+      'border border-[#282B4A]/20 bg-white/85 text-[#1E2038] hover:bg-white',
+    topGlow:
+      'from-[#282B4A]/[0.12] via-[#282B4A]/[0.04] to-transparent',
+  },
 };
 
 const ROLE_COPY: Record<UserRole, string> = {

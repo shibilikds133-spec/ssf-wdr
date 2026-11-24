@@ -14,6 +14,9 @@ interface AssistantRouteMeta {
 }
 
 function getAssistantRouteMeta(pathname: string): AssistantRouteMeta {
+  if (pathname.startsWith('/order') || pathname.startsWith('/public-order')) {
+    return { theme: 'order', role: 'PUBLIC', hasMobileBottomNav: true };
+  }
   if (pathname.startsWith('/admin')) {
     return { theme: 'plum', role: 'ADMIN', hasMobileBottomNav: true };
   }
@@ -37,6 +40,7 @@ const LAUNCHER_STYLES: Record<DocsPortalTheme, string> = {
   forest: 'glass-agent-forest text-white',
   orange: 'glass-agent-orange text-white',
   public: 'glass-agent-public text-white',
+  order: 'glass-agent-order text-white',
 };
 
 export function SmartAssistantLauncher() {

@@ -219,6 +219,7 @@ export interface AdminDashboardResponse {
   unit_summaries: UnitSummaryRow[];
   entries: EntryItem[];
   pending_reset_requests?: PasswordResetRequest[];
+  pending_public_orders_count?: number;
 }
 
 export interface SectorDashboardSummary {
@@ -244,6 +245,7 @@ export interface SectorDashboardResponse {
   units: UnitSummaryRow[];
   entries: EntryItem[];
   pending_reset_requests?: PasswordResetRequest[];
+  pending_public_orders_count?: number;
 }
 
 export interface UnitDashboardResponse {
@@ -338,4 +340,42 @@ export interface StoredHelpKb {
   version: number;
   payload: HelpKbPayload;
   syncedAt: string;
+}
+
+
+export type PublicOrderRequestStatus = 'pending' | 'approved' | 'cancelled';
+
+export interface PublicSectorOption {
+  id: number;
+  name: string;
+}
+
+export interface PublicUnitOption {
+  id: number;
+  name: string;
+  sector_id: number;
+}
+
+export interface PublicOrderRequest {
+  id: string;
+  customer_name: string;
+  mobile: string;
+  quantity: number;
+  unit_rate: number;
+  total_amount: number;
+  sector_id: number | null;
+  unit_id: number | null;
+  unit_name: string | null;
+  sector_name: string | null;
+  status: PublicOrderRequestStatus;
+  approved_entry_id: number | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface PublicOrderRequestCounts {
+  pending_count: number;
+  approved_count: number;
+  cancelled_count: number;
 }

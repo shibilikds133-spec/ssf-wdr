@@ -26,6 +26,7 @@ const PushPermissionModal = lazy(
 const PageDocsModal = lazy(() => import('./components/docs/PageDocsModal'));
 const PwaUpdateModal = lazy(() => import('./components/PwaUpdateModal'));
 const PublicPage = lazy(() => import('./pages/PublicPage'));
+const OpenPublicOrderPage = lazy(() => import('./pages/OpenPublicOrderPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const FirstLoginSetupPage = lazy(() => import('./pages/FirstLoginSetupPage'));
 const UnitDashboardPage = lazy(() => import('./pages/UnitDashboardPage'));
@@ -128,6 +129,11 @@ export default function App() {
           <Suspense fallback={<AppLoader fullScreen />}>
             <Routes>
               <Route path="/" element={<PublicPage />} />
+              <Route path="/order" element={<OpenPublicOrderPage />} />
+              <Route
+                path="/public-order"
+                element={<Navigate to="/order" replace />}
+              />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/setup-password" element={<FirstLoginSetupPage />} />
               <Route

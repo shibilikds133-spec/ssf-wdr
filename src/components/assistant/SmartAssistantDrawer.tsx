@@ -231,6 +231,40 @@ const DRAWER_THEMES: Record<DocsPortalTheme, DrawerThemeStyle> = {
     iconButton:
       'bg-white/75 hover:bg-white border border-[#5C0A0E]/[0.12] text-[#4A070A]/85 hover:text-[#2B0406]',
   },
+  order: {
+    cardSurface:
+      'bg-[#F8F7F0]/[0.95] backdrop-blur-2xl border border-[#282B4A]/[0.16] shadow-[0_24px_60px_-14px_rgba(30,32,56,0.32)]',
+    headerSurface:
+      'bg-gradient-to-b from-[#282B4A]/[0.06] to-transparent border-b border-[#282B4A]/[0.10]',
+    orbClass: 'glass-agent-order text-[#F8F7F0]',
+    headingText: 'text-[#1E2038]',
+    bodyText: 'text-[#282B4A]',
+    mutedText: 'text-[#5A5E7D]',
+    dotColor: 'bg-[#282B4A]',
+    badge:
+      'bg-[#EEEBDA] text-[#1E2038] border border-[#282B4A]/[0.15]',
+    userBubble: 'bg-[#282B4A] text-[#F8F7F0]',
+    accentButton: 'glass-agent-order text-[#F8F7F0]',
+    answerBubble:
+      'bg-white/90 border border-[#282B4A]/[0.12] shadow-[0_6px_18px_-8px_rgba(30,32,56,0.14)]',
+    questionCard:
+      'bg-white/90 hover:bg-white border border-[#282B4A]/[0.13] shadow-sm',
+    chipButton:
+      'bg-[#EEEBDA]/85 hover:bg-[#EEEBDA] border border-[#282B4A]/[0.16] text-[#1E2038]',
+    categoryActive: 'bg-[#282B4A] text-[#F8F7F0]',
+    categoryIdle:
+      'bg-white/85 hover:bg-white border border-[#282B4A]/[0.14] text-[#282B4A]',
+    dropdownSurface:
+      'bg-[#F8F7F0]/[0.98] backdrop-blur-2xl border border-[#282B4A]/[0.16] shadow-xl',
+    pillInputWrapper:
+      'bg-white/95 border border-[#282B4A]/[0.18] focus-within:ring-2 focus-within:ring-[#282B4A]/20 focus-within:border-[#282B4A]/45 shadow-sm',
+    inputText: 'text-[#1E2038] placeholder:text-[#5A5E7D]/60',
+    footerBorder: 'border-t border-[#282B4A]/[0.10]',
+    whatsappButton:
+      'bg-emerald-700 hover:bg-emerald-800 text-white shadow-sm',
+    iconButton:
+      'bg-white/75 hover:bg-white border border-[#282B4A]/[0.12] text-[#282B4A]/85 hover:text-[#1E2038]',
+  },
 };
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -414,38 +448,86 @@ export function SmartAssistantDrawer({
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, selectedCategoryId]);
 
+  const effectiveKb = useMemo(() => {
+    if (!kb) return null;
+    if (theme !== 'order') return kb;
+
+    const excludedIds = new Set([
+      'public_quick_entry_steps',
+      'public_remembered_unit',
+      'public_code_privacy',
+      'code_find_unit_code',
+    ]);
+    const filteredItems = kb.items.filter(
+      (item) =>
+        !excludedIds.has(item.id) &&
+        !item.id.startsWith('code_')
+    );
+    const openOrderFaqs: HelpKbItem[] = [
+      {
+        id: 'open_order_no_code',
+        category: 'public_orders',
+        roles: ['PUBLIC'],
+        question: 'ഓർഡർ കോഡ് ഇല്ലാതെ എങ്ങനെ ഓർഡർ നൽകാം?',
+        answer:
+          'താഴെയുള്ള "+ ഓർഡർ നൽകുക / Place Order" ബട്ടൺ അമർത്തി നിങ്ങളുടെ പേര്, 10 അക്ക മൊബൈൽ നമ്പർ, ആവശ്യമുള്ള ലിറ്റർ എന്നിവ നൽകിയാൽ മതി. യൂണിറ്റ് തിരഞ്ഞെടുക്കൽ ഓപ്ഷണൽ ആണ്; ഓർഡർ കോഡ് ആവശ്യമില്ല.',
+        keywords: ['order', 'no code', 'public', 'ഓർഡർ', 'കോഡ് ഇല്ലാതെ'],
+        followUps: [],
+      },
+      {
+        id: 'open_order_confirmation',
+        category: 'public_orders',
+        roles: ['PUBLIC'],
+        question: 'ഓർഡർ നൽകിയ ശേഷം എപ്പോഴാണ് ഉറപ്പാക്കുക?',
+        answer:
+          'നിങ്ങളുടെ ഓർഡർ അപേക്ഷ ലഭിച്ചാൽ ഡിവിഷൻ കമ്മിറ്റി പരിശോധിച്ച് ഫോൺ/വാട്സ്ആപ്പ് വഴി ബന്ധപ്പെട്ട് ഉടൻ ഉറപ്പാക്കുന്നതാണ്. ഉറപ്പാക്കിയ ശേഷമേ ഔദ്യോഗിക ലിസ്റ്റിൽ ചേർക്കൂ.',
+        keywords: ['confirm', 'approval', 'pending', 'ഉറപ്പാക്കുക', 'ഡിവിഷൻ'],
+        followUps: [],
+      },
+    ];
+    return {
+      ...kb,
+      items: [...openOrderFaqs, ...filteredItems],
+    };
+  }, [kb, theme]);
+
   const itemById = useMemo(() => {
     const map = new Map<string, HelpKbItem>();
-    if (!kb) return map;
-    for (const item of kb.items) {
+    if (!effectiveKb) return map;
+    for (const item of effectiveKb.items) {
       map.set(item.id, item);
     }
     return map;
-  }, [kb]);
+  }, [effectiveKb]);
 
   const visibleCategories = useMemo(
-    () => (kb ? getVisibleCategories(kb, role) : []),
-    [kb, role]
+    () => (effectiveKb ? getVisibleCategories(effectiveKb, role) : []),
+    [effectiveKb, role]
   );
 
-  const quickQuestions = useMemo(
-    () => (kb ? getQuickQuestionsForRole(kb, role, 4) : []),
-    [kb, role]
-  );
+  const quickQuestions = useMemo(() => {
+    if (!effectiveKb) return [];
+    if (theme === 'order') {
+      return effectiveKb.items
+        .filter((item) => isItemVisibleForRole(item, role))
+        .slice(0, 4);
+    }
+    return getQuickQuestionsForRole(effectiveKb, role, 4);
+  }, [effectiveKb, role, theme]);
 
   const categoryQuestions = useMemo(() => {
-    if (!kb || !selectedCategoryId) return [];
-    return kb.items.filter(
+    if (!effectiveKb || !selectedCategoryId) return [];
+    return effectiveKb.items.filter(
       (item) =>
         item.category === selectedCategoryId &&
         isItemVisibleForRole(item, role)
     );
-  }, [kb, selectedCategoryId, role]);
+  }, [effectiveKb, selectedCategoryId, role]);
 
   const livePredictions = useMemo(() => {
-    if (!kb || deferredQuery.trim().length < 2) return [];
-    return searchHelpKb(kb, deferredQuery, role, 4);
-  }, [kb, deferredQuery, role]);
+    if (!effectiveKb || deferredQuery.trim().length < 2) return [];
+    return searchHelpKb(effectiveKb, deferredQuery, role, 4);
+  }, [effectiveKb, deferredQuery, role]);
 
   const selectQuestion = useCallback(
     (item: HelpKbItem, userPromptOverride?: string) => {
@@ -471,10 +553,10 @@ export function SmartAssistantDrawer({
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const trimmed = query.trim();
-    if (!trimmed || !kb) return;
+    if (!trimmed || !effectiveKb) return;
 
     setLastTypedQuery(trimmed);
-    const results = searchHelpKb(kb, trimmed, role, 3);
+    const results = searchHelpKb(effectiveKb, trimmed, role, 3);
     const topMatch = results[0];
 
     if (topMatch && topMatch.score >= 24) {

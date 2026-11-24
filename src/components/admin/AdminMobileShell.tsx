@@ -8,6 +8,7 @@ import {
   LogOut,
   RefreshCw,
   Settings,
+  ShoppingBag,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
@@ -18,6 +19,7 @@ interface AdminMobileShellProps {
   isChallengeOpen: boolean;
   refreshing: boolean;
   pendingResetCount?: number;
+  pendingPublicOrdersCount?: number;
   onRefresh: () => void;
   onLogout: () => void;
 }
@@ -26,6 +28,7 @@ const MOBILE_TABS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutGrid, end: true },
   { to: '/admin/units', label: 'Units', icon: Building2, end: false },
   { to: '/admin/entries', label: 'Entries', icon: ListChecks, end: false },
+  { to: '/admin/public-orders', label: 'Public', icon: ShoppingBag, end: false },
   { to: '/admin/reports', label: 'Reports', icon: FileBarChart2, end: false },
   { to: '/admin/settings', label: 'Settings', icon: Settings, end: false },
 ] as const;
@@ -35,6 +38,7 @@ export function AdminMobileShell({
   isChallengeOpen,
   refreshing,
   pendingResetCount = 0,
+  pendingPublicOrdersCount = 0,
   onRefresh,
   onLogout,
 }: AdminMobileShellProps) {
@@ -107,7 +111,7 @@ export function AdminMobileShell({
         aria-label="Admin Mobile Navigation"
         className="fixed bottom-0 inset-x-0 z-40 glass-card bg-[#FDFBF8]/95 border-t border-milk-border border-b-0 border-x-0 pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] transform-gpu will-change-transform"
       >
-        <div className="grid grid-cols-5 h-16 max-w-2xl mx-auto">
+        <div className="grid grid-cols-6 h-16 max-w-2xl mx-auto">
           {MOBILE_TABS.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -125,6 +129,13 @@ export function AdminMobileShell({
                     }`}
                   >
                     <Icon className="w-4 h-4" />
+                    {to === '/admin/public-orders' &&
+                      pendingPublicOrdersCount > 0 && (
+                        <span
+                          aria-label={`${pendingPublicOrdersCount} pending public orders`}
+                          className="absolute -top-0.5 right-1 w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-white"
+                        />
+                      )}
                     {to === '/admin/settings' && pendingResetCount > 0 && (
                       <span
                         aria-label={`${pendingResetCount} pending reset requests`}

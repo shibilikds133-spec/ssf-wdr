@@ -198,6 +198,32 @@ CREATE TABLE IF NOT EXISTS help_kb_store (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Open Public Order Portal Queue (isolated from official entries until Division Admin approval)
+CREATE TABLE IF NOT EXISTS public_order_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_name TEXT NOT NULL,
+  mobile TEXT NOT NULL,
+  quantity NUMERIC(10, 2) NOT NULL CHECK (quantity > 0),
+  unit_rate NUMERIC(10, 2) NOT NULL,
+  total_amount NUMERIC(12, 2) NOT NULL,
+  sector_id INT NULL REFERENCES sectors(id) ON DELETE SET NULL,
+  unit_id INT NULL REFERENCES units(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'cancelled')),
+  approved_entry_id INT NULL REFERENCES entries(id) ON DELETE SET NULL,
+  reviewed_by UUID NULL,
+  reviewed_at TIMESTAMPTZ NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_order_requests_status_created
+  ON public_order_requests (status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_public_order_requests_unit_id
+  ON public_order_requests (unit_id);
+
+ALTER TABLE public_order_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public_order_requests FROM anon, authenticated;
+
 -- 2. DEFAULT SETTINGS, INTERNAL SECRET & DUMMY SEED DATA (IDEMPOTENT)
 INSERT INTO app_settings (key, value) VALUES
   ('admin_code', 'WDR100'),
@@ -2932,6 +2958,11 @@ BEGIN
         WHERE pr.status = 'PENDING'
       ),
       '[]'::jsonb
+    ),
+    'pending_public_orders_count', (
+      SELECT COUNT(*)::INT
+      FROM public_order_requests
+      WHERE status = 'pending'
     )
   ) INTO v_result;
 
@@ -5182,3 +5213,513 @@ REVOKE ALL ON FUNCTION claim_app_update_push(TEXT, BOOLEAN, TEXT) FROM PUBLIC, a
 GRANT EXECUTE ON FUNCTION push_verify_session(TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION claim_order_push_events(INT, TEXT) TO service_role;
 GRANT EXECUTE ON FUNCTION claim_app_update_push(TEXT, BOOLEAN, TEXT) TO service_role;
+
+
+-- ============================================================
+-- 10. OPEN PUBLIC ORDER PORTAL (/order) & DIVISION APPROVAL QUEUE
+-- ============================================================
+
+-- 10.1 PUBLIC: ALPHABETICAL SECTOR & UNIT OPTIONS (ZERO UNIT CODES)
+CREATE OR REPLACE FUNCTION get_public_unit_options()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+BEGIN
+  RETURN jsonb_build_object(
+    'sectors', COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', s.id,
+            'name', s.name
+          ) ORDER BY s.name ASC
+        )
+        FROM sectors s
+      ),
+      '[]'::jsonb
+    ),
+    'units', COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', u.id,
+            'name', u.name,
+            'sector_id', u.sector_id
+          ) ORDER BY u.name ASC
+        )
+        FROM units u
+      ),
+      '[]'::jsonb
+    )
+  );
+END;
+$$;
+
+-- 10.2 PUBLIC: SUBMIT OPEN PUBLIC ORDER REQUEST (LANDS IN QUEUE, NOT IN ENTRIES)
+CREATE OR REPLACE FUNCTION submit_public_order_request(
+  p_customer_name TEXT,
+  p_mobile TEXT,
+  p_quantity NUMERIC,
+  p_unit_id INT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_clean_name TEXT := TRIM(COALESCE(p_customer_name, ''));
+  v_digits TEXT := REGEXP_REPLACE(COALESCE(p_mobile, ''), '\D', '', 'g');
+  v_qty NUMERIC(10, 2);
+  v_rate NUMERIC(10, 2);
+  v_total NUMERIC(12, 2);
+  v_sector_id INT := NULL;
+  v_unit_name TEXT := NULL;
+  v_sector_name TEXT := NULL;
+  v_inserted RECORD;
+BEGIN
+  IF LENGTH(v_clean_name) < 2 OR LENGTH(v_clean_name) > 100 THEN
+    RAISE EXCEPTION 'Full name must be between 2 and 100 characters';
+  END IF;
+
+  IF LENGTH(v_digits) = 12 AND LEFT(v_digits, 2) = '91' THEN
+    v_digits := RIGHT(v_digits, 10);
+  END IF;
+
+  IF v_digits !~ '^[6-9][0-9]{9}$' THEN
+    RAISE EXCEPTION 'Valid 10-digit Indian mobile number is required';
+  END IF;
+
+  v_qty := ROUND(p_quantity, 2);
+  IF v_qty IS NULL OR v_qty <= 0 OR v_qty > 500 THEN
+    RAISE EXCEPTION 'Quantity must be greater than 0 and at most 500 liters';
+  END IF;
+
+  IF p_unit_id IS NOT NULL THEN
+    SELECT u.sector_id, u.name, s.name
+    INTO v_sector_id, v_unit_name, v_sector_name
+    FROM units u
+    JOIN sectors s ON s.id = u.sector_id
+    WHERE u.id = p_unit_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Selected unit not found';
+    END IF;
+  END IF;
+
+  SELECT COALESCE(value::NUMERIC, 250)
+  INTO v_rate
+  FROM app_settings
+  WHERE key = 'unit_rate';
+
+  IF v_rate IS NULL OR v_rate <= 0 THEN
+    v_rate := 250;
+  END IF;
+
+  v_total := ROUND(v_qty * v_rate, 2);
+
+  INSERT INTO public_order_requests (
+    customer_name,
+    mobile,
+    quantity,
+    unit_rate,
+    total_amount,
+    sector_id,
+    unit_id,
+    status
+  ) VALUES (
+    v_clean_name,
+    v_digits,
+    v_qty,
+    v_rate,
+    v_total,
+    v_sector_id,
+    p_unit_id,
+    'pending'
+  )
+  RETURNING * INTO v_inserted;
+
+  RETURN jsonb_build_object(
+    'id', v_inserted.id,
+    'customer_name', v_inserted.customer_name,
+    'mobile', v_inserted.mobile,
+    'quantity', v_inserted.quantity,
+    'unit_rate', v_inserted.unit_rate,
+    'total_amount', v_inserted.total_amount,
+    'unit_id', v_inserted.unit_id,
+    'sector_id', v_inserted.sector_id,
+    'unit_name', v_unit_name,
+    'sector_name', v_sector_name,
+    'status', v_inserted.status,
+    'created_at', v_inserted.created_at
+  );
+END;
+$$;
+
+-- 10.3 DIVISION ADMIN: LIST PUBLIC ORDER REQUESTS BY STATUS + LIVE COUNTS
+CREATE OR REPLACE FUNCTION admin_get_public_order_requests(
+  p_token TEXT,
+  p_status TEXT DEFAULT 'pending',
+  p_search TEXT DEFAULT ''
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_status TEXT := LOWER(TRIM(COALESCE(p_status, 'pending')));
+  v_search TEXT := TRIM(COALESCE(p_search, ''));
+  v_like TEXT := '%' || v_search || '%';
+  v_pending_count INT := 0;
+  v_approved_count INT := 0;
+  v_cancelled_count INT := 0;
+  v_requests JSONB := '[]'::jsonb;
+BEGIN
+  IF NOT is_valid_admin_auth(p_token) THEN
+    RAISE EXCEPTION 'Unauthorized admin code';
+  END IF;
+
+  IF v_status NOT IN ('pending', 'approved', 'cancelled') THEN
+    RAISE EXCEPTION 'Invalid status filter';
+  END IF;
+
+  SELECT
+    COUNT(*) FILTER (WHERE status = 'pending')::INT,
+    COUNT(*) FILTER (WHERE status = 'approved')::INT,
+    COUNT(*) FILTER (WHERE status = 'cancelled')::INT
+  INTO v_pending_count, v_approved_count, v_cancelled_count
+  FROM public_order_requests;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', r.id,
+        'customer_name', r.customer_name,
+        'mobile', r.mobile,
+        'quantity', r.quantity,
+        'unit_rate', r.unit_rate,
+        'total_amount', r.total_amount,
+        'sector_id', r.sector_id,
+        'unit_id', r.unit_id,
+        'unit_name', u.name,
+        'sector_name', s.name,
+        'status', r.status,
+        'approved_entry_id', r.approved_entry_id,
+        'reviewed_by', r.reviewed_by,
+        'reviewed_at', r.reviewed_at,
+        'created_at', r.created_at
+      )
+      ORDER BY
+        CASE WHEN v_status = 'pending' THEN r.created_at END DESC,
+        CASE WHEN v_status <> 'pending' THEN COALESCE(r.reviewed_at, r.created_at) END DESC,
+        r.created_at DESC
+    ),
+    '[]'::jsonb
+  )
+  INTO v_requests
+  FROM public_order_requests r
+  LEFT JOIN units u ON u.id = r.unit_id
+  LEFT JOIN sectors s ON s.id = COALESCE(u.sector_id, r.sector_id)
+  WHERE r.status = v_status
+    AND (
+      v_search = ''
+      OR r.customer_name ILIKE v_like
+      OR r.mobile ILIKE v_like
+      OR COALESCE(u.name, '') ILIKE v_like
+      OR COALESCE(s.name, '') ILIKE v_like
+    );
+
+  RETURN jsonb_build_object(
+    'requests', v_requests,
+    'counts', jsonb_build_object(
+      'pending_count', v_pending_count,
+      'approved_count', v_approved_count,
+      'cancelled_count', v_cancelled_count
+    )
+  );
+END;
+$$;
+
+-- 10.4 DIVISION ADMIN: INLINE UNIT ASSIGNMENT / CORRECTION ON PENDING REQUEST
+CREATE OR REPLACE FUNCTION admin_update_public_request_unit(
+  p_token TEXT,
+  p_request_id UUID,
+  p_unit_id INT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_req public_order_requests%ROWTYPE;
+  v_sector_id INT := NULL;
+  v_unit_name TEXT := NULL;
+  v_sector_name TEXT := NULL;
+BEGIN
+  IF NOT is_valid_admin_auth(p_token) THEN
+    RAISE EXCEPTION 'Unauthorized admin code';
+  END IF;
+
+  SELECT *
+  INTO v_req
+  FROM public_order_requests
+  WHERE id = p_request_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Public order request not found';
+  END IF;
+
+  IF v_req.status <> 'pending' THEN
+    RAISE EXCEPTION 'Only pending requests can update unit assignment';
+  END IF;
+
+  IF p_unit_id IS NOT NULL THEN
+    SELECT u.sector_id, u.name, s.name
+    INTO v_sector_id, v_unit_name, v_sector_name
+    FROM units u
+    JOIN sectors s ON s.id = u.sector_id
+    WHERE u.id = p_unit_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Selected unit not found';
+    END IF;
+  END IF;
+
+  UPDATE public_order_requests
+  SET unit_id = p_unit_id,
+      sector_id = v_sector_id
+  WHERE id = p_request_id;
+
+  RETURN jsonb_build_object(
+    'request_id', p_request_id,
+    'unit_id', p_unit_id,
+    'sector_id', v_sector_id,
+    'unit_name', v_unit_name,
+    'sector_name', v_sector_name
+  );
+END;
+$$;
+
+-- 10.5 DIVISION ADMIN: APPROVE PUBLIC ORDER REQUEST -> INSERT INTO OFFICIAL ENTRIES
+CREATE OR REPLACE FUNCTION admin_approve_public_order_request(
+  p_token TEXT,
+  p_request_id UUID,
+  p_unit_id INT DEFAULT NULL,
+  p_payment_status TEXT DEFAULT 'UNPAID',
+  p_payment_mode TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_req public_order_requests%ROWTYPE;
+  v_admin_id UUID := NULL;
+  v_sector_id INT := NULL;
+  v_status TEXT := UPPER(TRIM(COALESCE(p_payment_status, 'UNPAID')));
+  v_mode TEXT := NULLIF(UPPER(TRIM(COALESCE(p_payment_mode, ''))), '');
+  v_new_entry_id INT;
+BEGIN
+  IF NOT is_valid_admin_auth(p_token) THEN
+    RAISE EXCEPTION 'Unauthorized admin code';
+  END IF;
+
+  SELECT s.session_id
+  INTO v_admin_id
+  FROM verify_and_slide_session(TRIM(COALESCE(p_token, '')), 'ADMIN') s
+  LIMIT 1;
+
+  SELECT *
+  INTO v_req
+  FROM public_order_requests
+  WHERE id = p_request_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Public order request not found';
+  END IF;
+
+  IF v_req.status <> 'pending' THEN
+    RAISE EXCEPTION 'Request is already %', v_req.status;
+  END IF;
+
+  IF p_unit_id IS NOT NULL THEN
+    SELECT u.sector_id
+    INTO v_sector_id
+    FROM units u
+    WHERE u.id = p_unit_id;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Selected unit not found';
+    END IF;
+  END IF;
+
+  IF v_status NOT IN ('PAID', 'UNPAID') THEN
+    RAISE EXCEPTION 'Please select Paid or Unpaid status';
+  END IF;
+
+  IF v_status = 'PAID' AND (v_mode IS NULL OR v_mode NOT IN ('CASH', 'UPI')) THEN
+    RAISE EXCEPTION 'Please select Cash Handover or UPI for Paid orders';
+  END IF;
+
+  IF v_status = 'UNPAID' THEN
+    v_mode := NULL;
+  END IF;
+
+  INSERT INTO entries (
+    unit_id,
+    contributor_name,
+    mobile_number,
+    quantity,
+    unit_rate_applied,
+    total_amount,
+    payment_status,
+    payment_mode,
+    entry_source
+  ) VALUES (
+    p_unit_id,
+    v_req.customer_name,
+    v_req.mobile,
+    v_req.quantity,
+    v_req.unit_rate,
+    v_req.total_amount,
+    v_status,
+    v_mode,
+    'public_portal'
+  )
+  RETURNING id INTO v_new_entry_id;
+
+  UPDATE public_order_requests
+  SET status = 'approved',
+      unit_id = p_unit_id,
+      sector_id = v_sector_id,
+      approved_entry_id = v_new_entry_id,
+      reviewed_by = v_admin_id,
+      reviewed_at = now()
+  WHERE id = p_request_id;
+
+  RETURN jsonb_build_object(
+    'request_id', p_request_id,
+    'entry_id', v_new_entry_id,
+    'unit_id', p_unit_id,
+    'sector_id', v_sector_id
+  );
+END;
+$$;
+
+-- 10.6 DIVISION ADMIN: CANCEL PUBLIC ORDER REQUEST (SOFT TRANSITION, NEVER DELETED)
+CREATE OR REPLACE FUNCTION admin_cancel_public_order_request(
+  p_token TEXT,
+  p_request_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_req public_order_requests%ROWTYPE;
+  v_admin_id UUID := NULL;
+BEGIN
+  IF NOT is_valid_admin_auth(p_token) THEN
+    RAISE EXCEPTION 'Unauthorized admin code';
+  END IF;
+
+  SELECT s.session_id
+  INTO v_admin_id
+  FROM verify_and_slide_session(TRIM(COALESCE(p_token, '')), 'ADMIN') s
+  LIMIT 1;
+
+  SELECT *
+  INTO v_req
+  FROM public_order_requests
+  WHERE id = p_request_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Public order request not found';
+  END IF;
+
+  IF v_req.status <> 'pending' THEN
+    RAISE EXCEPTION 'Only pending requests can be cancelled';
+  END IF;
+
+  UPDATE public_order_requests
+  SET status = 'cancelled',
+      reviewed_by = v_admin_id,
+      reviewed_at = now()
+  WHERE id = p_request_id;
+
+  RETURN jsonb_build_object(
+    'request_id', p_request_id,
+    'status', 'cancelled'
+  );
+END;
+$$;
+
+-- 10.7 DIVISION ADMIN: RESET APPROVED OR CANCELLED REQUEST BACK TO PENDING
+CREATE OR REPLACE FUNCTION admin_reset_public_order_request(
+  p_token TEXT,
+  p_request_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_req public_order_requests%ROWTYPE;
+BEGIN
+  IF NOT is_valid_admin_auth(p_token) THEN
+    RAISE EXCEPTION 'Unauthorized admin code';
+  END IF;
+
+  SELECT *
+  INTO v_req
+  FROM public_order_requests
+  WHERE id = p_request_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Public order request not found';
+  END IF;
+
+  IF v_req.status = 'pending' THEN
+    RAISE EXCEPTION 'Request is already pending';
+  END IF;
+
+  IF v_req.status = 'approved' THEN
+    IF v_req.approved_entry_id IS NOT NULL THEN
+      UPDATE entries
+      SET is_deleted = true
+      WHERE id = v_req.approved_entry_id;
+    END IF;
+  END IF;
+
+  UPDATE public_order_requests
+  SET status = 'pending',
+      approved_entry_id = NULL,
+      reviewed_by = NULL,
+      reviewed_at = NULL
+  WHERE id = p_request_id;
+
+  RETURN jsonb_build_object(
+    'request_id', p_request_id,
+    'status', 'pending'
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_public_unit_options() TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION submit_public_order_request(TEXT, TEXT, NUMERIC, INT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_get_public_order_requests(TEXT, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_update_public_request_unit(TEXT, UUID, INT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_approve_public_order_request(TEXT, UUID, INT, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_cancel_public_order_request(TEXT, UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION admin_reset_public_order_request(TEXT, UUID) TO anon, authenticated;

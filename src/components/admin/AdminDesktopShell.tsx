@@ -9,6 +9,7 @@ import {
   LogOut,
   RefreshCw,
   Settings,
+  ShoppingBag,
 } from 'lucide-react';
 import { BrandText } from '../BrandText';
 import { PageDocsButton } from '../docs/PageDocsButton';
@@ -18,6 +19,7 @@ interface AdminDesktopShellProps {
   children: ReactNode;
   refreshing: boolean;
   pendingResetCount?: number;
+  pendingPublicOrdersCount?: number;
   onRefresh: () => void;
   onLogout: () => void;
 }
@@ -26,6 +28,7 @@ const NAV_ITEMS = [
   { to: '/admin', label: 'Dashboard', icon: LayoutGrid, end: true },
   { to: '/admin/units', label: 'Units', icon: Building2, end: false },
   { to: '/admin/entries', label: 'Entries', icon: ListChecks, end: false },
+  { to: '/admin/public-orders', label: 'Public Portal', icon: ShoppingBag, end: false },
   { to: '/admin/reports', label: 'Reports', icon: FileBarChart2, end: false },
   { to: '/admin/settings', label: 'Settings', icon: Settings, end: false },
 ] as const;
@@ -33,6 +36,7 @@ const NAV_ITEMS = [
 function getPageLabel(pathname: string): string {
   if (pathname.startsWith('/admin/units')) return 'Units';
   if (pathname.startsWith('/admin/entries')) return 'Entries';
+  if (pathname.startsWith('/admin/public-orders')) return 'Public Portal';
   if (pathname.startsWith('/admin/reports')) return 'Reports';
   if (pathname.startsWith('/admin/settings')) return 'Settings';
   return 'Dashboard';
@@ -42,6 +46,7 @@ export function AdminDesktopShell({
   children,
   refreshing,
   pendingResetCount = 0,
+  pendingPublicOrdersCount = 0,
   onRefresh,
   onLogout,
 }: AdminDesktopShellProps) {
@@ -99,6 +104,11 @@ export function AdminDesktopShell({
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{label}</span>
+                {to === '/admin/public-orders' && pendingPublicOrdersCount > 0 && (
+                  <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full num leading-tight">
+                    {pendingPublicOrdersCount}
+                  </span>
+                )}
                 {to === '/admin/settings' && pendingResetCount > 0 && (
                   <span className="bg-vibrant-coral text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full num leading-tight">
                     {pendingResetCount}
