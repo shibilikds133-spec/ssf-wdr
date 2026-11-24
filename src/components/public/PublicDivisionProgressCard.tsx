@@ -91,19 +91,19 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl glass-crimson text-white p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 sm:gap-3 shadow-lg ${className}`}
+      className={`relative overflow-hidden rounded-3xl glass-crimson text-white p-3.5 sm:p-5 lg:p-6 xl:p-7 flex flex-col justify-between gap-2.5 sm:gap-3 lg:gap-4 shadow-lg ${className}`}
     >
       {/* Top Row: Title + Quick Entry Plus */}
-      <div className="relative z-10 flex items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-8 h-8 rounded-xl bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] inline-flex items-center justify-center shrink-0">
-            <Trophy className="w-3.5 h-3.5 text-[#FCE36D]" />
+      <div className="relative z-10 flex items-center justify-between gap-2.5 lg:gap-3">
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+          <span className="w-8 h-8 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-xl lg:rounded-2xl bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] inline-flex items-center justify-center shrink-0">
+            <Trophy className="w-3.5 h-3.5 lg:w-5 lg:h-5 text-[#FCE36D]" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-xs sm:text-sm font-bold text-white truncate leading-tight">
+            <h2 className="text-xs sm:text-sm lg:text-base xl:text-lg font-bold text-white truncate leading-tight">
               Division Progress
             </h2>
-            <p className="text-[10px] sm:text-[11px] text-white/75 num leading-tight">
+            <p className="text-[10px] sm:text-[11px] lg:text-xs xl:text-sm text-white/75 num leading-tight">
               Target: {formatQuantity(divisionLimit)} L
             </p>
           </div>
@@ -115,43 +115,47 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
             onClick={onQuickEntry}
             aria-label="Quick Entry"
             title="Quick Entry"
-            className="w-8 h-8 rounded-full bg-white/16 hover:bg-white/26 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] text-[#FCE36D] inline-flex items-center justify-center transition-colors shrink-0"
+            className="w-8 h-8 lg:w-10 lg:h-10 xl:w-11 xl:h-11 rounded-full bg-white/16 hover:bg-white/26 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] text-[#FCE36D] inline-flex items-center justify-center transition-colors shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
           </button>
         )}
       </div>
 
       {/* Middle Row: Compact Metric + Status on Left, Compact Semi-Circle Gauge on Right */}
-      <div className="relative z-10 grid grid-cols-12 gap-2 items-center">
-        <div className="col-span-6 space-y-1">
-          <p className="text-[11px] text-white/80 font-medium">Total Payasam</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <p className="text-3xl sm:text-4xl font-extrabold tracking-tight num text-white leading-none drop-shadow-xs">
+      <div className="relative z-10 grid grid-cols-12 gap-2 lg:gap-3 items-center">
+        <div className="col-span-6 space-y-1 lg:space-y-2">
+          <p className="text-[11px] lg:text-sm xl:text-base text-white/80 font-medium">
+            Total Payasam
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5 lg:gap-2.5">
+            <p className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold tracking-tight num text-white leading-none drop-shadow-xs">
               {formatQuantity(totalLiters)}
-              <span className="text-base font-bold text-[#FCE36D] ml-1">L</span>
+              <span className="text-base lg:text-2xl xl:text-3xl font-bold text-[#FCE36D] ml-1">
+                L
+              </span>
             </p>
 
             {ordersOpen ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/22 border border-emerald-300/45 text-[10px] font-bold text-emerald-100 whitespace-nowrap shadow-xs">
-                <CheckCircle2 className="w-2.5 h-2.5 shrink-0" />
+              <span className="inline-flex items-center gap-1 lg:gap-1.5 px-2 py-0.5 lg:px-3 lg:py-1 rounded-full bg-emerald-400/22 border border-emerald-300/45 text-[10px] lg:text-xs xl:text-sm font-bold text-emerald-100 whitespace-nowrap shadow-xs">
+                <CheckCircle2 className="w-2.5 h-2.5 lg:w-3.5 lg:h-3.5 shrink-0" />
                 <span>Open</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 border border-white/25 text-[10px] font-bold text-amber-200 whitespace-nowrap">
-                <Lock className="w-2.5 h-2.5 shrink-0" />
+              <span className="inline-flex items-center gap-1 lg:gap-1.5 px-2 py-0.5 lg:px-3 lg:py-1 rounded-full bg-black/40 border border-white/25 text-[10px] lg:text-xs xl:text-sm font-bold text-amber-200 whitespace-nowrap">
+                <Lock className="w-2.5 h-2.5 lg:w-3.5 lg:h-3.5 shrink-0" />
                 <span>Closed</span>
               </span>
             )}
           </div>
-          <p className="text-[11px] text-white/80 font-semibold num">
+          <p className="text-[11px] lg:text-sm xl:text-base text-white/80 font-semibold num">
             {safePct.toFixed(1)}% achieved
           </p>
         </div>
 
         {/* Compact Semi-Circle Glass Gauge + Center Arrow */}
         <div className="col-span-6 flex flex-col items-center justify-center">
-          <div className="relative w-full max-w-[144px] sm:max-w-[162px] aspect-[200/116]">
+          <div className="relative w-full max-w-[144px] sm:max-w-[162px] lg:max-w-[210px] xl:max-w-[235px] aspect-[200/116]">
             <svg
               viewBox="0 0 200 116"
               className="w-full h-full overflow-visible"
@@ -207,11 +211,11 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
             {/* Center Frosted Hub + Navigation2 Arrow */}
             <div className="absolute inset-x-0 bottom-1 flex flex-col items-center justify-end pointer-events-none">
               <div
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/18 border border-white/30 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.45),0_6px_14px_-4px_rgba(0,0,0,0.32)] flex items-center justify-center transition-transform duration-700 ease-out"
+                className="w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 xl:w-16 xl:h-16 rounded-full bg-white/18 border border-white/30 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.45),0_6px_14px_-4px_rgba(0,0,0,0.32)] flex items-center justify-center transition-transform duration-700 ease-out"
                 style={{ transform: `rotate(${pointerAngleDeg}deg)` }}
               >
                 <Navigation2
-                  className="w-5 h-5 sm:w-6 sm:h-6 text-[#FCE36D] fill-[#FCE36D] drop-shadow-sm"
+                  className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 xl:w-8 xl:h-8 text-[#FCE36D] fill-[#FCE36D] drop-shadow-sm"
                   strokeWidth={2}
                 />
               </div>
@@ -221,15 +225,15 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
       </div>
 
       {/* Bottom Row: Compact UPI %, Cash %, Orders + Leading Sector Glass Pill */}
-      <div className="relative z-10 pt-2 border-t border-white/15 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="relative z-10 pt-2 lg:pt-3.5 border-t border-white/15 flex items-center justify-between gap-2 lg:gap-3">
+        <div className="flex items-center gap-2 lg:gap-2.5 shrink-0">
           {/* 1. UPI % Circle */}
           <div
             title={`UPI Share: ${upiPercent}%`}
-            className="relative w-9 h-9 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
+            className="relative w-9 h-9 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
           >
-            <QrCode className="w-3.5 h-3.5 text-white" />
-            <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-4 px-1 rounded-full bg-[#FCE36D] text-[#4A070A] text-[9px] font-extrabold num flex items-center justify-center shadow-sm border border-white/50">
+            <QrCode className="w-3.5 h-3.5 lg:w-[18px] lg:h-[18px] xl:w-5 xl:h-5 text-white" />
+            <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-4 lg:min-w-[26px] lg:h-5 px-1 lg:px-1.5 rounded-full bg-[#FCE36D] text-[#4A070A] text-[9px] lg:text-[11px] font-extrabold num flex items-center justify-center shadow-sm border border-white/50">
               {upiPercent}%
             </span>
           </div>
@@ -237,10 +241,10 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
           {/* 2. Cash Handover % Circle */}
           <div
             title={`Cash Handover Share: ${cashPercent}%`}
-            className="relative w-9 h-9 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
+            className="relative w-9 h-9 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
           >
-            <Wallet className="w-3.5 h-3.5 text-white" />
-            <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-4 px-1 rounded-full bg-white text-[#5C0A0E] text-[9px] font-extrabold num flex items-center justify-center shadow-sm border border-white/60">
+            <Wallet className="w-3.5 h-3.5 lg:w-[18px] lg:h-[18px] xl:w-5 xl:h-5 text-white" />
+            <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-4 lg:min-w-[26px] lg:h-5 px-1 lg:px-1.5 rounded-full bg-white text-[#5C0A0E] text-[9px] lg:text-[11px] font-extrabold num flex items-center justify-center shadow-sm border border-white/60">
               {cashPercent}%
             </span>
           </div>
@@ -248,10 +252,10 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
           {/* 3. Total Orders Circle */}
           <div
             title={`Total Orders: ${totalOrders}`}
-            className="relative w-9 h-9 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
+            className="relative w-9 h-9 lg:w-11 lg:h-11 xl:w-12 xl:h-12 rounded-full bg-white/16 border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] flex items-center justify-center"
           >
-            <ShoppingBag className="w-3.5 h-3.5 text-white" />
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-4 px-1 rounded-full bg-emerald-400 text-emerald-950 text-[9px] font-extrabold num flex items-center justify-center shadow-sm border border-white/50">
+            <ShoppingBag className="w-3.5 h-3.5 lg:w-[18px] lg:h-[18px] xl:w-5 xl:h-5 text-white" />
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-4 lg:min-w-[24px] lg:h-5 px-1 lg:px-1.5 rounded-full bg-emerald-400 text-emerald-950 text-[9px] lg:text-[11px] font-extrabold num flex items-center justify-center shadow-sm border border-white/50">
               {totalOrders}
             </span>
           </div>
@@ -270,20 +274,20 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
               return (
                 <div
                   key={sec.id}
-                  className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] border border-[#FFF5B8]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_4px_12px_-4px_rgba(0,0,0,0.28)] px-2.5 py-1 flex items-center gap-2"
+                  className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#FCE36D] via-[#FACC15] to-[#F59E0B] border border-[#FFF5B8]/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_4px_12px_-4px_rgba(0,0,0,0.28)] px-2.5 py-1 lg:px-3 lg:py-2 flex items-center gap-2 lg:gap-2.5"
                 >
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white border border-white/20 inline-flex items-center justify-center shrink-0 shadow-xs">
-                    <Crown className="w-3.5 h-3.5 text-white" />
+                  <span className="w-6 h-6 lg:w-8 lg:h-8 rounded-lg lg:rounded-xl bg-gradient-to-br from-[#8F0D14] to-[#5C0A0E] text-white border border-white/20 inline-flex items-center justify-center shrink-0 shadow-xs">
+                    <Crown className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-white" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-extrabold text-[#2B0406] truncate leading-tight">
+                    <p className="text-[11px] lg:text-xs xl:text-[13px] font-extrabold text-[#2B0406] truncate leading-tight">
                       {sec.name}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="px-1.5 py-0.2 rounded-full bg-[#5C0A0E] text-white text-[9px] font-extrabold num leading-tight">
+                      <span className="px-1.5 lg:px-2 py-0.2 rounded-full bg-[#5C0A0E] text-white text-[9px] lg:text-[11px] font-extrabold num leading-tight">
                         #1
                       </span>
-                      <span className="text-[10px] text-[#4A070A] font-bold num truncate">
+                      <span className="text-[10px] lg:text-xs text-[#4A070A] font-bold num truncate">
                         {formatQuantity(Number(sec.total_liters) || 0)} L
                       </span>
                     </div>
@@ -295,16 +299,16 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
               return (
                 <div
                   key={sec.id}
-                  className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#F8FAFC] via-[#E2E8F0] to-[#CBD5E1] border border-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_12px_-4px_rgba(0,0,0,0.25)] px-2.5 py-1 flex items-center gap-2"
+                  className="flex-1 min-w-0 rounded-2xl bg-gradient-to-r from-[#F8FAFC] via-[#E2E8F0] to-[#CBD5E1] border border-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_4px_12px_-4px_rgba(0,0,0,0.25)] px-2.5 py-1 lg:px-3 lg:py-2 flex items-center gap-2 lg:gap-2.5"
                 >
-                  <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#475569] to-[#1E293B] text-white border border-white/25 text-[10px] font-extrabold num inline-flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-6 h-6 lg:w-8 lg:h-8 rounded-lg lg:rounded-xl bg-gradient-to-br from-[#475569] to-[#1E293B] text-white border border-white/25 text-[10px] lg:text-xs font-extrabold num inline-flex items-center justify-center shrink-0 shadow-xs">
                     #2
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-extrabold text-[#0F172A] truncate leading-tight">
+                    <p className="text-[11px] lg:text-xs xl:text-[13px] font-extrabold text-[#0F172A] truncate leading-tight">
                       {sec.name}
                     </p>
-                    <p className="text-[10px] text-[#334155] font-bold num truncate mt-0.5">
+                    <p className="text-[10px] lg:text-xs text-[#334155] font-bold num truncate mt-0.5">
                       {formatQuantity(Number(sec.total_liters) || 0)} L
                     </p>
                   </div>
@@ -314,16 +318,16 @@ export const PublicDivisionProgressCard = memo(function PublicDivisionProgressCa
             return (
               <div
                 key={sec.id}
-                className="flex-1 min-w-0 rounded-2xl bg-white/16 border border-white/22 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-2.5 py-1 flex items-center gap-2"
+                className="flex-1 min-w-0 rounded-2xl bg-white/16 border border-white/22 shadow-[inset_0_1px_0_rgba(255,255,255,0.3)] px-2.5 py-1 lg:px-3 lg:py-2 flex items-center gap-2 lg:gap-2.5"
               >
-                <span className="w-6 h-6 rounded-lg bg-white/15 border border-white/25 text-white text-[10px] font-extrabold num inline-flex items-center justify-center shrink-0">
+                <span className="w-6 h-6 lg:w-8 lg:h-8 rounded-lg lg:rounded-xl bg-white/15 border border-white/25 text-white text-[10px] lg:text-xs font-extrabold num inline-flex items-center justify-center shrink-0">
                   #{rank}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-bold text-white truncate leading-tight">
+                  <p className="text-[11px] lg:text-xs xl:text-[13px] font-bold text-white truncate leading-tight">
                     {sec.name}
                   </p>
-                  <p className="text-[10px] text-white/80 font-medium num truncate mt-0.5">
+                  <p className="text-[10px] lg:text-xs text-white/80 font-medium num truncate mt-0.5">
                     {formatQuantity(Number(sec.total_liters) || 0)} L
                   </p>
                 </div>
