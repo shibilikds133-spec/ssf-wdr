@@ -664,29 +664,25 @@ export function buildFormalPdfConfigFromPayload(
 
       const columns: PdfTableColumn[] = showSector
         ? [
-            { key: 'rank', header: 'Sl', align: 'center', widthPercent: 10 },
-            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 45, bold: true },
-            { key: 'sectorName', header: 'Sector', align: 'left', widthPercent: 25 },
-            { key: 'status', header: 'Status', align: 'right', widthPercent: 20 },
+            { key: 'rank', header: 'Sl', align: 'center', widthPercent: 12 },
+            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 54, bold: true },
+            { key: 'sectorName', header: 'Sector', align: 'left', widthPercent: 34 },
           ]
         : [
-            { key: 'rank', header: 'Sl', align: 'center', widthPercent: 12 },
-            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 62, bold: true },
-            { key: 'status', header: 'Status', align: 'right', widthPercent: 26 },
+            { key: 'rank', header: 'Sl', align: 'center', widthPercent: 14 },
+            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 86, bold: true },
           ];
 
       const rows = payload.unitRows.map((r, idx) => [
         idx + 1,
         r.unitName,
         ...(showSector ? [r.sectorName || '-'] : []),
-        'Not Participated Yet',
       ]);
 
       const totalRow = [
         '',
         `TOTAL NON-PARTICIPATING UNITS: ${payload.unitRows.length}`,
         ...(showSector ? [''] : []),
-        '0 Orders',
       ];
 
       return {

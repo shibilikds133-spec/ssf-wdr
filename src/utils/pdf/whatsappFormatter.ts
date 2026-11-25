@@ -525,9 +525,7 @@ function buildUnitGroupedMessage(
           `${formatSectorBoldHeader(group.sectorName)} (${group.units.length} ${group.units.length === 1 ? 'unit' : 'units'})`
         );
         group.units.forEach((unit, uIdx) => {
-          lines.push(
-            `${pad2(uIdx + 1)}. ${cleanName(unit.unitName)} — Not Participated Yet`
-          );
+          lines.push(`${pad2(uIdx + 1)}. ${cleanName(unit.unitName)}`);
         });
         if (gIdx < orderedGroups.length - 1) {
           lines.push('');
