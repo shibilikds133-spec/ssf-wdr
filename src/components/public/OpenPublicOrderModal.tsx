@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
+  Bell,
   CheckCircle2,
   ChevronDown,
   Loader2,
@@ -169,6 +170,10 @@ export default function OpenPublicOrderModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<SubmittedReceipt | null>(null);
+  const [pushAttached, setPushAttached] = useState(false);
+  const [pushEligible, setPushEligible] = useState(false);
+  const [pushSubscribing, setPushSubscribing] = useState(false);
+  const [pushMsgError, setPushMsgError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -246,6 +251,33 @@ export default function OpenPublicOrderModal({
     setSectorFilter('ALL');
     setSelectedUnitId('');
     setError(null);
+    setPushAttached(false);
+    setPushEligible(false);
+    setPushMsgError(null);
+  };
+
+  const handleEnableReceiptPush = async () => {
+    if (!receipt || pushSubscribing) return;
+    setPushMsgError(null);
+    setPushSubscribing(true);
+    try {
+      const mod = await import('../../utils/pushNotifications');
+      const res = await mod.subscribeOpenOrderPush(receipt.id);
+      if (res.ok) {
+        setPushAttached(true);
+        setPushEligible(false);
+      } else {
+        setPushMsgError(
+          res.error || 'നോട്ടിഫിക്കേഷൻ ഓൺ ചെയ്യാൻ കഴിഞ്ഞില്ല.'
+        );
+      }
+    } catch (err) {
+      setPushMsgError(
+        err instanceof Error ? err.message : 'Unable to enable notifications.'
+      );
+    } finally {
+      setPushSubscribing(false);
+    }
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -283,6 +315,25 @@ export default function OpenPublicOrderModal({
         p_unit_id: unitIdNum,
       });
       setReceipt(res);
+
+      // Remember request ID locally and auto-attach if already opted in
+      void import('../../utils/pushNotifications')
+        .then(async (mod) => {
+          mod.rememberOpenOrderRequestId(res.id);
+          const supported =
+            mod.isPushSupported() && !mod.isIosNonStandalone();
+          const perm = mod.getNotificationPermission();
+          if (supported && perm !== 'denied') {
+            const attached = await mod.attachExistingOpenOrderPush(res.id);
+            if (attached) {
+              setPushAttached(true);
+              setPushEligible(false);
+            } else {
+              setPushEligible(true);
+            }
+          }
+        })
+        .catch(() => undefined);
     } catch (err) {
       setError(
         err instanceof Error
@@ -386,6 +437,54 @@ export default function OpenPublicOrderModal({
                 </span>
               </div>
             </div>
+
+            {pushAttached && (
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5 flex items-start gap-2.5 text-left">
+                <Bell className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <p className="text-xs font-semibold text-emerald-900 leading-relaxed font-ml">
+                  ഓർഡർ സ്വീകരിക്കുമ്പോൾ ഉടൻ നോട്ടിഫിക്കേഷൻ ലഭിക്കും / You&apos;ll
+                  be notified immediately once approved.
+                </p>
+              </div>
+            )}
+
+            {!pushAttached && pushEligible && (
+              <div className="rounded-2xl bg-white border border-[#5C0A0E]/16 p-3.5 space-y-2.5 text-left shadow-2xs">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-8 h-8 rounded-xl glass-crimson-solid text-[#FCE36D] flex items-center justify-center shrink-0">
+                    <Bell className="w-4 h-4" />
+                  </span>
+                  <p className="text-xs text-[#4A070A] leading-relaxed font-ml">
+                    ഇത് ഓൺ ആക്കി വെച്ചാൽ, നിങ്ങളുടെ ഓർഡർ ഡിവിഷൻ കമ്മിറ്റി
+                    സ്വീകരിക്കുമ്പോൾ അപ്പോൾ തന്നെ അറിയിപ്പ് ലഭിക്കും. മറ്റു
+                    നോട്ടിഫിക്കേഷനുകൾ ഒന്നും വരില്ല.
+                  </p>
+                </div>
+                {pushMsgError && (
+                  <p className="text-[11px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-2.5 py-1.5 font-ml">
+                    {pushMsgError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  disabled={pushSubscribing}
+                  onClick={() => void handleEnableReceiptPush()}
+                  className="w-full h-10 rounded-xl glass-crimson-solid hover:opacity-95 disabled:opacity-65 text-white text-xs font-bold inline-flex items-center justify-center gap-2 transition-opacity font-ml"
+                >
+                  {pushSubscribing ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>സജ്ജീകരിക്കുന്നു...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-3.5 h-3.5 text-[#FCE36D]" />
+                      <span>അറിയിപ്പ് ഓൺ ചെയ്യുക / Notify on Approval</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-2.5">
               <button

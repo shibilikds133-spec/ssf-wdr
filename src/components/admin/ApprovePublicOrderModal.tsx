@@ -9,7 +9,10 @@ import type {
   UnitSummaryRow,
 } from '../../types';
 import { formatCurrency, formatQuantity } from '../../utils/format';
-import { notifyOrderCreated } from '../../utils/pushNotifications';
+import {
+  notifyOrderCreated,
+  notifyPublicOrderApproved,
+} from '../../utils/pushNotifications';
 import { SelectDropdown } from '../SelectDropdown';
 
 interface ApprovePublicOrderModalProps {
@@ -132,6 +135,7 @@ export function ApprovePublicOrderModal({
       if (res?.entry_id) {
         notifyOrderCreated(res.entry_id, 'public');
       }
+      notifyPublicOrderApproved(adminCode, request.id);
 
       onApproved(
         `Approved ${request.customer_name}'s order (${formatQuantity(

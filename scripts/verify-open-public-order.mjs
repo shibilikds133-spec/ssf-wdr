@@ -270,6 +270,50 @@ try {
   assert.equal(Number(afterApproveEntriesRes.rows[0].cnt), baselineEntryCount + 1);
   console.log('PASS: Approval increments official entries and blocks double-approve');
 
+  // 7b. Isolated Order-Approval-Only Push Notification Check
+  await ownerClient.query('BEGIN');
+  await ownerClient.query('SET LOCAL ROLE anon');
+  let anonPushSelectBlocked = false;
+  try {
+    await ownerClient.query('SELECT * FROM public_order_push_subscriptions');
+  } catch {
+    anonPushSelectBlocked = true;
+  }
+  await ownerClient.query('ROLLBACK');
+  assert.equal(
+    anonPushSelectBlocked,
+    true,
+    'anon direct SELECT on public_order_push_subscriptions must be blocked'
+  );
+
+  await ownerClient.query(
+    `INSERT INTO public_order_push_subscriptions (request_id, endpoint, p256dh, auth)
+     VALUES ($1, 'https://fcm.googleapis.com/fcm/send/verify-open-order-test', 'test-p256dh', 'test-auth')`,
+    [reqA.id]
+  );
+
+  const claimRes1 = await ownerClient.query(
+    `SELECT claim_public_order_approved_push($1) AS res`,
+    [reqA.id]
+  );
+  const claim1 = claimRes1.rows[0]?.res;
+  assert.equal(claim1?.claimed, true, 'First claim_public_order_approved_push must claim');
+  assert.equal(claim1?.subscriptions?.length, 1, 'Should return 1 attached subscription');
+  assert.equal(claim1?.notification?.url, '/order');
+  assert.equal(claim1?.notification?.type, 'public_order_approved');
+  assert.equal(
+    `${claim1?.notification?.title ?? ''} ${claim1?.notification?.body ?? ''}`.includes('WDR202'),
+    false,
+    'Approval push must never expose unit order_code'
+  );
+
+  const claimRes2 = await ownerClient.query(
+    `SELECT claim_public_order_approved_push($1) AS res`,
+    [reqA.id]
+  );
+  assert.equal(claimRes2.rows[0]?.res?.claimed, false, 'Second claim must be deduplicated');
+  console.log('PASS: Isolated approval-only push subscription, claim, dedup, and zero-code verified');
+
   // 8. Test reset of approved Request A -> official entries decrements back to baseline
   const { data: resetA, error: resetErr } = await rpc(
     'admin_reset_public_order_request',
@@ -326,6 +370,12 @@ try {
         .catch(() => {});
     }
     if (createdRequestIds.length > 0) {
+      await ownerClient
+        .query(
+          `DELETE FROM push_dispatch_log WHERE event_type = 'public_order_approved' AND (payload->>'request_id')::uuid = ANY($1::uuid[])`,
+          [createdRequestIds]
+        )
+        .catch(() => {});
       await ownerClient
         .query(`DELETE FROM public_order_requests WHERE id = ANY($1::uuid[])`, [
           createdRequestIds,

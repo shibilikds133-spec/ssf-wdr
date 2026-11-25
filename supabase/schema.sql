@@ -224,6 +224,30 @@ CREATE INDEX IF NOT EXISTS idx_public_order_requests_unit_id
 ALTER TABLE public_order_requests ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public_order_requests FROM anon, authenticated;
 
+-- Isolated push notification subscriptions for Open Public Order Portal (/order) customers
+-- Strictly separate from push_subscriptions so /order customers NEVER receive
+-- leaderboard milestones, order-code messages, or app update broadcasts.
+CREATE TABLE IF NOT EXISTS public_order_push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES public_order_requests(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (request_id, endpoint)
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_order_push_subs_request_id
+  ON public_order_push_subscriptions (request_id);
+
+CREATE INDEX IF NOT EXISTS idx_public_order_push_subs_endpoint
+  ON public_order_push_subscriptions (endpoint);
+
+ALTER TABLE public_order_push_subscriptions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public_order_push_subscriptions FROM anon, authenticated;
+
 -- 2. DEFAULT SETTINGS, INTERNAL SECRET & DUMMY SEED DATA (IDEMPOTENT)
 INSERT INTO app_settings (key, value) VALUES
   ('admin_code', 'WDR100'),
@@ -5723,3 +5747,105 @@ GRANT EXECUTE ON FUNCTION admin_update_public_request_unit(TEXT, UUID, INT) TO a
 GRANT EXECUTE ON FUNCTION admin_approve_public_order_request(TEXT, UUID, INT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_cancel_public_order_request(TEXT, UUID) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION admin_reset_public_order_request(TEXT, UUID) TO anon, authenticated;
+
+-- 10.8 SERVICE-ROLE PUSH CLAIM: OPEN PUBLIC ORDER APPROVAL NOTIFICATION ONLY (NO ORDER CODES)
+CREATE OR REPLACE FUNCTION claim_public_order_approved_push(
+  p_request_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_req RECORD;
+  v_subs JSONB := '[]'::jsonb;
+  v_event_key TEXT;
+  v_inserted_key TEXT;
+  v_qty_text TEXT;
+  v_amt_text TEXT;
+  v_body TEXT;
+  v_notification JSONB;
+BEGIN
+  IF p_request_id IS NULL THEN
+    RETURN jsonb_build_object('claimed', false, 'subscriptions', '[]'::jsonb);
+  END IF;
+
+  SELECT
+    r.id,
+    r.customer_name,
+    r.quantity,
+    r.total_amount,
+    r.approved_entry_id,
+    u.name AS unit_name
+  INTO v_req
+  FROM public_order_requests r
+  LEFT JOIN units u ON u.id = r.unit_id
+  WHERE r.id = p_request_id
+    AND r.status = 'approved';
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('claimed', false, 'subscriptions', '[]'::jsonb);
+  END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'endpoint', s.endpoint,
+        'p256dh', s.p256dh,
+        'auth', s.auth
+      )
+    ),
+    '[]'::jsonb
+  )
+  INTO v_subs
+  FROM public_order_push_subscriptions s
+  WHERE s.request_id = p_request_id;
+
+  IF jsonb_array_length(v_subs) = 0 THEN
+    RETURN jsonb_build_object('claimed', false, 'subscriptions', '[]'::jsonb);
+  END IF;
+
+  v_qty_text := REGEXP_REPLACE(TO_CHAR(v_req.quantity, 'FM999999990.00'), '\.00$|(\.\d)0$', '\1');
+  v_amt_text := REGEXP_REPLACE(TO_CHAR(v_req.total_amount, 'FM999999990.00'), '\.00$|(\.\d)0$', '\1');
+  v_event_key := 'public_order_approved:' || v_req.id::TEXT || ':' || COALESCE(v_req.approved_entry_id::TEXT, '0');
+
+  v_body := v_req.customer_name || ', നിങ്ങളുടെ ' || v_qty_text || ' ലിറ്റർ (₹' || v_amt_text || ') പാലട പായസം ഓർഡർ ഡിവിഷൻ കമ്മിറ്റി ഉറപ്പാക്കിയിട്ടുണ്ട്' ||
+    CASE
+      WHEN v_req.unit_name IS NOT NULL AND TRIM(v_req.unit_name) <> '' THEN ' (' || v_req.unit_name || ').'
+      ELSE '.'
+    END;
+
+  v_notification := jsonb_build_object(
+    'title', 'നിങ്ങളുടെ പായസം ഓർഡർ സ്വീകരിച്ചു! ✅',
+    'body', v_body,
+    'url', '/order',
+    'tag', 'public_order_approved:' || v_req.id::TEXT,
+    'type', 'public_order_approved',
+    'request_id', v_req.id
+  );
+
+  INSERT INTO push_dispatch_log (event_key, event_type, payload)
+  VALUES (v_event_key, 'public_order_approved', v_notification)
+  ON CONFLICT (event_key) DO NOTHING
+  RETURNING event_key INTO v_inserted_key;
+
+  IF v_inserted_key IS NULL THEN
+    RETURN jsonb_build_object(
+      'claimed', false,
+      'event_key', v_event_key,
+      'subscriptions', '[]'::jsonb
+    );
+  END IF;
+
+  RETURN jsonb_build_object(
+    'claimed', true,
+    'event_key', v_event_key,
+    'notification', v_notification,
+    'subscriptions', v_subs
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION claim_public_order_approved_push(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION claim_public_order_approved_push(UUID) TO service_role;

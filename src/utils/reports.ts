@@ -46,6 +46,7 @@ export interface ReportFilterConfig {
   dateFrom: string;
   dateTo: string;
   includeZeroOrderUnits: boolean;
+  onlyZeroOrderUnits?: boolean;
   sortBy: ReportSortBy;
 }
 
@@ -287,6 +288,7 @@ export function getDefaultReportConfig(
     dateFrom: '',
     dateTo: '',
     includeZeroOrderUnits: true,
+    onlyZeroOrderUnits: false,
     sortBy: 'LATEST',
     ...overrides,
     role,
@@ -360,6 +362,8 @@ export function normalizeReportConfig(
       typeof config.includeZeroOrderUnits === 'boolean'
         ? config.includeZeroOrderUnits
         : true,
+    onlyZeroOrderUnits:
+      template === 'UNIT_SUMMARY' && config.onlyZeroOrderUnits === true,
   };
 }
 
@@ -991,8 +995,14 @@ export function buildReportPayload(
   const pdfFilename = `${filenameBase}.pdf`;
   const csvFilename = `${filenameBase}.csv`;
 
-  const { tags: activeFilterTags, label: activeFiltersLabel } =
+  const { tags: baseFilterTags, label: baseFiltersLabel } =
     buildActiveFilterDescription(config);
+  const activeFilterTags = config.onlyZeroOrderUnits
+    ? ['Not Participated Yet (0 Orders)', ...baseFilterTags]
+    : baseFilterTags;
+  const activeFiltersLabel = config.onlyZeroOrderUnits
+    ? activeFilterTags.join('  |  ')
+    : baseFiltersLabel;
 
   const showSectorColumn =
     source.role === 'ADMIN' && config.scope === 'ENTIRE_DIVISION';
@@ -1299,11 +1309,20 @@ export function buildReportPayload(
       };
     });
 
-    if (!config.includeZeroOrderUnits) {
+    if (config.onlyZeroOrderUnits) {
+      list = list.filter((u) => u.orders === 0);
+    } else if (!config.includeZeroOrderUnits) {
       list = list.filter((u) => u.orders > 0);
     }
 
     list.sort((a, b) => {
+      if (config.onlyZeroOrderUnits) {
+        if (showSectorColumn) {
+          const secCmp = a.sectorName.localeCompare(b.sectorName);
+          if (secCmp !== 0) return secCmp;
+        }
+        return a.unitName.localeCompare(b.unitName);
+      }
       if (config.sortBy === 'NAME_ASC') {
         return a.unitName.localeCompare(b.unitName);
       }

@@ -85,6 +85,21 @@ const PRESETS_BY_ROLE: Record<ReportPortalRole, ReportPresetItem[]> = {
       patch: { scope: 'ENTIRE_DIVISION', template: 'UNIT_SUMMARY', paymentStatus: 'ALL', paymentMode: 'ALL' },
     },
     {
+      id: 'div-non-participating',
+      label: 'Not Participated Units',
+      subtitle: 'Units with 0 orders yet',
+      icon: Clock,
+      patch: {
+        scope: 'ENTIRE_DIVISION',
+        template: 'UNIT_SUMMARY',
+        paymentStatus: 'ALL',
+        paymentMode: 'ALL',
+        includeZeroOrderUnits: true,
+        onlyZeroOrderUnits: true,
+        sortBy: 'NAME_ASC',
+      },
+    },
+    {
       id: 'div-direct',
       label: 'Division Direct Orders',
       subtitle: 'Direct division entries only',
@@ -113,6 +128,21 @@ const PRESETS_BY_ROLE: Record<ReportPortalRole, ReportPresetItem[]> = {
       subtitle: 'Units ranked with % share',
       icon: BarChart3,
       patch: { scope: 'ENTIRE_SECTOR', template: 'UNIT_SUMMARY', paymentStatus: 'ALL', paymentMode: 'ALL' },
+    },
+    {
+      id: 'sec-non-participating',
+      label: 'Not Participated Units',
+      subtitle: 'Units with 0 orders yet',
+      icon: Clock,
+      patch: {
+        scope: 'ENTIRE_SECTOR',
+        template: 'UNIT_SUMMARY',
+        paymentStatus: 'ALL',
+        paymentMode: 'ALL',
+        includeZeroOrderUnits: true,
+        onlyZeroOrderUnits: true,
+        sortBy: 'NAME_ASC',
+      },
     },
     {
       id: 'sec-delivery',

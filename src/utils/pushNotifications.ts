@@ -2,6 +2,10 @@ import { isAppInstalledStandalone } from './registerSw';
 
 const PUSH_DISMISS_STORAGE_KEY = 'ssf_push_prompt_dismissed_at_v1';
 const PUBLIC_PUSH_DISMISS_STORAGE_KEY = 'ssf_public_push_dismissed_at_v1';
+const OPEN_ORDER_PUSH_DISMISSED_KEY = 'wdr_open_order_push_dismissed_v1';
+const OPEN_ORDER_PUSH_OPTED_IN_KEY = 'wdr_open_order_push_opted_in_v1';
+const OPEN_ORDER_REQUEST_IDS_KEY = 'wdr_open_order_request_ids_v1';
+const MAX_OPEN_ORDER_REQUEST_IDS = 10;
 const PUSH_DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const PUSH_USER_DISABLED_KEY = 'ssf_push_user_disabled_v1';
 const ADMIN_AUTO_UPDATE_PUSH_KEY = 'ssf_admin_auto_update_push_v1';
@@ -279,6 +283,77 @@ export function markPublicPushPromptDismissed(): void {
       PUBLIC_PUSH_DISMISS_STORAGE_KEY,
       String(Date.now())
     );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function isOpenOrderPushPromptDismissed(): boolean {
+  try {
+    const raw = window.localStorage.getItem(OPEN_ORDER_PUSH_DISMISSED_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts) || ts <= 0) return false;
+    return Date.now() - ts < PUSH_DISMISS_COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+}
+
+export function markOpenOrderPushPromptDismissed(): void {
+  try {
+    window.localStorage.setItem(
+      OPEN_ORDER_PUSH_DISMISSED_KEY,
+      String(Date.now())
+    );
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function isOpenOrderPushOptedIn(): boolean {
+  try {
+    return window.localStorage.getItem(OPEN_ORDER_PUSH_OPTED_IN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function setOpenOrderPushOptedIn(optedIn: boolean): void {
+  try {
+    if (optedIn) {
+      window.localStorage.setItem(OPEN_ORDER_PUSH_OPTED_IN_KEY, '1');
+    } else {
+      window.localStorage.removeItem(OPEN_ORDER_PUSH_OPTED_IN_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function getRememberedOpenOrderRequestIds(): string[] {
+  try {
+    const raw = window.localStorage.getItem(OPEN_ORDER_REQUEST_IDS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((id): id is string => typeof id === 'string' && id.trim() !== '')
+      .slice(0, MAX_OPEN_ORDER_REQUEST_IDS);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberOpenOrderRequestId(requestId: string): void {
+  const clean = requestId.trim();
+  if (!clean) return;
+  try {
+    const current = getRememberedOpenOrderRequestIds().filter(
+      (id) => id !== clean
+    );
+    const next = [clean, ...current].slice(0, MAX_OPEN_ORDER_REQUEST_IDS);
+    window.localStorage.setItem(OPEN_ORDER_REQUEST_IDS_KEY, JSON.stringify(next));
   } catch {
     // Ignore storage errors
   }
@@ -675,6 +750,185 @@ export async function subscribePublicPush(): Promise<{
       error:
         err instanceof Error ? err.message : 'Unable to enable notifications.',
     };
+  }
+}
+
+export async function subscribeOpenOrderPush(
+  requestId?: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isPushSupported()) {
+    return {
+      ok: false,
+      error: 'Push notifications are not supported on this browser.',
+    };
+  }
+  if (isIosNonStandalone()) {
+    return {
+      ok: false,
+      error:
+        'Install the app via Safari Add to Home Screen first to enable notifications on iOS.',
+    };
+  }
+
+  if (Notification.permission === 'denied') {
+    notifyUiListeners();
+    return {
+      ok: false,
+      error: 'Notification permission is blocked in browser settings.',
+    };
+  }
+
+  try {
+    // Request permission FIRST directly from the user-gesture click path
+    const permission =
+      Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+      notifyUiListeners();
+      return {
+        ok: false,
+        error:
+          permission === 'denied'
+            ? 'Notification permission is blocked in browser settings.'
+            : 'Notification permission was dismissed.',
+      };
+    }
+
+    const vapidPublicKey = await resolveVapidPublicKey();
+    if (!vapidPublicKey) {
+      return { ok: false, error: 'Push VAPID public key is not configured.' };
+    }
+
+    const registration = await getActiveSwRegistration();
+    if (!registration) {
+      return {
+        ok: false,
+        error: 'Service Worker is not active yet. Please try again shortly.',
+      };
+    }
+
+    const subscription = await getOrCreateMatchedSubscription(
+      registration,
+      vapidPublicKey
+    );
+
+    if (requestId) {
+      rememberOpenOrderRequestId(requestId);
+    }
+    const requestIds = Array.from(
+      new Set([
+        ...(requestId ? [requestId] : []),
+        ...getRememberedOpenOrderRequestIds(),
+      ])
+    ).slice(0, MAX_OPEN_ORDER_REQUEST_IDS);
+
+    const response = await fetch('/api/push/subscribe-order-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        requestIds,
+        userAgent: navigator.userAgent,
+      }),
+    });
+
+    if (!response.ok) {
+      let message = 'Unable to enable order approval notifications.';
+      try {
+        const data = (await response.json()) as { error?: string };
+        if (data && typeof data.error === 'string' && data.error) {
+          message = data.error;
+        }
+      } catch {
+        // Ignore parse failures
+      }
+      throw new Error(message);
+    }
+
+    setOpenOrderPushOptedIn(true);
+    notifyUiListeners();
+    return { ok: true };
+  } catch (err) {
+    notifyUiListeners();
+    return {
+      ok: false,
+      error:
+        err instanceof Error ? err.message : 'Unable to enable notifications.',
+    };
+  }
+}
+
+export async function attachExistingOpenOrderPush(
+  requestId: string
+): Promise<boolean> {
+  if (
+    !requestId ||
+    !isPushSupported() ||
+    isIosNonStandalone() ||
+    Notification.permission !== 'granted' ||
+    !isOpenOrderPushOptedIn()
+  ) {
+    return false;
+  }
+
+  const vapidPublicKey = await resolveVapidPublicKey();
+  if (!vapidPublicKey) return false;
+
+  try {
+    const registration = await getActiveSwRegistration();
+    if (!registration) return false;
+
+    const subscription = await getOrCreateMatchedSubscription(
+      registration,
+      vapidPublicKey
+    );
+
+    const response = await fetch('/api/push/subscribe-order-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        requestIds: [requestId],
+        userAgent: navigator.userAgent,
+      }),
+    });
+
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+export function notifyPublicOrderApproved(
+  sessionToken: string,
+  requestId: string
+): void {
+  if (
+    typeof window === 'undefined' ||
+    !sessionToken ||
+    !requestId
+  ) {
+    return;
+  }
+
+  try {
+    void fetch('/api/push/public-order-approved', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ requestId }),
+      keepalive: true,
+    }).catch(() => undefined);
+  } catch {
+    // Fire-and-forget: never block admin approval flow
   }
 }
 

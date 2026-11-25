@@ -491,6 +491,64 @@ function buildUnitGroupedMessage(
   updatedLabel: string,
   payCtx: WhatsAppPaymentContext
 ): FormattedWhatsAppReport {
+  if (payload.config.onlyZeroOrderUnits) {
+    const lines: string[] = [
+      '*SSF WANDOOR PAYASAM CHALLENGE*',
+      '*Non-Participating Units (Not Participated Yet)*',
+      `Period: ${periodLabel}`,
+      'Status: ഇതുവരെ പങ്കെടുത്തിട്ടില്ല (0 Orders)',
+      `Updated: ${updatedLabel}`,
+      DIVIDER,
+    ];
+
+    const sectorGroups = new Map<
+      string,
+      { sectorName: string; units: ReportUnitSummaryRow[] }
+    >();
+    for (const unit of payload.unitRows) {
+      const sName = cleanName(unit.sectorName, 'Other Sector');
+      const key = `${unit.sectorId ?? 0}::${sName.toLowerCase()}`;
+      const group = sectorGroups.get(key) ?? { sectorName: sName, units: [] };
+      group.units.push(unit);
+      sectorGroups.set(key, group);
+    }
+
+    const orderedGroups = [...sectorGroups.values()].sort((a, b) =>
+      a.sectorName.localeCompare(b.sectorName)
+    );
+
+    if (orderedGroups.length === 0) {
+      lines.push('എല്ലാ യൂണിറ്റുകളും പങ്കെടുത്തിട്ടുണ്ട്! (0 non-participating units)');
+    } else {
+      orderedGroups.forEach((group, gIdx) => {
+        lines.push(
+          `${formatSectorBoldHeader(group.sectorName)} (${group.units.length} ${group.units.length === 1 ? 'unit' : 'units'})`
+        );
+        group.units.forEach((unit, uIdx) => {
+          lines.push(
+            `${pad2(uIdx + 1)}. ${cleanName(unit.unitName)} — Not Participated Yet`
+          );
+        });
+        if (gIdx < orderedGroups.length - 1) {
+          lines.push('');
+        }
+      });
+    }
+
+    lines.push(DIVIDER);
+    lines.push(`Total Non-Participating Units : ${payload.unitRows.length}`);
+    lines.push('Status : ഇതുവരെ പങ്കെടുത്തിട്ടില്ല (Not Participated Yet)');
+
+    const text = lines.join('\n');
+    return {
+      text,
+      title: 'Non-Participating Units',
+      mode: 'status',
+      lineCount: lines.length,
+      encodedLength: encodeURIComponent(text).length,
+    };
+  }
+
   const subtitle =
     mode === 'status'
       ? payCtx.titleSuffix

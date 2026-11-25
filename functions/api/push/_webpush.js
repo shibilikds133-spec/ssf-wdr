@@ -165,15 +165,20 @@ function getVapidConfig(env) {
   return { subject, publicKey, privateKey };
 }
 
-async function pruneExpiredEndpoints(env, endpoints) {
+async function pruneExpiredEndpoints(env, endpoints, tableName = 'push_subscriptions') {
   if (!Array.isArray(endpoints) || endpoints.length === 0) return 0;
+
+  const targetTable =
+    tableName === 'public_order_push_subscriptions'
+      ? 'public_order_push_subscriptions'
+      : 'push_subscriptions';
 
   let pruned = 0;
   const results = await Promise.allSettled(
     endpoints.map((endpoint) =>
       supabaseRest(
         env,
-        `push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`,
+        `${targetTable}?endpoint=eq.${encodeURIComponent(endpoint)}`,
         {
           method: 'DELETE',
           headers: { Prefer: 'return=minimal' },
@@ -190,7 +195,12 @@ async function pruneExpiredEndpoints(env, endpoints) {
   return pruned;
 }
 
-export async function sendToSubscriptions(env, subscriptions, payloadObj) {
+export async function sendToSubscriptions(
+  env,
+  subscriptions,
+  payloadObj,
+  options = {}
+) {
   if (!Array.isArray(subscriptions) || subscriptions.length === 0) {
     return { sent: 0, failed: 0, pruned: 0 };
   }
@@ -255,7 +265,11 @@ export async function sendToSubscriptions(env, subscriptions, payloadObj) {
     }
   }
 
-  const pruned = await pruneExpiredEndpoints(env, expiredEndpoints);
+  const pruned = await pruneExpiredEndpoints(
+    env,
+    expiredEndpoints,
+    options?.tableName
+  );
   return {
     sent,
     failed,

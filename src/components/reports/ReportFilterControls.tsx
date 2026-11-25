@@ -883,8 +883,51 @@ export function ReportFilterControls({
           </div>
         )}
 
-        {/* Include 0-order units toggle */}
-        {showZeroOrderToggle && (
+        {/* Unit Participation / Zero-order toggle */}
+        {config.template === 'UNIT_SUMMARY' && (
+          <div className="pt-1 space-y-1.5">
+            <span className={`block text-[11px] font-bold uppercase tracking-wider ${theme.muted}`}>
+              Unit Participation Filter
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                {
+                  id: 'ALL',
+                  label: 'All Units',
+                  active: !config.onlyZeroOrderUnits && config.includeZeroOrderUnits,
+                  patch: { includeZeroOrderUnits: true, onlyZeroOrderUnits: false },
+                },
+                {
+                  id: 'ACTIVE',
+                  label: 'Participated Only',
+                  active: !config.onlyZeroOrderUnits && !config.includeZeroOrderUnits,
+                  patch: { includeZeroOrderUnits: false, onlyZeroOrderUnits: false },
+                },
+                {
+                  id: 'NON_PARTICIPATING',
+                  label: 'Not Participated Yet (0 Orders)',
+                  active: Boolean(config.onlyZeroOrderUnits),
+                  patch: { includeZeroOrderUnits: true, onlyZeroOrderUnits: true },
+                },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => updateConfig(opt.patch)}
+                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                    opt.active
+                      ? theme.activeOptionCard
+                      : `bg-white/85 ${theme.border} ${theme.heading} hover:bg-white`
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {showZeroOrderToggle && config.template === 'SECTOR_SUMMARY' && (
           <label className="flex items-center gap-2 pt-1 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -895,9 +938,7 @@ export function ReportFilterControls({
               className={`w-4 h-4 rounded ${theme.checkboxAccent}`}
             />
             <span className={`text-xs font-medium ${theme.heading}`}>
-              Include zero-order{' '}
-              {config.template === 'SECTOR_SUMMARY' ? 'sectors' : 'units'} in
-              summary table
+              Include zero-order sectors in summary table
             </span>
           </label>
         )}

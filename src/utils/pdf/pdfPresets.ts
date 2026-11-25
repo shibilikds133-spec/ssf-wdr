@@ -643,10 +643,70 @@ export function buildFormalPdfConfigFromPayload(
     };
   }
 
-  // 2. UNIT SUMMARY PRESET (Status-Only Portrait OR Full Accounting Landscape/Portrait)
+  // 2. UNIT SUMMARY PRESET (Non-Participating Units OR Status-Only OR Full Accounting)
   if (preset === 'unit_summary') {
     const totals = reconcileRollupRows(payload.unitRows);
     const showSector = payload.showSectorColumn;
+
+    if (payload.config.onlyZeroOrderUnits) {
+      const summaryMetrics: PdfSummaryMetric[] = [
+        {
+          label: 'Non-Participating Units',
+          value: String(payload.unitRows.length),
+          align: 'left',
+        },
+        {
+          label: 'Participation Status',
+          value: 'Not Participated Yet',
+          align: 'right',
+        },
+      ];
+
+      const columns: PdfTableColumn[] = showSector
+        ? [
+            { key: 'rank', header: 'Sl', align: 'center', widthPercent: 10 },
+            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 45, bold: true },
+            { key: 'sectorName', header: 'Sector', align: 'left', widthPercent: 25 },
+            { key: 'status', header: 'Status', align: 'right', widthPercent: 20 },
+          ]
+        : [
+            { key: 'rank', header: 'Sl', align: 'center', widthPercent: 12 },
+            { key: 'unitName', header: 'Unit Name', align: 'left', widthPercent: 62, bold: true },
+            { key: 'status', header: 'Status', align: 'right', widthPercent: 26 },
+          ];
+
+      const rows = payload.unitRows.map((r, idx) => [
+        idx + 1,
+        r.unitName,
+        ...(showSector ? [r.sectorName || '-'] : []),
+        'Not Participated Yet',
+      ]);
+
+      const totalRow = [
+        '',
+        `TOTAL NON-PARTICIPATING UNITS: ${payload.unitRows.length}`,
+        ...(showSector ? [''] : []),
+        '0 Orders',
+      ];
+
+      return {
+        preset,
+        orientation: 'portrait',
+        reportTitle: 'NON-PARTICIPATING UNITS (NOT PARTICIPATED YET)',
+        scopeSubtitle,
+        generatedDate,
+        generatedTime,
+        filterSummary,
+        rateSummary: 'Units With Zero Orders  |  Not Participated Yet',
+        summaryMetrics,
+        columns,
+        rows,
+        totalRow,
+        includeSignOff: true,
+        showCashHandoverLine: false,
+        filename: filename.replace('_Unit_Summary', '_Non_Participating_Units'),
+      };
+    }
 
     if (mode === 'status') {
       const summaryMetrics: PdfSummaryMetric[] = [
