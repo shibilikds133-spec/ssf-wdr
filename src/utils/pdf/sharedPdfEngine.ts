@@ -7,7 +7,169 @@ import {
   PDF_TYPE,
   PT_TO_MM,
   sanitizePdfText,
+  type RgbColor,
 } from './pdfTheme';
+
+const MALAYALAM_RE = /[\u0D00-\u0D7F]/;
+const PX_PER_MM = 96 / 25.4;
+const CANVAS_TEXT_SCALE = 4;
+
+interface RenderedUnicodeText {
+  dataUrl: string;
+  widthMm: number;
+  heightMm: number;
+  lineCount: number;
+}
+
+function hasMalayalam(text: string): boolean {
+  return MALAYALAM_RE.test(text);
+}
+
+function renderUnicodeTextImage(params: {
+  text: string;
+  fontSizePt: number;
+  bold?: boolean;
+  color: RgbColor;
+  maxWidthMm: number;
+  align?: 'left' | 'right' | 'center';
+}): RenderedUnicodeText | null {
+  if (typeof document === 'undefined') return null;
+
+  const {
+    text,
+    fontSizePt,
+    bold = false,
+    color,
+    maxWidthMm,
+    align = 'left',
+  } = params;
+  const clean = text.trim();
+  if (!clean) return null;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const fontPx = (fontSizePt * 96) / 72;
+  const fontSpec = `${bold ? '700' : '500'} ${fontPx}px "Noto Sans Malayalam", "Plus Jakarta Sans", system-ui, sans-serif`;
+  ctx.font = fontSpec;
+
+  const maxWidthPx = Math.max(24, maxWidthMm * PX_PER_MM);
+  const words = clean.split(/\s+/);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidthPx) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      if (ctx.measureText(word).width <= maxWidthPx) {
+        current = word;
+      } else {
+        // Hard-wrap overly long unbroken token
+        let chunk = '';
+        for (const ch of word) {
+          const next = chunk + ch;
+          if (ctx.measureText(next).width > maxWidthPx && chunk) {
+            lines.push(chunk);
+            chunk = ch;
+          } else {
+            chunk = next;
+          }
+        }
+        current = chunk;
+      }
+    }
+  }
+  if (current) lines.push(current);
+  if (lines.length === 0) return null;
+
+  const lineWidths = lines.map((l) => ctx.measureText(l).width);
+  const contentWidthPx = Math.min(maxWidthPx, Math.max(...lineWidths) + 2);
+  const lineHeightPx = fontPx * 1.38;
+  const contentHeightPx = Math.max(lineHeightPx, lines.length * lineHeightPx + 1);
+
+  canvas.width = Math.max(1, Math.ceil(contentWidthPx * CANVAS_TEXT_SCALE));
+  canvas.height = Math.max(1, Math.ceil(contentHeightPx * CANVAS_TEXT_SCALE));
+
+  ctx.scale(CANVAS_TEXT_SCALE, CANVAS_TEXT_SCALE);
+  ctx.font = fontSpec;
+  ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = align;
+
+  const drawX =
+    align === 'right'
+      ? contentWidthPx - 1
+      : align === 'center'
+      ? contentWidthPx / 2
+      : 1;
+
+  lines.forEach((line, idx) => {
+    const drawY = (idx + 0.5) * lineHeightPx + 0.5;
+    ctx.fillText(line, drawX, drawY);
+  });
+
+  return {
+    dataUrl: canvas.toDataURL('image/png'),
+    widthMm: contentWidthPx / PX_PER_MM,
+    heightMm: contentHeightPx / PX_PER_MM,
+    lineCount: lines.length,
+  };
+}
+
+function drawSmartLine(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  baselineY: number,
+  opts: {
+    fontSizePt: number;
+    bold?: boolean;
+    color: RgbColor;
+    maxWidthMm: number;
+    align?: 'left' | 'right' | 'center';
+  }
+): number {
+  const { fontSizePt, bold = false, color, maxWidthMm, align = 'left' } = opts;
+  if (hasMalayalam(text)) {
+    const rendered = renderUnicodeTextImage({
+      text,
+      fontSizePt,
+      bold,
+      color,
+      maxWidthMm,
+      align,
+    });
+    if (rendered) {
+      const drawX =
+        align === 'right'
+          ? x - rendered.widthMm
+          : align === 'center'
+          ? x - rendered.widthMm / 2
+          : x;
+      const topY = baselineY - (fontSizePt * PT_TO_MM) * 0.92;
+      doc.addImage(
+        rendered.dataUrl,
+        'PNG',
+        drawX,
+        topY,
+        rendered.widthMm,
+        rendered.heightMm
+      );
+      return rendered.heightMm;
+    }
+  }
+
+  doc.setFont(PDF_LAYOUT.FONT_FAMILY, bold ? 'bold' : 'normal');
+  doc.setFontSize(fontSizePt);
+  doc.setTextColor(...color);
+  const lines = doc.splitTextToSize(text, maxWidthMm) as string[];
+  doc.text(lines, x, baselineY, { align });
+  return lines.length * (fontSizePt * PT_TO_MM * 1.28);
+}
 
 export type { ReportShareMode };
 
@@ -116,21 +278,23 @@ function drawPageOneHeader(
   doc.text(ORG_TITLE, MARGIN_LEFT, leftY, { charSpace: 0.6 });
 
   leftY += 6;
-  doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'bold');
-  doc.setFontSize(PDF_TYPE.TITLE_SIZE);
-  doc.setTextColor(...PDF_COLORS.PRIMARY_INK);
   const cleanTitle = sanitizePdfText(config.reportTitle).toUpperCase();
-  const titleLines = doc.splitTextToSize(cleanTitle, leftMaxWidth) as string[];
-  doc.text(titleLines, MARGIN_LEFT, leftY);
-  leftY += titleLines.length * 5.2;
+  const titleHeight = drawSmartLine(doc, cleanTitle, MARGIN_LEFT, leftY, {
+    fontSizePt: PDF_TYPE.TITLE_SIZE,
+    bold: true,
+    color: PDF_COLORS.PRIMARY_INK,
+    maxWidthMm: leftMaxWidth,
+  });
+  leftY += Math.max(5.2, titleHeight + 0.6);
 
-  doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'normal');
-  doc.setFontSize(PDF_TYPE.SUBTITLE_SIZE);
-  doc.setTextColor(...PDF_COLORS.SECONDARY_INK);
   const cleanScope = sanitizePdfText(config.scopeSubtitle);
-  const scopeLines = doc.splitTextToSize(cleanScope, leftMaxWidth) as string[];
-  doc.text(scopeLines, MARGIN_LEFT, leftY + 0.5);
-  leftY += scopeLines.length * 4.2;
+  const scopeHeight = drawSmartLine(doc, cleanScope, MARGIN_LEFT, leftY + 0.5, {
+    fontSizePt: PDF_TYPE.SUBTITLE_SIZE,
+    bold: false,
+    color: PDF_COLORS.SECONDARY_INK,
+    maxWidthMm: leftMaxWidth,
+  });
+  leftY += Math.max(4.2, scopeHeight + 0.4);
 
   // Right Metadata Block (right-aligned, 35% width)
   const rightMaxWidth = usableWidth - leftMaxWidth - 4;
@@ -142,6 +306,18 @@ function drawPageOneHeader(
   ];
 
   for (const [label, val] of metaItems) {
+    if (hasMalayalam(val) || hasMalayalam(label)) {
+      const h = drawSmartLine(doc, `${label} ${val}`, rightX, rightY, {
+        fontSizePt: PDF_TYPE.META_SIZE,
+        bold: false,
+        color: PDF_COLORS.PRIMARY_INK,
+        maxWidthMm: rightMaxWidth,
+        align: 'right',
+      });
+      rightY += Math.max(4.3, h + 0.6);
+      continue;
+    }
+
     doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'normal');
     doc.setFontSize(PDF_TYPE.META_SIZE);
     const fullLine = `${label} ${val}`;
@@ -214,17 +390,19 @@ function drawSummaryStrip(
         ? cellX + colW / 2
         : cellX + pad;
 
-    doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'normal');
-    doc.setFontSize(PDF_TYPE.SUMMARY_LABEL_SIZE);
-    doc.setTextColor(...PDF_COLORS.SECONDARY_INK);
-    doc.text(sanitizePdfText(metric.label).toUpperCase(), textX, stripTopY + 4.8, {
+    drawSmartLine(doc, sanitizePdfText(metric.label).toUpperCase(), textX, stripTopY + 4.8, {
+      fontSizePt: PDF_TYPE.SUMMARY_LABEL_SIZE,
+      bold: false,
+      color: PDF_COLORS.SECONDARY_INK,
+      maxWidthMm: colW - 5,
       align,
     });
 
-    doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'bold');
-    doc.setFontSize(PDF_TYPE.SUMMARY_VALUE_SIZE);
-    doc.setTextColor(...PDF_COLORS.PRIMARY_INK);
-    doc.text(sanitizePdfText(metric.value), textX, stripTopY + 10.6, {
+    drawSmartLine(doc, sanitizePdfText(metric.value), textX, stripTopY + 10.6, {
+      fontSizePt: PDF_TYPE.SUMMARY_VALUE_SIZE,
+      bold: true,
+      color: PDF_COLORS.PRIMARY_INK,
+      maxWidthMm: colW - 5,
       align,
     });
   });
@@ -318,17 +496,22 @@ function drawRunningChrome(
     if (page > 1) {
       const headerTextY = 11;
       const headerRuleY = 14;
-      doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'bold');
-      doc.setFontSize(PDF_TYPE.CONTINUATION_SIZE);
-      doc.setTextColor(...PDF_COLORS.SECONDARY_INK);
-      doc.text(`${ORG_TITLE}  -  ${cleanTitle}`, MARGIN_LEFT, headerTextY);
+      drawSmartLine(doc, `${ORG_TITLE}  -  ${cleanTitle}`, MARGIN_LEFT, headerTextY, {
+        fontSizePt: PDF_TYPE.CONTINUATION_SIZE,
+        bold: true,
+        color: PDF_COLORS.SECONDARY_INK,
+        maxWidthMm: pageWidth - MARGIN_LEFT - MARGIN_RIGHT - 65,
+      });
 
-      doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'normal');
-      doc.setFontSize(PDF_TYPE.CONTINUATION_SIZE);
-      doc.setTextColor(...PDF_COLORS.MUTED_INK);
       const truncatedScope =
         cleanScope.length > 58 ? `${cleanScope.slice(0, 55)}...` : cleanScope;
-      doc.text(truncatedScope, rightX, headerTextY, { align: 'right' });
+      drawSmartLine(doc, truncatedScope, rightX, headerTextY, {
+        fontSizePt: PDF_TYPE.CONTINUATION_SIZE,
+        bold: false,
+        color: PDF_COLORS.MUTED_INK,
+        maxWidthMm: 62,
+        align: 'right',
+      });
 
       doc.setDrawColor(...PDF_COLORS.SUBTLE_RULE);
       setStrokePt(doc, 0.3);
@@ -402,6 +585,14 @@ function renderMonochromeTableSection(
       ? [totalRow.map((val) => sanitizePdfText(val))]
       : [];
 
+  const malayalamCells = new Map<
+    string,
+    {
+      rendered: RenderedUnicodeText;
+      align: 'left' | 'right' | 'center';
+    }
+  >();
+
   autoTable(doc, {
     startY,
     margin: {
@@ -456,10 +647,50 @@ function renderMonochromeTableSection(
     foot: sanitizedFoot,
     didParseCell: (data: CellHookData) => {
       const colCfg = columns[data.column.index];
+      const align = colCfg?.align ?? 'left';
       if (colCfg) {
-        data.cell.styles.halign = colCfg.align;
+        data.cell.styles.halign = align;
       }
       data.cell.styles.fillColor = [...PDF_COLORS.PURE_WHITE];
+
+      const rawText =
+        typeof data.cell.raw === 'string'
+          ? data.cell.raw
+          : Array.isArray(data.cell.text)
+          ? data.cell.text.join(' ')
+          : '';
+      if (rawText && hasMalayalam(rawText)) {
+        const fontSizePt =
+          data.section === 'head'
+            ? PDF_TYPE.TABLE_HEAD_SIZE
+            : data.section === 'foot'
+            ? PDF_TYPE.TABLE_TOTAL_SIZE
+            : PDF_TYPE.TABLE_BODY_SIZE;
+        const bold =
+          data.section === 'head' ||
+          data.section === 'foot' ||
+          Boolean(colCfg?.bold);
+        const colW = colWidths[data.column.index] ?? 30;
+        const rendered = renderUnicodeTextImage({
+          text: rawText,
+          fontSizePt,
+          bold,
+          color: PDF_COLORS.PRIMARY_INK,
+          maxWidthMm: Math.max(8, colW - 4),
+          align,
+        });
+        if (rendered) {
+          malayalamCells.set(
+            `${data.section}:${data.row.index}:${data.column.index}`,
+            { rendered, align }
+          );
+          data.cell.text = [''];
+          data.cell.styles.minCellHeight = Math.max(
+            data.cell.styles.minCellHeight || 0,
+            rendered.heightMm + 4.4
+          );
+        }
+      }
     },
     didDrawCell: (data: CellHookData) => {
       const { cell, section, column } = data;
@@ -467,6 +698,29 @@ function renderMonochromeTableSection(
       const x2 = cell.x + cell.width;
       const yTop = cell.y;
       const yBottom = cell.y + cell.height;
+
+      const mlCell = malayalamCells.get(
+        `${section}:${data.row.index}:${column.index}`
+      );
+      if (mlCell) {
+        const { rendered, align } = mlCell;
+        const pad = 2;
+        const drawX =
+          align === 'right'
+            ? x2 - pad - rendered.widthMm
+            : align === 'center'
+            ? x1 + (cell.width - rendered.widthMm) / 2
+            : x1 + pad;
+        const drawY = yTop + (cell.height - rendered.heightMm) / 2;
+        doc.addImage(
+          rendered.dataUrl,
+          'PNG',
+          drawX,
+          drawY,
+          rendered.widthMm,
+          rendered.heightMm
+        );
+      }
 
       if (section === 'head') {
         doc.setDrawColor(...PDF_COLORS.STRONG_RULE);
@@ -520,10 +774,12 @@ function drawSectionHeading(
     headingY = CONTINUATION_TOP_Y + 2;
   }
 
-  doc.setFont(PDF_LAYOUT.FONT_FAMILY, 'bold');
-  doc.setFontSize(PDF_TYPE.META_SIZE);
-  doc.setTextColor(...PDF_COLORS.PRIMARY_INK);
-  doc.text(sanitizePdfText(title).toUpperCase(), MARGIN_LEFT, headingY);
+  drawSmartLine(doc, sanitizePdfText(title).toUpperCase(), MARGIN_LEFT, headingY, {
+    fontSizePt: PDF_TYPE.META_SIZE,
+    bold: true,
+    color: PDF_COLORS.PRIMARY_INK,
+    maxWidthMm: pageWidth - MARGIN_LEFT - MARGIN_RIGHT,
+  });
 
   doc.setDrawColor(...PDF_COLORS.SUBTLE_RULE);
   setStrokePt(doc, 0.3);

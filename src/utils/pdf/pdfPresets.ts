@@ -693,7 +693,7 @@ export function buildFormalPdfConfigFromPayload(
         generatedDate,
         generatedTime,
         filterSummary,
-        rateSummary: 'Units With Zero Orders  |  Not Participated Yet',
+        rateSummary: 'ഇതുവരെ പങ്കെടുത്തിട്ടില്ല  |  0 Orders',
         summaryMetrics,
         columns,
         rows,
